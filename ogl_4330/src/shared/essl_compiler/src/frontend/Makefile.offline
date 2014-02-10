@@ -1,0 +1,48 @@
+#
+# This confidential and proprietary software may be used only as
+# authorised by a licensing agreement from ARM Limited
+# (C) COPYRIGHT 2010, 2012 ARM Limited
+# ALL RIGHTS RESERVED
+# The entire notice above must be reproduced on all authorised
+# copies and copies may only be made to the extent permitted
+# by a licensing agreement from ARM Limited.
+#
+
+MALI400_COMPILER_FRONTEND_DIR ?= .
+
+
+MALI400_FRONTEND_SRCS = \
+	$(MALI400_COMPILER_FRONTEND_DIR)/scanner.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/parser.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/frontend.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/constant_fold.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/typecheck.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/preprocessor.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/lang.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/callgraph.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/precision.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/global_variable_inlining.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/data_type.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/make_basic_blocks.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/optimise_loop_entry.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/optimise_inline_functions.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/eliminate_complex_ops.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/ssa.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/ast_to_lir.c
+
+
+MALI400_FRONTEND_NOTEST_SRCS = \
+	$(MALI400_COMPILER_FRONTEND_DIR)/frontend.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/lang.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/precision.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/make_basic_blocks.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/optimise_loop_entry.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/optimise_inline_functions.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/eliminate_complex_ops.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/ssa.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/ast_to_lir.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/global_variable_inlining.c \
+	$(MALI400_COMPILER_FRONTEND_DIR)/vertex_cpu_calculations.c
+
+MALI400_COMPILER_SRCS += $(MALI400_FRONTEND_SRCS)
+TEST_SRCS += $(filter-out $(MALI400_FRONTEND_NOTEST_SRCS),$(MALI400_FRONTEND_SRCS))

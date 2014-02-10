@@ -1,0 +1,17 @@
+omx_core\Makefile
+omx_core\NX_OMXCore.c
+omx_core\inc\OMX_VideoExt.h
+omx_core\inc\OMX_CoreExt.h
+omx_core\inc\OMX_Index.h
+omx_core\inc\OMX_ContentPipe.h
+omx_core\inc\OMX_ComponentExt.h
+omx_core\inc\OMX_Other.h
+omx_core\inc\OMX_Core.h
+omx_core\inc\OMX_Component.h
+omx_core\inc\OMX_IndexExt.h
+omx_core\inc\NX_OMXComponentMgr.h
+omx_core\inc\OMX_Types.h
+omx_core\inc\OMX_Image.h
+omx_core\inc\OMX_Audio.h
+omx_core\inc\OMX_Video.h
+omx_core\inc\OMX_IVCommon.h

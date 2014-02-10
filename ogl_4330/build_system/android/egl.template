@@ -1,0 +1,34 @@
+# egl
+include $(CLEAR_VARS)
+
+LOCAL_PRELINK_MODULE := false
+
+LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/egl
+
+LOCAL_CFLAGS := $(MALI_DEFINES)
+LOCAL_C_INCLUDES := frameworks/base/opengl/include \	
+	hardware/nexell/pyrope/ogl_4330/src/ump/include \
+	hardware/nexell/pyrope/include \
+	$(MALI_SEARCH_PATH)
+
+LOCAL_SRC_FILES := $(MALI_EGL_SRCS) $(MALI_ANDROID_BUILD_INFO_FILE)
+
+LOCAL_MODULE_TAGS := eng
+LOCAL_MODULE := libEGL_vr
+
+LOCAL_ARM_MODE := arm
+
+LOCAL_SHARED_LIBRARIES := \
+	libutils \
+	libcutils \
+	libbinder \
+	libc \
+	libdl \
+	libui \
+	libhardware \
+	liblog \
+	libVR \
+	$(UMP_LIB)
+
+include $(BUILD_SHARED_LIBRARY)
+

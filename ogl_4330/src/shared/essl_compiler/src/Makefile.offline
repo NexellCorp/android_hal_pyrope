@@ -1,0 +1,39 @@
+#
+# This confidential and proprietary software may be used only as
+# authorised by a licensing agreement from ARM Limited
+# (C) COPYRIGHT 2012 ARM Limited
+# ALL RIGHTS RESERVED
+# The entire notice above must be reproduced on all authorised
+# copies and copies may only be made to the extent permitted
+# by a licensing agreement from ARM Limited.
+#
+
+
+MALI400_CPPFLAGS += -I$(MALI400_COMPILER_SRC_DIR)
+MALI400_CPPFLAGS += -I$(MALI400_COMPILER_SRC_DIR)/softfloat
+
+MALI400_COMPILER_COMMON_DIR=$(MALI400_COMPILER_SRC_DIR)/common
+include $(MALI400_COMPILER_COMMON_DIR)/Makefile.offline
+
+MALI400_COMPILER_FRONTEND_DIR=$(MALI400_COMPILER_SRC_DIR)/frontend
+include $(MALI400_COMPILER_FRONTEND_DIR)/Makefile.offline
+
+MALI400_COMPILER_SOFTFLOAT_DIR=$(MALI400_COMPILER_SRC_DIR)/softfloat
+include $(MALI400_COMPILER_SOFTFLOAT_DIR)/Makefile.offline
+
+MALI400_COMPILER_BACKEND_DIR=$(MALI400_COMPILER_SRC_DIR)/backend
+include $(MALI400_COMPILER_BACKEND_DIR)/Makefile.offline
+
+MALI400_COMPILER_MIDDLE_DIR=$(MALI400_COMPILER_SRC_DIR)/middle
+include $(MALI400_COMPILER_MIDDLE_DIR)/Makefile.offline
+
+MALI400_COMPILER_MALI200_DIR=$(MALI400_COMPILER_SRC_DIR)/mali200
+include $(MALI400_COMPILER_MALI200_DIR)/Makefile.offline
+
+MALI400_COMPILER_MALIGP2_DIR=$(MALI400_COMPILER_SRC_DIR)/maligp2
+include $(MALI400_COMPILER_MALIGP2_DIR)/Makefile.offline
+
+MALI400_COMPILER_SRCS += $(MALI400_COMPILER_COMMON_DIR)/essl_test_system.c
+MALI400_COMPILER_SRCS += $(MALI400_COMPILER_SRC_DIR)/driver.c
+MALI400_COMPILER_SRCS += $(MALI400_COMPILER_SRC_DIR)/compiler.c
+MALI400_COMPILER_SRCS += $(MALI400_COMPILER_SRC_DIR)/commandline.c

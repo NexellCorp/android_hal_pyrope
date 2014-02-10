@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libnxvpu", "libnxvpu.vcxproj", "{DAC7609D-0DB5-425A-8572-2F0ADAA4DD01}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LinuxDriver", "..\..\..\private\modules\coda960\LinuxDriver\LinuxDriver.vcxproj", "{8CD9EB54-DF63-45AD-B95F-BFA97769FBC9}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "vpu_test", "..\..\..\apps\vpu_test\vpu_test.vcxproj", "{CD5F65F1-8D72-4435-A0BB-E3201FCB7B23}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DAC7609D-0DB5-425A-8572-2F0ADAA4DD01}.Debug|Win32.ActiveCfg = Debug|Win32
+		{DAC7609D-0DB5-425A-8572-2F0ADAA4DD01}.Debug|Win32.Build.0 = Debug|Win32
+		{DAC7609D-0DB5-425A-8572-2F0ADAA4DD01}.Release|Win32.ActiveCfg = Release|Win32
+		{DAC7609D-0DB5-425A-8572-2F0ADAA4DD01}.Release|Win32.Build.0 = Release|Win32
+		{8CD9EB54-DF63-45AD-B95F-BFA97769FBC9}.Debug|Win32.ActiveCfg = Debug|Win32
+		{8CD9EB54-DF63-45AD-B95F-BFA97769FBC9}.Debug|Win32.Build.0 = Debug|Win32
+		{8CD9EB54-DF63-45AD-B95F-BFA97769FBC9}.Release|Win32.ActiveCfg = Release|Win32
+		{8CD9EB54-DF63-45AD-B95F-BFA97769FBC9}.Release|Win32.Build.0 = Release|Win32
+		{CD5F65F1-8D72-4435-A0BB-E3201FCB7B23}.Debug|Win32.ActiveCfg = Debug|Win32
+		{CD5F65F1-8D72-4435-A0BB-E3201FCB7B23}.Debug|Win32.Build.0 = Debug|Win32
+		{CD5F65F1-8D72-4435-A0BB-E3201FCB7B23}.Release|Win32.ActiveCfg = Release|Win32
+		{CD5F65F1-8D72-4435-A0BB-E3201FCB7B23}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

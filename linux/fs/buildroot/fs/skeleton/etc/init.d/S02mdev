@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+#
+
+# MDEV Support
+# (Requires sysfs support in the kernel)
+echo -n "Enabling hot-plug ..."
+echo "/sbin/mdev" > /proc/sys/kernel/hotplug
+/sbin/mdev -s &
+

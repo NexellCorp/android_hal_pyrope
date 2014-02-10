@@ -1,0 +1,122 @@
+#--------
+# libtpi_egl
+TPI_DIR = $(LOCAL_PATH)/testbench/tpi
+
+include $(CLEAR_VARS)
+LOCAL_PRELINK_MODULE := false
+
+LOCAL_C_INCLUDES := \
+	bionic/libm/arm \
+	frameworks/base \
+	$(TPI_DIR)/include \
+	$(TPI_DIR)/ \
+	$(TPI_DIR)/.. \
+	$(TPI_DIR)/tpi \
+	$(MALI_SEARCH_PATH)
+
+LOCAL_SRC_FILES :=  \
+	testbench/tpi/src/common/mali_tpi_egl_fb_common.c \
+	testbench/tpi/src/android/mali_tpi_egl_android_native.cpp \
+	testbench/tpi/src/android/mali_tpi_egl_android.cpp \
+	testbench/tpi/src/common/mali_tpi_egl_utils.c \
+	testbench/tpi/src/common/mali_tpi_rand.c \
+	testbench/tpi/src/common/mali_tpi_utils.c \
+	testbench/tpi/mali_tpi_pr400.c
+
+LOCAL_CFLAGS := \
+	-march=armv7-a \
+	-pedantic \
+	-Wall \
+	-Wno-long-long \
+	-Wno-variadic-macros \
+	-Wno-overlength-strings \
+	-Wno-unused-function \
+	-g \
+	-O0 \
+	-DFORCE_IDENTITY_MAPPING=1 \
+	-D_GNU_SOURCE=1 \
+	-D__unix__\
+	-DTPI_LIB \
+	-DTPI_OS_ANDORID=1 \
+	-D_POSIX_C_SOURCE=200112L
+	
+LOCAL_CFLAGS += $(MALI_DEFINES)
+
+LOCAL_SHARED_LIBRARIES :=  \
+	libEGL \
+    libGLESv2 \
+    libbinder \
+    libcutils \
+    libgui \
+    libmedia \
+    libstagefright \
+    libui \
+    libutils \
+    libstagefright_omx \
+    libstagefright_foundation \
+	libstlport 
+
+LOCAL_LDLIBS +=  \
+	-lpthread
+
+LOCAL_MODULE := libtpi_egl
+
+LOCAL_MODULE_TAGS := eng optional
+
+LOCAL_ARM_MODE := arm
+
+include $(BUILD_STATIC_LIBRARY)
+
+#--------
+# libtpi
+
+include $(CLEAR_VARS)
+LOCAL_PRELINK_MODULE := false
+
+LOCAL_C_INCLUDES := \
+	bionic/libm/arm \
+	frameworks/base \
+	$(TPI_DIR)/include \
+	$(TPI_DIR)/ \
+	$(TPI_DIR)/.. \
+	$(TPI_DIR)/tpi \
+	$(MALI_SEARCH_PATH)
+
+LOCAL_SRC_FILES :=  \
+	testbench/tpi/src/common/mali_tpi_egl_fb_common.c \
+	testbench/tpi/src/android/mali_tpi_android.c \
+	testbench/tpi/src/common/mali_tpi_utils.c \
+	testbench/tpi/src/common/mali_tpi_rand.c \
+	testbench/tpi/mali_tpi_pr400.c
+
+LOCAL_CFLAGS := \
+	-march=armv7-a \
+	-pedantic \
+	-Wall \
+	-Wno-long-long \
+	-Wno-variadic-macros \
+	-Wno-overlength-strings \
+	-Wno-unused-function \
+	-g \
+	-O0 \
+	-DFORCE_IDENTITY_MAPPING=1 \
+	-D_GNU_SOURCE=1 \
+	-D__unix__\
+	-DTPI_LIB \
+	-DTPI_OS_ANDORID=1 \
+	-D_POSIX_C_SOURCE=200112L
+
+LOCAL_SHARED_LIBRARIES :=  \
+	liblog \
+	libdl
+
+LOCAL_LDLIBS +=  \
+	-lpthread
+
+LOCAL_MODULE := libtpi
+
+LOCAL_MODULE_TAGS := eng optional
+
+LOCAL_ARM_MODE := arm
+
+include $(BUILD_STATIC_LIBRARY)

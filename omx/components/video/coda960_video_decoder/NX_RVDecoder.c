@@ -1,0 +1,267 @@
+#define	LOG_TAG				"NX_RVDEC"
+
+#include <assert.h>
+#include <OMX_AndroidTypes.h>
+#include <system/graphics.h>
+
+#include "NX_OMXVideoDecoder.h"
+#include "DecodeFrame.h"
+
+static int MakeRVDecodeSpecificInfo( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp )
+{
+	OMX_S32 size;
+	OMX_S32 fourcc;
+	OMX_S32 width  = pDecComp->width;
+	OMX_S32 height = pDecComp->height;
+	OMX_U8 *pData = pDecComp->codecSpecificData;
+	OMX_S32 frameRate = 30;
+
+	pDecComp->codecSpecificDataSize = 0;
+	fourcc = MKTAG('R','V','4','0');
+	size = 26 + pDecComp->nExtraDataSize;
+    PUT_BE32(pData, size); //Length
+    PUT_LE32(pData, MKTAG('V', 'I', 'D', 'O')); //MOFTag
+	PUT_LE32(pData, fourcc); //SubMOFTagl
+    PUT_BE16(pData, width);
+    PUT_BE16(pData, height);
+    PUT_BE16(pData, 0x0c); //BitCount;
+    PUT_BE16(pData, 0x00); //PadWidth;
+    PUT_BE16(pData, 0x00); //PadHeight;
+    PUT_LE32(pData, frameRate);
+
+	memcpy(pData, pDecComp->pExtraData, pDecComp->nExtraDataSize); //OpaqueDatata
+	pDecComp->codecSpecificDataSize = size;
+
+	return size;
+}
+
+static int MakeRVPacketData( OMX_U8 *pIn, OMX_S32 inSize, OMX_U8 *pOut, OMX_U16 frameCnt )
+{
+	OMX_U8 *p = pIn;
+    OMX_S32 cSlice, nSlice;
+    OMX_S32 i, val, offset;
+	OMX_S32 size;
+
+	cSlice = p[0] + 1;
+	nSlice =  inSize - 1 - (cSlice * 8);
+	size = 20 + (cSlice*8);
+
+	PUT_BE32(pOut, nSlice);
+	PUT_LE32(pOut, 0);
+	PUT_BE16(pOut, 0);
+	PUT_BE16(pOut, 0x02); //Flags
+	PUT_BE32(pOut, 0x00); //LastPacket
+	PUT_BE32(pOut, cSlice); //NumSegments
+	offset = 1;
+	for (i = 0; i < (int) cSlice; i++)
+	{
+		val = (p[offset+3] << 24) | (p[offset+2] << 16) | (p[offset+1] << 8) | p[offset];
+		PUT_BE32(pOut, val); //isValid
+		offset += 4;
+		val = (p[offset+3] << 24) | (p[offset+2] << 16) | (p[offset+1] << 8) | p[offset];
+		PUT_BE32(pOut, val); //Offset
+		offset += 4;
+	}
+
+	memcpy(pOut, pIn+(1+(cSlice*8)), nSlice);
+	size += nSlice;
+	return size;
+}
+
+int NX_DecodeRVFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, NX_QUEUE *pOutQueue)
+{
+	OMX_BUFFERHEADERTYPE* pInBuf = NULL, *pOutBuf = NULL;
+	int inSize = 0, rcSize=0;
+	OMX_BYTE inData;
+	NX_VID_DEC_OUT decOut;
+
+	UNUSED_PARAM(pOutQueue);
+
+	if( pDecComp->bFlush )
+	{
+		flushVideoCodec( pDecComp );
+		pDecComp->bFlush = OMX_FALSE;
+	}
+
+	NX_PopQueue( pInQueue, (void**)&pInBuf );
+	if( pInBuf == NULL ){
+		return 0;
+	}
+
+	inData = pInBuf->pBuffer;
+	inSize = pInBuf->nFilledLen;
+
+	TRACE("pInBuf->nFlags = 0x%08x\n", (int)pInBuf->nFlags );
+
+	if( pInBuf->nFlags & OMX_BUFFERFLAG_EOS )
+	{
+		OMX_S32 i=0;
+		for( i=0 ; i<NX_OMX_MAX_BUF ; i++ )
+		{
+			if( pDecComp->outBufferUseFlag[i] )
+			{
+				pOutBuf = pDecComp->pOutputBuffers[i];
+				break;
+			}
+		}
+		pDecComp->outBufferUseFlag[i] = 0;
+		pDecComp->curOutBuffers --;
+		DbgMsg("=========================> Receive Endof Stream Message \n");
+		pInBuf->nFilledLen = 0;
+		pDecComp->pCallbacks->EmptyBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pInBuf);
+
+		if( pOutBuf )
+		{
+			pOutBuf->nFilledLen = 0;
+			pOutBuf->nTimeStamp = pInBuf->nTimeStamp;
+			pOutBuf->nFlags     = OMX_BUFFERFLAG_EOS;
+			pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
+		}
+		return 0;
+	}
+
+	//	Step 1. Found Sequence Information
+	if( OMX_FALSE == pDecComp->bInitialized )
+	{
+		MakeRVDecodeSpecificInfo( pDecComp );
+	}
+
+	//{
+	//	OMX_U8 *buf = pInBuf->pBuffer;
+	//	DbgMsg("pInBuf->nFlags(%7ld,0x%08x) 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x\n", pInBuf->nFilledLen, (int)pInBuf->nFlags,
+	//		buf[ 0],buf[ 1],buf[ 2],buf[ 3],buf[ 4],buf[ 5],buf[ 6],buf[ 7],
+	//		buf[ 8],buf[ 9],buf[10],buf[11],buf[12],buf[13],buf[14],buf[15],
+	//		buf[16],buf[17],buf[18],buf[19],buf[20],buf[21],buf[22],buf[23] );
+	//}
+
+	//	Push Input Time Stamp
+	PushVideoTimeStamp(pDecComp, pInBuf->nTimeStamp, pInBuf->nFlags );
+
+
+	//	Step 2. Find First Key Frame & Do Initialize VPU
+	if( OMX_FALSE == pDecComp->bInitialized )
+	{
+		int ret;
+		int size = pDecComp->codecSpecificDataSize;
+		memcpy( pDecComp->tmpInputBuffer, pDecComp->codecSpecificData, pDecComp->codecSpecificDataSize );
+		size += MakeRVPacketData( inData, inSize, pDecComp->tmpInputBuffer+size, pDecComp->rvFrameCnt );
+
+		//	Initialize VPU
+		ret = InitialzieCodaVpu(pDecComp, pDecComp->tmpInputBuffer, size );
+		if( 0 != ret )
+		{
+			ErrMsg("VPU initialized Failed!!!!\n");
+		}
+		pDecComp->bNeedKey = OMX_FALSE;
+		pDecComp->bInitialized = OMX_TRUE;
+		NX_VidDecDecodeFrame( pDecComp->hVpuCodec, pDecComp->tmpInputBuffer, 0, &decOut );
+	}
+	else
+	{
+		rcSize = MakeRVPacketData( inData, inSize, pDecComp->tmpInputBuffer, pDecComp->rvFrameCnt++ );
+		NX_VidDecDecodeFrame( pDecComp->hVpuCodec, pDecComp->tmpInputBuffer, rcSize, &decOut );
+	}
+
+	if( decOut.outImgIdx >= 0 && ( decOut.outImgIdx < NX_OMX_MAX_BUF ) )
+	{
+		if( OMX_TRUE == pDecComp->bEnableThumbNailMode )
+		{
+			//	Thumbnail Mode
+			OMX_U8 *outData;
+			OMX_U8 *srcY, *srcU, *srcV;
+			OMX_S32 strideY, strideU, strideV, width, height;
+			NX_PopQueue( pOutQueue, (void**)&pOutBuf );
+			outData = pOutBuf->pBuffer;
+
+			srcY = (OMX_U8*)decOut.outImg.luVirAddr;
+			srcU = (OMX_U8*)decOut.outImg.cbVirAddr;
+			srcV = (OMX_U8*)decOut.outImg.crVirAddr;
+			strideY = decOut.outImg.luStride;
+			strideU = decOut.outImg.cbStride;
+			strideV = decOut.outImg.crStride;
+			width = pDecComp->width;
+			height = pDecComp->height;
+
+			if( width == strideY )
+			{
+				memcpy( outData, srcY, width*height );
+				outData += width*height;
+
+			}
+			else
+			{
+				OMX_S32 h;
+				for( h=0 ; h<height ; h++ )
+				{
+					memcpy( outData, srcY, width );
+					srcY += strideY;
+					outData += width;
+				}
+			}
+			width /= 2;
+			height /= 2;
+
+			if( width == strideU )
+			{
+				memcpy( outData, srcU, width*height );
+				outData += width*height;
+				memcpy( outData, srcV, width*height );
+			}
+			else
+			{
+				OMX_S32 h;
+				for( h=0 ; h<height ; h++ )
+				{
+					memcpy( outData, srcU, width );
+					srcY += strideY;
+					outData += width;
+				}
+				for( h=0 ; h<height ; h++ )
+				{
+					memcpy( outData, srcV, width );
+					srcY += strideY;
+					outData += width;
+				}
+			}
+			NX_VidDecClrDspFlag( pDecComp->hVpuCodec, NULL, decOut.outImgIdx );
+			pOutBuf->nFilledLen = pDecComp->width * pDecComp->height * 3 / 2;
+			if( 0 != PopVideoTimeStamp(pDecComp, &pOutBuf->nTimeStamp, &pOutBuf->nFlags )  )
+			{
+				pOutBuf->nTimeStamp = pInBuf->nTimeStamp;
+				pOutBuf->nFlags     = pInBuf->nFlags;
+			}
+			DbgMsg("ThumbNail Mode : pOutBuf->nAllocLen = %ld, pOutBuf->nFilledLen = %ld\n", pOutBuf->nAllocLen, pOutBuf->nFilledLen );
+			pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
+		}
+		else
+		{
+			//	Native Window Buffer Mode
+			//	Get Output Buffer Pointer From Output Buffer Pool
+			pOutBuf = pDecComp->pOutputBuffers[decOut.outImgIdx];
+
+			if( pDecComp->outBufferUseFlag[decOut.outImgIdx] == 0 )
+			{
+				NX_VidDecClrDspFlag( pDecComp->hVpuCodec, NULL, decOut.outImgIdx );
+				ErrMsg("Unexpected Buffer Handling!!!! Goto Exit\n");
+				goto Exit;
+			}
+			pDecComp->outBufferUseFlag[decOut.outImgIdx] = 0;
+			pDecComp->curOutBuffers --;
+
+			pOutBuf->nFilledLen = sizeof(struct private_handle_t);
+			if( 0 != PopVideoTimeStamp(pDecComp, &pOutBuf->nTimeStamp, &pOutBuf->nFlags )  )
+			{
+				pOutBuf->nTimeStamp = pInBuf->nTimeStamp;
+				pOutBuf->nFlags     = pInBuf->nFlags;
+			}
+			TRACE("nTimeStamp = %lld\n", pOutBuf->nTimeStamp);
+			pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
+		}
+	}
+
+Exit:
+	pInBuf->nFilledLen = 0;
+	pDecComp->pCallbacks->EmptyBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pInBuf);
+
+	return 0;
+}

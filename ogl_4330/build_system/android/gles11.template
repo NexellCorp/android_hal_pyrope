@@ -1,0 +1,29 @@
+# gles 1.1
+include $(CLEAR_VARS)
+
+LOCAL_PRELINK_MODULE := false
+
+LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/egl
+
+LOCAL_C_INCLUDES := frameworks/base/opengl/include \
+	$(MALI_SEARCH_PATH)
+LOCAL_SRC_FILES := $(MALI_GLES_COMMON_SRCS) $(MALI_GLES1_SRCS) $(MALI_ANDROID_BUILD_INFO_FILE)
+LOCAL_CFLAGS := $(MALI_DEFINES)
+
+LOCAL_MODULE_TAGS := eng
+LOCAL_MODULE := libGLESv1_CM_vr
+
+LOCAL_ARM_MODE := arm
+
+LOCAL_SHARED_LIBRARIES := \
+	libutils \
+	libcutils \
+	libbinder \
+	libui \
+	libhardware \
+	liblog \
+	libVR \
+	$(UMP_LIB)
+
+include $(BUILD_SHARED_LIBRARY)
+

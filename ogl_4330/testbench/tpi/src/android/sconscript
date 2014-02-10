@@ -1,0 +1,33 @@
+# -----------------------------------------------------------------------------
+#  This confidential and proprietary software may be used only as authorized
+#  by a licensing agreement from ARM Limited.
+#          (C) COPYRIGHT 2010-2012 ARM Limited, ALL RIGHTS RESERVED
+#  The entire notice above must be reproduced on all authorized copies and
+#  copies may only be made to the extent permitted by a licensing agreement
+#  from ARM Limited.
+# -----------------------------------------------------------------------------
+
+import os
+Import( "env", "rBuildArch", "rBuildOS", "rBuildWindowSystem" )
+
+# All modules that use the tpi are going to need to use the android log library.
+env.AppendUnique(
+        LIBS=["log","utils", "gui"]
+)
+
+objects = []
+
+tpi_os_objs = env.SharedObject( ["mali_tpi_" + rBuildOS + ".c"], CPPPATH=[ '$CPPPATH', '#tpi' ] )
+objects.append( 'tpi_os_objs' )
+
+
+if rBuildWindowSystem != '' and rBuildWindowSystem != '0':
+        # Build tpi_egl objects as well.
+
+        tpi_egl_os_objs = env.SharedObject( ["mali_tpi_egl_android_native.cpp"], CPPPATH=[ '$CPPPATH', '#tpi' ] )
+        objects.append( 'tpi_egl_os_objs' )
+
+
+Return( objects )
+
+

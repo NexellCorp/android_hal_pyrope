@@ -1,0 +1,184 @@
+/*
+ * This confidential and proprietary software may be used only as
+ * authorised by a licensing agreement from ARM Limited
+ * (C) COPYRIGHT 2006-2012 ARM Limited
+ * ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorised
+ * copies and copies may only be made to the extent permitted
+ * by a licensing agreement from ARM Limited.
+ */
+
+#ifndef TOKEN_H
+#define TOKEN_H
+
+#define AUGASSIGN_OFF 128
+
+typedef enum {
+	TOK_UNKNOWN = -1,
+	TOK_END_OF_FILE = 0,
+
+
+	TOK_NEWLINE = '\n',
+	TOK_WHITESPACE = ' ',
+	TOK_SEMICOLON = ';',
+	TOK_LEFT_BRACE = '{',
+	TOK_RIGHT_BRACE = '}',
+	TOK_COMMA = ',',
+	TOK_COLON = ':',
+	TOK_ASSIGN = '=',
+	TOK_LEFT_PAREN = '(',
+	TOK_RIGHT_PAREN = ')',
+	TOK_LEFT_BRACKET = '[',
+	TOK_RIGHT_BRACKET = ']',
+	TOK_DOT = '.',
+	TOK_AMPERSAND = '&',
+	TOK_BANG = '!',
+	TOK_TILDE = '~',
+	TOK_DASH = '-',
+	TOK_PLUS = '+',
+	TOK_STAR = '*',
+	TOK_SLASH = '/',
+	TOK_BACKSLASH = '\\',
+	TOK_PERCENT = '%',
+	TOK_LEFT_ANGLE = '<',
+	TOK_RIGHT_ANGLE = '>',
+	TOK_CARET = '^',
+	TOK_VERTICAL_BAR = '|',
+
+	TOK_QUESTION = '?',
+	TOK_HASH = '#',
+
+	TOK_ADD_ASSIGN = (int)'+' + AUGASSIGN_OFF,
+	TOK_SUB_ASSIGN = (int)'-' + AUGASSIGN_OFF,
+	TOK_MUL_ASSIGN = (int)'*' + AUGASSIGN_OFF,
+	TOK_DIV_ASSIGN = (int)'/' + AUGASSIGN_OFF,
+	TOK_MOD_ASSIGN = (int)'%' + AUGASSIGN_OFF,
+	TOK_AND_ASSIGN = (int)'&' + AUGASSIGN_OFF,
+	TOK_XOR_ASSIGN = (int)'^' + AUGASSIGN_OFF,
+	TOK_OR_ASSIGN  = (int)'|' + AUGASSIGN_OFF,
+	TOK_LE_OP      = (int)'<' + AUGASSIGN_OFF,
+	TOK_GE_OP      = (int)'>' + AUGASSIGN_OFF,
+	TOK_EQ_OP      = (int)'=' + AUGASSIGN_OFF,
+	TOK_NE_OP      = (int)'!' + AUGASSIGN_OFF,
+
+	TOK_FLOATCONSTANT = 256, /* above any previously assigned numbers */
+	TOK_INTCONSTANT,
+	TOK_UNDEFINEDCONST,
+
+	/* [IDENTIFIER_KEYWORD_START, IDENTIFIER_KEYWORD_END] must be one contiguous range, and contain TOK_IDENTIFIER + all keywords. If another keyword-like token is needed, insert it into this range */
+	IDENTIFIER_KEYWORD_START,
+	TOK_IDENTIFIER = IDENTIFIER_KEYWORD_START,
+
+	TOK_ATTRIBUTE,
+	TOK_BOOL,
+	TOK_BREAK,
+	TOK_BVEC2,
+	TOK_BVEC3,
+	TOK_BVEC4,
+	TOK_CONST,
+	TOK_CONTINUE,
+	TOK_DISCARD,
+	TOK_DO,
+	TOK_ELSE,
+	TOK_FALSE,
+	TOK_FLOAT,
+	TOK_FOR,
+	TOK_HIGHP,
+	TOK_IF,
+	TOK_IN,
+	TOK_INOUT,
+	TOK_INT,
+	TOK_INVARIANT,
+	TOK_IVEC2,
+	TOK_IVEC3,
+	TOK_IVEC4,
+	TOK_LOWP,
+	TOK_MAT2,
+	TOK_MAT3,
+	TOK_MAT4,
+	TOK_MEDIUMP,
+	TOK_OUT,
+	TOK_PRECISION,
+	TOK_RETURN,
+	TOK_SAMPLER2D,
+	TOK_SAMPLER3D,
+	TOK_SAMPLERCUBE,
+	TOK_STRUCT,
+	TOK_TRUE,
+	TOK_UNIFORM,
+	TOK_VARYING,
+	TOK_VEC2,
+	TOK_VEC3,
+	TOK_VEC4,
+	TOK_VOID,
+	TOK_WHILE,
+
+	TOK_ASM,
+	TOK_CLASS,
+	TOK_UNION,
+	TOK_ENUM,
+	TOK_TYPEDEF,
+	TOK_TEMPLATE,
+	TOK_THIS,
+	TOK_PACKED,
+	TOK_GOTO,
+	TOK_SWITCH,
+	TOK_DEFAULT,
+	TOK_INLINE,
+	TOK_NOINLINE,
+	TOK_VOLATILE,
+	TOK_PUBLIC,
+	TOK_STATIC,
+	TOK_EXTERN,
+	TOK_EXTERNAL,
+	TOK_INTERFACE,
+	TOK_FLAT,
+	TOK_CENTROID,
+	TOK_LONG,
+	TOK_SHORT,
+	TOK_DOUBLE,
+	TOK_HALF,
+	TOK_FIXED,
+	TOK_UNSIGNED,
+	TOK_SUPERP,
+	TOK_INPUT,
+	TOK_OUTPUT,
+	TOK_HVEC2,
+	TOK_HVEC3,
+	TOK_HVEC4,
+	TOK_DVEC2,
+	TOK_DVEC3,
+	TOK_DVEC4,
+	TOK_FVEC2,
+	TOK_FVEC3,
+	TOK_FVEC4,
+	TOK_SAMPLER1D,
+	TOK_SAMPLER1DSHADOW,
+	TOK_SAMPLER2DSHADOW,
+	TOK_SAMPLER2DRECT,
+	TOK_SAMPLER3DRECT,
+	TOK_SAMPLER2DRECTSHADOW,
+	TOK_SAMPLEREXTERNAL,
+	TOK_SIZEOF,
+	TOK_CAST,
+	TOK_NAMESPACE,
+	TOK_USING,
+	TOK_GROUP, /* __groupARM, for the ARM_grouped_uniforms extension */
+	TOK_PERSISTENT, /* __persistentARM, for the ARM_persistent_globals extension */
+	IDENTIFIER_KEYWORD_END = TOK_PERSISTENT,
+
+	TOK_RIGHT_ASSIGN,
+	TOK_LEFT_ASSIGN,
+	TOK_RIGHT_OP,
+	TOK_LEFT_OP,
+	TOK_INC_OP,
+	TOK_DEC_OP,
+	TOK_AND_OP,
+	TOK_OR_OP,
+	TOK_XOR_OP
+
+} Token;
+
+const char *_essl_debug_describe_token(Token t);
+
+#endif /*TOKEN_H */

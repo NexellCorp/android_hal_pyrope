@@ -1,0 +1,26 @@
+# libVR
+include $(CLEAR_VARS)
+
+LOCAL_PRELINK_MODULE := false
+
+LOCAL_C_INCLUDES := frameworks/base/opengl/include \
+	hardware/nexell/pyrope/ogl_4330/src/ump/include \
+	$(MALI_SEARCH_PATH)
+LOCAL_SRC_FILES := $(MALI_BASE_SRCS) $(MALI_SHARED_SRCS) $(MALI_MATH_SRCS) $(MALI_COMPILER_SRCS) $(MALI_ANDROID_BUILD_INFO_FILE) $(MALI_INSTRUMENTED_SRCS)
+LOCAL_CFLAGS := $(MALI_DEFINES) $(MALI_TRACING_FLAGS)
+
+LOCAL_MODULE_TAGS := eng
+LOCAL_MODULE := libVR
+
+LOCAL_ARM_MODE := arm
+
+LOCAL_SHARED_LIBRARIES := \
+	libutils \
+	libcutils \
+	libbinder \
+	libdl \
+	liblog \
+	$(UMP_LIB)
+
+include $(BUILD_SHARED_LIBRARY)
+

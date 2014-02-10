@@ -1,0 +1,388 @@
+#
+# This confidential and proprietary software may be used only as
+# authorised by a licensing agreement from ARM Limited
+# (C) COPYRIGHT 2010-2012 ARM Limited
+# ALL RIGHTS RESERVED
+# The entire notice above must be reproduced on all authorised
+# copies and copies may only be made to the extent permitted
+# by a licensing agreement from ARM Limited.
+#
+
+#Magic to find the right directory to build from
+ifndef FIND_BUILD_DIR_MAGIC
+FIND_BUILD_DIR_MAGIC := 1
+ifeq ($(wildcard topleveldir),)
+.PHONY: $(MAKECMDGOALS) recurse_to_parent_and_build
+$(MAKECMDGOALS): recurse_to_parent_and_build
+recurse_to_parent_and_build:
+	$(MAKE) -C .. $(MAKECMDGOALS)
+endif
+endif
+
+COMPILER_DIR ?= .
+
+COMPILER_TESTBENCH_DIR ?= ../testbench
+
+ifeq ($(shell test -e $(COMPILER_TESTBENCH_DIR)/testing && test -e $(COMPILER_TESTBENCH_DIR)/tests  && test -e $(COMPILER_TESTBENCH_DIR)/interpreter && echo yes),yes)
+COMPILER_TEST_SYSTEM=1
+endif
+
+ifeq ($(COMPILER_DIR),.)
+
+ALL_TARGETS = malisc genpieces_gles11 genpieces_openvg
+
+ifdef COMPILER_TEST_SYSTEM
+ALL_TARGETS += utest
+endif
+all : $(ALL_TARGETS)
+
+CONFIG ?= debug
+VARIANT ?= mali200-mali400
+BUILD_ROOT ?= build
+DEFAULT_FILE_FLAVOUR ?= small
+TARGET_PLATFORM ?= default_5te
+CUSTOMER ?= internal
+
+BUILD_SYSTEM_DIR=$(COMPILER_DIR)/build_system
+TOOLCHAIN ?= gcc
+HOST_TOOLCHAIN ?= $(TOOLCHAIN)
+TARGET_TOOLCHAIN ?= $(TOOLCHAIN)
+OPTS_TOOLCHAIN ?= $(TOOLCHAIN)
+
+V ?= 0
+
+ifeq ($(V),1)
+	quiet=
+	Q=
+else
+	ifeq ($(VERBOSE),1)
+		quiet=
+		Q=
+	else
+		ifneq ($(findstring s,$(MAKEFLAGS)),)
+			quiet=silent-
+		else
+		# For non-windowsce build make use of the quiet-cmd-echo-build macro otherwise rely on the output from cl.exe
+		ifeq ($(findstring msvc, $(TOOLCHAIN)),)
+			quiet=quiet-
+		endif
+		endif
+		Q=@
+	endif
+endif
+
+# Platform-specific settings before makefile.rules, this means that the build macros defined in it will not be available.
+include $(BUILD_SYSTEM_DIR)/platform/$(TARGET_PLATFORM).mak
+
+
+
+# Hash Build system dirs, to shorten path length
+ifeq ($(findstring windowsce, $(VARIANT)),)
+HASH_BUILD_DIR?=0
+else
+HASH_BUILD_DIR?=1
+endif
+
+
+include $(BUILD_SYSTEM_DIR)/Makefile.rules
+
+endif
+
+
+MALI400_COMPILER_SRCS += $(COMPILER_DIR)/compiler.c
+CLEAN_FILES += malisc utest genpieces_gles11 genpieces_openvg
+
+CPPFLAGS += -I$(COMPILER_DIR)
+
+ifeq ($(CONFIG),release)
+	ifeq ($(call is-feature-enabled,asserted),)
+		CPPFLAGS += -DNDEBUG
+	endif
+endif
+
+ifeq ($(CONFIG),profiling)
+	ifeq ($(call is-feature-enabled,asserted),)
+		CPPFLAGS += -DNDEBUG
+	endif
+endif
+
+ifneq ($(call is-feature-enabled,timeprof),)
+	CPPFLAGS += -DTIME_PROFILING
+endif
+
+ifneq ($(call is-feature-enabled,nomempool),)
+	CPPFLAGS += -DNO_MEMPOOL
+endif
+
+#randomize internal scheduler/register allocator heuristics in order to more easily trig edge cases
+ifneq ($(call is-feature-enabled,randomized),)
+	CPPFLAGS += -DRANDOMIZED_COMPILATION
+endif
+
+#DEBUGPRINT=0
+#ifeq ($(CONFIG),debug)
+#	DEBUGPRINT=1
+#endif
+
+ifneq ($(call is-feature-enabled,debugprint),)
+	DEBUGPRINT=1
+endif
+
+ifneq ($(call is-feature-enabled,nodebugprint),)
+	DEBUGPRINT=0
+endif
+
+ifeq ($(DEBUGPRINT),1)
+	CPPFLAGS += -DDEBUGPRINT
+endif
+
+FORK_OOM=0
+ifneq ($(call is-feature-enabled,forkoom),)
+	FORK_OOM=1
+	CPPFLAGS += -DFORK_OOM
+endif
+
+ifneq ($(call is-feature-enabled,mali450),)
+	CPPFLAGS += -DUSING_MALI450_OFFLINE
+endif
+
+#Include makefiles for sub directories
+
+MALI400_COMPILER_COMMON_DIR=$(COMPILER_DIR)/common
+include $(MALI400_COMPILER_COMMON_DIR)/Makefile
+
+MALI400_COMPILER_FRONTEND_DIR=$(COMPILER_DIR)/frontend
+include $(MALI400_COMPILER_FRONTEND_DIR)/Makefile
+
+MALI400_COMPILER_MIDDLE_DIR=$(COMPILER_DIR)/middle
+include $(MALI400_COMPILER_MIDDLE_DIR)/Makefile
+
+MALI400_COMPILER_BACKEND_DIR=$(COMPILER_DIR)/backend
+include $(MALI400_COMPILER_BACKEND_DIR)/Makefile
+
+MALI400_COMPILER_MALI200_DIR=$(COMPILER_DIR)/mali200
+include $(MALI400_COMPILER_MALI200_DIR)/Makefile
+
+MALI400_COMPILER_MALIGP2_DIR=$(COMPILER_DIR)/maligp2
+include $(MALI400_COMPILER_MALIGP2_DIR)/Makefile
+
+MALI400_COMPILER_SOFTFLOAT_DIR=$(COMPILER_DIR)/softfloat
+include $(MALI400_COMPILER_SOFTFLOAT_DIR)/Makefile
+
+
+PIECEGEN_COMPILER_MALIGP2_DIR=$(COMPILER_DIR)/piecegen_maligp2
+include $(PIECEGEN_COMPILER_MALIGP2_DIR)/Makefile
+
+PIECEGEN_COMPILER_MALI200_DIR=$(COMPILER_DIR)/piecegen_mali200
+include $(PIECEGEN_COMPILER_MALI200_DIR)/Makefile
+
+
+SHADERGEN_MALIGP2_DIR=$(COMPILER_DIR)/shadergen_maligp2
+include $(SHADERGEN_MALIGP2_DIR)/Makefile
+
+SHADERGEN_MALI200_DIR=$(COMPILER_DIR)/shadergen_mali200
+include $(SHADERGEN_MALI200_DIR)/Makefile
+
+ifdef COMPILER_TEST_SYSTEM
+CPPFLAGS += -I$(COMPILER_TESTBENCH_DIR)
+
+COMPILER_INTERPRETER_DIR=$(COMPILER_TESTBENCH_DIR)/interpreter
+include $(COMPILER_INTERPRETER_DIR)/Makefile
+CPPFLAGS += -I$(COMPILER_INTERPRETER_DIR)
+
+COMPILER_TESTING_DIR=$(COMPILER_TESTBENCH_DIR)/testing
+include $(COMPILER_TESTING_DIR)/Makefile
+CPPFLAGS += -I$(COMPILER_TESTING_DIR)
+endif
+
+# Create a variable to store the compiler files that need to be autogenerated
+COMPILER_AUTOGENERATED_FILES = $(SHADERGEN_MALIGP2_DIR)/shader_pieces.c 
+
+EXTRA_TEST_FRAMEWORK_SRCS=
+
+INCLUDE_DEBUG_SOURCES=no
+ifeq ($(CONFIG),debug)
+	INCLUDE_DEBUG_SOURCES=yes
+endif
+ifneq ($(call is-feature-enabled,debugprint),)
+	INCLUDE_DEBUG_SOURCES=yes
+endif
+ifneq ($(call is-feature-enabled,nodebugprint),)
+	INCLUDE_DEBUG_SOURCES=no
+endif
+ifeq ($(INCLUDE_DEBUG_SOURCES),yes)
+	MALI400_COMPILER_SRCS += $(MALI400_COMPILER_DEBUG_SRCS)
+	SHADERGEN_SRCS += $(MALI400_COMPILER_DEBUG_SRCS)
+else
+	EXTRA_TEST_FRAMEWORK_SRCS += $(MALI400_COMPILER_DEBUG_SRCS)
+endif
+
+MALI400_COMPILER_LIB=compiler$(LIB_EXT)
+SHADERGEN_LIB=shadergen$(LIB_EXT)
+COMPILER_SHADERGEN_LIB=compiler_shadergen$(LIB_EXT)
+$(call make-static-library,$(MALI400_COMPILER_LIB),$(MALI400_COMPILER_SRCS))
+$(MALI400_COMPILER_LIB): $(call source-dir-to-binary-dir,$(TARGET_SYSTEM),$(MALI400_COMPILER_LIB))
+	ln -sf $< $@
+
+$(call make-static-library,$(SHADERGEN_LIB),$(SHADERGEN_SRCS))
+$(SHADERGEN_LIB): $(call source-dir-to-binary-dir,$(TARGET_SYSTEM),$(SHADERGEN_LIB))
+	ln -sf $< $@
+$(call make-static-library,$(COMPILER_SHADERGEN_LIB),$(MALI400_COMPILER_SRCS) $(filter-out $(MALI400_COMPILER_SRCS),$(SHADERGEN_SRCS)))
+$(COMPILER_SHADERGEN_LIB): $(call source-dir-to-binary-dir,$(TARGET_SYSTEM),$(COMPILER_SHADERGEN_LIB))
+	ln -sf $< $@
+
+
+
+$(call make-binary,malisc,$(COMPILER_DIR)/driver.c $(COMPILER_DIR)/commandline.c $(MALI400_COMPILER_LIB) $(MALI400_COMPILER_COMMON_DIR)/essl_test_system.c)
+malisc: $(call source-dir-to-binary-dir,$(TARGET_SYSTEM),malisc)
+	ln -sf $< $@
+
+$(call make-host-binary,genpieces_gles11,$(COMPILER_DIR)/genpieces_gles11.c $(COMPILER_DIR)/commandline.c $(MALI400_COMPILER_COMMON_DIR)/essl_test_system.c $(PIECEGEN_MALIGP2_SRCS) $(MALI400_COMPILER_LIB))
+genpieces_gles11: $(call source-dir-to-binary-dir,$(HOST_SYSTEM),genpieces_gles11)
+	ln -sf $< $@
+
+$(call make-host-binary,genpieces_openvg,$(COMPILER_DIR)/genpieces_openvg.c $(COMPILER_DIR)/commandline.c $(MALI400_COMPILER_COMMON_DIR)/essl_test_system.c $(PIECEGEN_MALI200_SRCS) $(MALI400_COMPILER_LIB))
+genpieces_openvg: $(call source-dir-to-binary-dir,$(HOST_SYSTEM),genpieces_openvg)
+	ln -sf $< $@
+
+ifdef COMPILER_TEST_SYSTEM
+
+# Flags only used for target system
+UTEST_LDFLAGS=
+ifneq ($(WINDOWSCE),)
+UTEST_LDFLAGS=-STACK:0x40000,0x1000
+endif
+
+UTEST_LIBS = $(MALI400_COMPILER_LIB)
+
+# UTEST_LDFLAGS needs deferred expansion, because it contains a comma
+$(call make-binary,utest,$(TEST_FRAMEWORK_SRCS) $(COMPILER_DIR)/commandline.c $(MALI400_COMPILER_COMMON_DIR)/essl_test_system.c $(EXTRA_TEST_FRAMEWORK_SRCS) $(INTERPRETER_SRCS) $(SHADERGEN_SRCS) $(UTEST_LIBS), $$(UTEST_LDFLAGS))
+utest: $(call source-dir-to-binary-dir,$(TARGET_SYSTEM),utest)
+	ln -sf $< $@
+
+$(call make-binary,rtest,$(COMPILER_TESTING_DIR)/random_shader_test.c $(COMPILER_DIR)/commandline.c $(MALI400_COMPILER_COMMON_DIR)/essl_test_system.c $(INTERPRETER_SRCS) $(SHADERGEN_SRCS) $(MALI400_COMPILER_LIB))
+rtest: $(call source-dir-to-binary-dir,$(TARGET_SYSTEM),rtest)
+	ln -sf $< $@
+endif
+
+%.vert.binshader: %.vert malisc
+	./malisc -vert -o $@ $<
+
+%.frag.binshader: %.frag malisc
+	./malisc -frag -o $@ $<
+
+.PHONY: compiler_autogenerated_files
+compiler_autogenerated_files: $(COMPILER_AUTOGENERATED_FILES)
+	@echo [Generating compiler files]
+
+ifeq ($(COMPILER_DIR),.)
+
+.PHONY: all clean test unittest lint docs cleancovfiles buildcov renamecovfiles buildcovreport coveragetest frameworktest frameworkindividualtest checkindividualtest perftest
+
+
+distclean: clean
+	find -name '.svn' | xargs rm -rf
+	find -name '*~' | xargs rm
+
+
+ifdef COMPILER_TEST_SYSTEM
+CYCLE_COUNTS ?= cycle-counts.out
+frameworktest: $(call source-dir-to-binary-dir,$(TARGET_SYSTEM),utest)
+	echo -n > passed.out
+	echo -n > failed.out
+	$(RUNNER) "$<" --failure-dir=$(COMPILER_TESTBENCH_DIR)/tests/output --dont-run=$(COMPILER_TESTBENCH_DIR)/tests/failures-expected \
+		--pass-out=passed.out --fail-out=failed.out --cycle-counts=$(CYCLE_COUNTS) $(UTEST_OPTS)
+
+PASS ?= $(call source-dir-to-binary-dir,$(TARGET_SYSTEM),pass)
+FAIL ?= $(call source-dir-to-binary-dir,$(TARGET_SYSTEM),fail)
+frameworkindividualtest:  $(call source-dir-to-binary-dir,$(TARGET_SYSTEM),utest)
+	echo -n > $(PASS); \
+	echo -n > $(FAIL); \
+	$(RUNNER) "$<" --list-fixtures $(UTEST_OPTS) | while read -r full_line; do \
+		line=`echo $$full_line | sed 's/^"[^"]*" //'`; \
+		sh -c "$(RUNNER) $< $$line $(UTEST_OPTS) --pass-out=$(PASS) > /dev/null 2>&1" 2>/dev/null; \
+		if test $$? != 0; then \
+			echo $$line >> $(FAIL); \
+		fi; \
+	done
+
+failingindividualtest:  $(call source-dir-to-binary-dir,$(TARGET_SYSTEM),utest)
+	echo -n > $(PASS); \
+	echo -n > $(FAIL); \
+	$(RUNNER) "$<" --list-fixtures $(UTEST_OPTS) --only-run=$(COMPILER_TESTBENCH_DIR)/tests/failures-expected | while read -r full_line; do \
+		line=`echo $$full_line | sed 's/^"[^"]*" //'`; \
+		sh -c "$(RUNNER) $< $$line $(UTEST_OPTS) --pass-out=$(PASS) > /dev/null 2>&1" 2>/dev/null; \
+		if test $$? != 0; then \
+			echo $$line >> $(FAIL); \
+		fi; \
+	done; \
+	cat $(PASS)
+
+checkindividualtest: frameworkindividualtest
+	./categorize_test_results.pl $(PASS) $(FAIL) $(PASS) $(FAIL) tests/failures-expected
+
+test: unittest frameworktest perftest
+	@echo "All tests OK!"
+
+
+cleancovfiles:
+	find . -name \*.gcda -or -name \*.gcno -or -name \*.da -or -name \*.bb -or -name \*.bbg | xargs -r rm
+
+TARGET_DIR=$(call get-binary-dir,$(TARGET_SYSTEM))
+renamecovfiles:
+	for f in `find . -name \*.gcda -or -name \*.gcno -or -name \*.da -or -name \*.bb -or -name \*.bbg`; do NEWNAME=`echo  $$f | sed 's,^\./,,' | sed 's,$(TARGET_DIR)/,,g' |sed 's,/,-,g' | sed 's/\..*\././'`; test -f $$NEWNAME || mv $$f $$NEWNAME; done
+	rm -f ?usr?include* 
+
+buildcovreport:
+	lcov -d . -c -o coverage.info
+	lcov --remove coverage.info '/usr/*' -o coverage.info || true
+	lcov --remove coverage.info '<stdin>' -o coverage.info || true
+	genhtml -o ../docs/coverage coverage.info
+
+coveragetest: clean
+	find . -name \*.gcda -or -name \*.gcno -or -name \*.da -or -name \*.bb -or -name \*.bbg | xargs -r rm
+	$(MAKE) CONFIG=coverage test renamecovfiles buildcovreport cleancovfiles
+endif
+#LINTFLAGS = -compdestroy -mustfreefresh -mustfreeonly -memtrans -branchstate -compmempass -realcompare -usereleased -compdef -globstate +charintliteral -predboolint -boolops +boolint +charint
+LINTFLAGS = -weak -memtrans
+
+lint: $(MALI400_COMPILER_SRCS) $(COMPILER_DIR)/driver.c  $(COMPILER_DIR)/commandline.c
+	splint $(CPPFLAGS) $(LINTFLAGS) $+
+
+
+%.pdf: %.dot
+	dot -Tps $< | ps2pdf - $@
+
+docs:
+	doxygen Doxyfile
+
+.PHONY: check-syntax
+check-syntax: $(wildcard $(CHK_SOURCES) $(addprefix */,$(CHK_SOURCES))) 
+	LC_ALL=C gcc $(HOST_CFLAGS) $(CPPFLAGS) -Wextra -fsyntax-only $< 2>&1 | sed s,^$(dir $<),, 1>&2
+
+
+help:
+	@echo "  all: compiles and runs unit and system tests"
+	@echo "  clean: removes previously compiled files"
+	@echo "  lint: checks source files for errors by running lint"
+	@echo "  docs: runs doxygen to create documentation files"
+	@echo "  unittest: runs unit tests for internal module checking"
+	@echo "  memorytest: runs memory leak tests"
+	@echo "  memoryerrortest: shows error messages when running out of memory"
+	@echo "  difftest: lists all differences between 'output' and 'expected' files"
+	@echo "  accept-output: accepts identified errors as new expected results"
+	@echo "  todo: list of TODO and FIXME comments in source code"
+	@echo "  help: list of make targets"
+
+todo:
+	egrep -rin 'todo|fixme' * | egrep -v '~:|.svn-base:|Doxyfile:'
+
+ifdef COMPILER_TEST_SYSTEM
+include $(COMPILER_TESTBENCH_DIR)/Makefile.test
+include $(COMPILER_TESTBENCH_DIR)/tests/Makefile
+endif
+
+include $(BUILD_SYSTEM_DIR)/Makefile.dep
+
+endif
+

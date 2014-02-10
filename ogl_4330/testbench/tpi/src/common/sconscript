@@ -1,0 +1,24 @@
+# -----------------------------------------------------------------------------
+#  This confidential and proprietary software may be used only as authorized
+#  by a licensing agreement from ARM Limited.
+#          (C) COPYRIGHT 2011-2012 ARM Limited, ALL RIGHTS RESERVED
+#  The entire notice above must be reproduced on all authorized copies and
+#  copies may only be made to the extent permitted by a licensing agreement
+#  from ARM Limited.
+# -----------------------------------------------------------------------------
+
+import os
+
+Import( "env", "rBuildWindowSystem", "tpi_common_objs", "tpi_egl_common_objs" )
+
+tpi_common_objs.append( env.SharedObject( ["mali_tpi_utils.c", "mali_tpi_rand.c"], CPPPATH=[ '$CPPPATH', '#tpi' ] ) )
+
+if rBuildWindowSystem != '' and rBuildWindowSystem != '0':
+	# Building tpi_egl library as well.
+
+	tpi_egl_common_objs.append( env.SharedObject( ["mali_tpi_egl_utils.c"], CPPPATH=[ '$CPPPATH', '#tpi' ] ))
+
+	if rBuildWindowSystem == 'fbdev' or rBuildWindowSystem == 'android' or rBuildWindowSystem == 'x11':
+		tpi_egl_common_objs.append( env.SharedObject( ["mali_tpi_egl_fb_common.c"], CPPPATH=[ '$CPPPATH', '#tpi' ] ))
+
+Return( "tpi_common_objs" )

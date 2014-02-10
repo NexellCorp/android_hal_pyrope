@@ -1,0 +1,38 @@
+* Top Directory Architecture
+linux --+--- apps       : application directory for each H/W module test.
+        +--- doc        : document directory
+        +--- fs         : file system directory.
+        +--- library    : library directory.
+        +--- modules    : module device dirver directory.
+        +--- tools      : tool directory.(include toolchain)
+
+
+* "apps" directory Architecture
+apps ---+--- bin        : application's output directory.
+        +--- movie_player_app : Movie player API example application.
+        +--- transcoding_example : Transcoding example application( including scaling )
+        +--- v4l2_test  : v4l2 module test application.
+        +--- vpu_test   : video en/decoding test application.
+
+
+* "fs" directory Architecture
+  fs ---+--- buildroot  : Root file system making tool.
+
+
+* "library" directory Architecture
+library 
+    +---+--- include           : common library include directory
+        +--- lib               : library src output directory
+        |     +--- gstreamer-0.10 : Prebuilt gstreamer plugins.
+        +--- src
+              +--- libion      : Video Memory Allocatior Library.
+              +--- libnxgraphictools : 3D Graphic Library.
+              +--- libnxmovieplayer : Movie Player Library.
+              +--- libnxscaler : Fine Scaler Library.
+              +--- libnxv4l2   : V4L2 Wrapper Libarary for Display & Camera Capture.
+              +--- libnxvpu    : Video En/Decoder ioctl Wrapper Library.
+
+
+* "modules" directory Architecture
+modules --+--- coda960  : video en/decoder H/W accelator moudle device driver.
+

@@ -1,0 +1,7 @@
+# if path include "/", remove absolute path file
+# else find all file and remove all
+#
+
+pkgconfig
+/THIS_IS_NOT_YOUR_ROOT_FILESYSTEM
+/usr/share/locale
