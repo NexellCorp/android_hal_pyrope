@@ -21,6 +21,7 @@ public:
     virtual void setExposure(int32_t exposure);
     virtual uint32_t getZoomFactor(void);
     virtual status_t setZoomCrop(uint32_t left, uint32_t top, uint32_t width, uint32_t height);
+    virtual int setFormat(int width, int height, int format);
 
 private:
     void init();

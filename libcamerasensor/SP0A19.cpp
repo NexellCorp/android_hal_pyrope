@@ -31,7 +31,7 @@ enum {
 namespace android {
 
 const int32_t ResolutionSP0A19[] = {
-    640, 480,
+    608, 479,
 };
 
 // TOP/system/media/camera/include/system/camera_metadata_tags.h
@@ -282,6 +282,24 @@ status_t SP0A19::setZoomCrop(uint32_t left, uint32_t top, uint32_t width, uint32
     }
 
     return NO_ERROR;
+}
+
+int SP0A19::setFormat(int width, int height, int format)
+{
+    int sensorWidth, sensorHeight;
+    if (width == 608)
+        sensorWidth = 640;
+    else {
+        ALOGE("%s: invalid width %d", __func__, width);
+        return -EINVAL;
+    }
+    if (height == 479)
+        sensorHeight = 480;
+    else {
+        ALOGE("%s: invalid height %d", __func__, height);
+        return -EINVAL;
+    }
+    return v4l2_set_format(V4l2ID, sensorWidth, sensorHeight, format);
 }
 
 }; // namespace
