@@ -74,176 +74,176 @@
 /*****************************************************************************/
 
 /* Support SENSORS Module */
-static const struct sensor_t sSensorSupportList[] = {   
-        { 
+static const struct sensor_t sSensorSupportList[] = {
+        {
           "BMA220 3-axis Accelerometer",
           "Bosch Sensortec",
           1, SENSORS_ACCELERATION_HANDLE,
-          SENSOR_TYPE_ACCELEROMETER, 
-          (4.0f * GRAVITY_EARTH), 
+          SENSOR_TYPE_ACCELEROMETER,
+          (4.0f * GRAVITY_EARTH),
           (4.0f * GRAVITY_EARTH) / 64.0f,     // -2G ~ +2G, 6 bit
-          0.20f, 10, 
+          0.20f, 10, 0, 0,
           { (void*)"bma220" }    // reserved[0] --> input device name
-        }, 
-        { 
+        },
+        {
           "BMA222 3-axis Accelerometer",
           "Bosch Sensortec",
           1, SENSORS_ACCELERATION_HANDLE,
-          SENSOR_TYPE_ACCELEROMETER, 
-          (4.0f * GRAVITY_EARTH), 
+          SENSOR_TYPE_ACCELEROMETER,
+          (4.0f * GRAVITY_EARTH),
           (4.0f * GRAVITY_EARTH) / 256.0f,     // -2G ~ +2G, 8 bit
-          0.20f, 10, 
+          0.20f, 10, 0, 0,
           { (void*)"bma222" }    // reserved[0] --> input device name
         },
-        { 
+        {
           "BMA250 3-axis Accelerometer",
           "Bosch Sensortec",
           1, SENSORS_ACCELERATION_HANDLE,
-          SENSOR_TYPE_ACCELEROMETER, 
-          (4.0f * GRAVITY_EARTH), 
+          SENSOR_TYPE_ACCELEROMETER,
+          (4.0f * GRAVITY_EARTH),
           (4.0f * GRAVITY_EARTH) / 1024.0f,     // -2G ~ +2G, 10 bit
-          0.20f, 10, 
+          0.20f, 10, 0, 0,
           { (void*)"bma250" }    // reserved[0] --> input device name
         },
-        { 
+        {
           "MMA7660 3-axis Accelerometer",
           "Freescale Semi",
           1, SENSORS_ACCELERATION_HANDLE,
-          SENSOR_TYPE_ACCELEROMETER, 
-          (3.0f * GRAVITY_EARTH), 
+          SENSOR_TYPE_ACCELEROMETER,
+          (3.0f * GRAVITY_EARTH),
           (3.0f * GRAVITY_EARTH) / 64.0f,     // -1.5G ~ +1.5G, 6 bit
-          0.20f, 10, 
+          0.20f, 10, 0, 0,
           { (void*)"mma7660" }    // reserved[0] --> input device name
         },
-        { 
+        {
           "MMA8452 3-axis Accelerometer",
           "Freescale Semi",
           1, SENSORS_ACCELERATION_HANDLE,
-          SENSOR_TYPE_ACCELEROMETER, 
-          (4.0f * GRAVITY_EARTH), 
+          SENSOR_TYPE_ACCELEROMETER,
+          (4.0f * GRAVITY_EARTH),
           (4.0f * GRAVITY_EARTH) / 4096.0f,     // -2G ~ +2G, 12 bit
-          0.20f, 10, 
+          0.20f, 10, 0, 0,
           { (void*)"mma8452" }    // reserved[0] --> input device name
         },
-        { 
+        {
           "LIS3DH 3-axis Accelerometer",
           "lis3dh Semi",
           1, SENSORS_ACCELERATION_HANDLE,
-          SENSOR_TYPE_ACCELEROMETER, 
-          (4.0f * GRAVITY_EARTH), 
+          SENSOR_TYPE_ACCELEROMETER,
+          (4.0f * GRAVITY_EARTH),
           (4.0f * GRAVITY_EARTH) / 4096.0f,     // -2G ~ +2G, 12 bit
-          0.20f, 10, 
+          0.20f, 10, 0, 0,
           { (void*)"lis3dh_acc" }    // reserved[0] --> input device name
         },
-        { 
+        {
           "KIONIX 3-axis Accelerometer",
           "kionix Semi",
           1, SENSORS_ACCELERATION_HANDLE,
-          SENSOR_TYPE_ACCELEROMETER, 
-          (4.0f * GRAVITY_EARTH), 
+          SENSOR_TYPE_ACCELEROMETER,
+          (4.0f * GRAVITY_EARTH),
           (4.0f * GRAVITY_EARTH) / 4096.0f,     // -2G ~ +2G, 12 bit
-          0.20f, 10, 
+          0.20f, 10, 0, 0,
           { (void*)"kionix_accel" }    // reserved[0] --> input device name
         },
-        { 
+        {
           "DMARD10 3-axis Accelerometer",
           "DMT",
           1, SENSORS_ACCELERATION_HANDLE,
-          SENSOR_TYPE_ACCELEROMETER, 
-          (8.0f * GRAVITY_EARTH), 
+          SENSOR_TYPE_ACCELEROMETER,
+          (8.0f * GRAVITY_EARTH),
           (8.0f * GRAVITY_EARTH) / 1024.0f,     // -4G ~ +4G, 10 bit
-          0.20f, 10, 
+          0.20f, 10, 0, 0,
           { (void*)"dmard10" }    // reserved[0] --> input device name
         },
-        { 
+        {
           "MC3230 3-axis Accelerometer",
           "mCube",
           1, SENSORS_ACCELERATION_HANDLE,
-          SENSOR_TYPE_ACCELEROMETER, 
-          (3.0f * GRAVITY_EARTH), 
+          SENSOR_TYPE_ACCELEROMETER,
+          (3.0f * GRAVITY_EARTH),
           (3.0f * GRAVITY_EARTH) / 256.0f,    // -1.5G ~ +1.5G, 8 bit
-          0.20f, 10, 
+          0.20f, 10, 0, 0,
           { (void*)"mc3230" }    // reserved[0] --> input device name
         },
-        { 
+        {
           "MC3210 3-axis Accelerometer",
           "mCube",
           1, SENSORS_ACCELERATION_HANDLE,
-          SENSOR_TYPE_ACCELEROMETER, 
-          (16.0f * GRAVITY_EARTH), 
+          SENSOR_TYPE_ACCELEROMETER,
+          (16.0f * GRAVITY_EARTH),
           (16.0f * GRAVITY_EARTH) / 16384.0f,    // -8G ~ +8G, 14 bit
-          0.20f, 10, 
+          0.20f, 10, 0, 0,
           { (void*)"mc3210" }    // reserved[0] --> input device name
 
         },
-        { 
+        {
           "STK8312 3-axis Accelerometer",
           "STK",
           1, SENSORS_ACCELERATION_HANDLE,
-          SENSOR_TYPE_ACCELEROMETER, 
-          (6.0f * GRAVITY_EARTH), 
+          SENSOR_TYPE_ACCELEROMETER,
+          (6.0f * GRAVITY_EARTH),
           (1.0f * GRAVITY_EARTH) / 21.34f,    // -1.5G ~ +1.5G, 8 bit
-          0.20f, 10, 
+          0.20f, 10, 0, 0,
           { (void*)"stk8312" }    // reserved[0] --> input device name
         },
-        { 
+        {
           "STK8313 3-axis Accelerometer",
           "STK",
           1, SENSORS_ACCELERATION_HANDLE,
-          SENSOR_TYPE_ACCELEROMETER, 
-          (8.0f * GRAVITY_EARTH), 
+          SENSOR_TYPE_ACCELEROMETER,
+          (8.0f * GRAVITY_EARTH),
           (1.0f * GRAVITY_EARTH) / 256.0f,    // -8G ~ +8G, 14 bit
-          0.20f, 10, 
+          0.20f, 10, 0, 0,
           { (void*)"stk8313" }    // reserved[0] --> input device name
         },
-        { 
+        {
           "LTR-301 Light sensor",
           "LITE-ON",
           1, SENSORS_LIGHT_HANDLE,
-          SENSOR_TYPE_LIGHT, 
+          SENSOR_TYPE_LIGHT,
           64000.0f,     // 2 ~ 64k
           1.0f,
-          0.20f, 500, 
+          0.20f, 500, 0, 0,
           { (void*)"ltr301" }    // reserved[0] --> input device name
         },
-        { 
+        {
           "MC6420 3-axis Magnetic field sensor",
           "mCube",
           1, SENSORS_MAGNETIC_FIELD_HANDLE,
-          SENSOR_TYPE_MAGNETIC_FIELD, 
+          SENSOR_TYPE_MAGNETIC_FIELD,
           400.0f,           // -200uT ~ +200uT
           1.0f / 80.0f,    // 80 LSB/uT
-          0.5f, 10, 
+          0.5f, 10, 0, 0,
           { (void*)"mc6420" }    // reserved[0] --> input device name
-        },	
-        { 
+        },
+        {
           "L3G4200D Gyroscope sensor",
           "ST Microelectronics",
           1, SENSORS_GYROSCOPE_HANDLE,
-          SENSOR_TYPE_GYROSCOPE, 
+          SENSOR_TYPE_GYROSCOPE,
           (4000.0f*(float)M_PI/180.0f),         // -2000dps ~ +2000dps
           ((70.0f / 1000.0f) * ((float)M_PI / 180.0f)),    // 70 mdps/LSB
-          6.1f, 10, 
+          6.1f, 10, 0, 0,
           { (void*)"l3g4200d" }    // reserved[0] --> input device name
         },
-        { 
+        {
           "MPU3050C Gyroscope sensor",
           "InvenSense Inc.",
           1, SENSORS_GYROSCOPE_HANDLE,
-          SENSOR_TYPE_GYROSCOPE, 
+          SENSOR_TYPE_GYROSCOPE,
           (4000.0f*(float)M_PI/180.0f),         // -2000dps ~ +2000dps
           ((1.0f / 16.4f) * ((float)M_PI / 180.0f)),    // 1/16.4 dps/LSB
-          6.1f, 10, 
+          6.1f, 10, 0, 0,
           { (void*)"mpu3050c" }    // reserved[0] --> input device name
         },
-        { 
+        {
           "BMA250 Thermometer",
           "Bosch Sensortec",
           1, SENSORS_TEMPERATURE_HANDLE,
-          SENSOR_TYPE_TEMPERATURE, 
+          SENSOR_TYPE_TEMPERATURE,
           128.0f,        // -40 ~ +87.5 centigrade
           0.5f,     // 0.5 centigrade/LSB, 8 bit
-          0.20f, 10, 
+          0.20f, 10, 0, 0,
           { (void*)"bma250t" }    // reserved[0] --> input device name
         },
 };
@@ -267,23 +267,23 @@ static int sensors_detect_devices(const struct sensor_t* slist, int ssize,
         struct dirent *de;
         int count = 0;
         int idx = 0;
-        
+
         dir = opendir(dirname);
         if(dir == NULL)
             return 0;
-        
+
         strcpy(devname, dirname);
         filename = devname + strlen(devname);
         *filename++ = '/';
-        
+
         while((de = readdir(dir))) {
             if(de->d_name[0] == '.' &&
                     (de->d_name[1] == '\0' ||
                             (de->d_name[1] == '.' && de->d_name[2] == '\0')))
                 continue;
-                
+
             strcpy(filename, de->d_name);
-            
+
             fd = open(devname, O_RDONLY);
             if (fd>=0) {
                 char name[80];
@@ -296,11 +296,11 @@ static int sensors_detect_devices(const struct sensor_t* slist, int ssize,
                         count ++;
                         break;
                     }
-                }                
+                }
             }
             close(fd);
             fd = -1;
-            
+
             if (count >= csize)
                 break;
         }
@@ -309,9 +309,9 @@ static int sensors_detect_devices(const struct sensor_t* slist, int ssize,
 }
 
 static int sensors__get_sensors_list(struct sensors_module_t* module,
-                                     struct sensor_t const** list) 
+                                     struct sensor_t const** list)
 {
-        *list = sSensorList;        
+        *list = sSensorList;
         return sSensorListNum;
 }
 
@@ -328,6 +328,8 @@ struct sensors_module_t HAL_MODULE_INFO_SYM = {
                 name: "Actions Sensors Module",
                 author: "The Android Open Source Project",
                 methods: &sensors_module_methods,
+                dso: 0,
+                reserved: {},
         },
         get_sensors_list: sensors__get_sensors_list,
 };
@@ -368,25 +370,25 @@ private:
     int real_activate(int handle, int enabled);
 
     int handleToDriver(int handle) const {
-        switch (handle) {           
+        switch (handle) {
             case SENSORS_ACCELERATION_HANDLE:
                 return accel;
-                
+
     	    case SENSORS_MAGNETIC_FIELD_HANDLE:
                 return magnetic;
-                
+
     	    case SENSORS_ORIENTATION_HANDLE:
                 return orietation;
-                
+
     	    case SENSORS_LIGHT_HANDLE:
                 return light;
-                
+
             case SENSORS_PROXIMITY_HANDLE:
                 return proximity;
-                
+
             case SENSORS_GYROSCOPE_HANDLE:
                 return gyroscope;
-                
+
             case SENSORS_TEMPERATURE_HANDLE:
                 return temperature;
         }
@@ -400,50 +402,50 @@ sensors_poll_context_t::sensors_poll_context_t()
 {
     int index = 0;
     struct sensor_t* ss = NULL;
-    
+
     // clear sensors
     for (index = 0; index < numSensorDrivers; index++) {
         mSensors[index] = NULL;
     }
-    
+
     // clear mPollFds
     for (index = 0; index < numFds; index++) {
         memset(&(mPollFds[index]), 0, sizeof(pollfd));
         mPollFds[index].fd = -1;
     }
-    
+
     // detect sensors
     if (sSensorListNum <= 0) {
-        sSensorListNum = sensors_detect_devices(sSensorSupportList, 
+        sSensorListNum = sensors_detect_devices(sSensorSupportList,
                                     ARRAY_SIZE(sSensorSupportList),
                                     sSensorList, ARRAY_SIZE(sSensorList));
     }
-    
+
     // create sensors
     for (index = 0; index < sSensorListNum; index++) {
          ss = &sSensorList[index];
-         
+
         switch(ss->type) {
             case SENSOR_TYPE_ACCELEROMETER:
                 if( mSensors[accel] == NULL) {
-                    mSensors[accel] = new AccelerationSensor((char*)ss->reserved[0], 
+                    mSensors[accel] = new AccelerationSensor((char*)ss->reserved[0],
                                                 ss->resolution, ss->minDelay);
                     mPollFds[accel].fd = mSensors[accel]->getFd();
                     mPollFds[accel].events = POLLIN;
                     mPollFds[accel].revents = 0;
                 }
                 break;
-                
+
             case SENSOR_TYPE_MAGNETIC_FIELD:
                 if( mSensors[magnetic] == NULL) {
-                    mSensors[magnetic] = new CompassSensor((char*)ss->reserved[0], 
+                    mSensors[magnetic] = new CompassSensor((char*)ss->reserved[0],
                                                 ss->resolution, ss->minDelay);
                     mPollFds[magnetic].fd = mSensors[magnetic]->getFd();
                     mPollFds[magnetic].events = POLLIN;
                     mPollFds[magnetic].revents = 0;
                 }
                 break;
-                
+
             case SENSOR_TYPE_ORIENTATION:
                 if( mSensors[orietation] == NULL) {
 /*
@@ -454,17 +456,17 @@ sensors_poll_context_t::sensors_poll_context_t()
 */
                 }
                 break;
-                
+
             case SENSOR_TYPE_LIGHT:
                 if( mSensors[light] == NULL) {
-                    mSensors[light] = new LightSensor((char*)ss->reserved[0], 
+                    mSensors[light] = new LightSensor((char*)ss->reserved[0],
                                                 ss->resolution, ss->minDelay);
                     mPollFds[light].fd = mSensors[light]->getFd();
                     mPollFds[light].events = POLLIN;
                     mPollFds[light].revents = 0;
                 }
                 break;
-                
+
             case SENSOR_TYPE_PROXIMITY:
                 if( mSensors[proximity] == NULL) {
 /*
@@ -475,20 +477,20 @@ sensors_poll_context_t::sensors_poll_context_t()
 */
                 }
                 break;
-                
+
             case SENSOR_TYPE_GYROSCOPE:
                 if( mSensors[gyroscope] == NULL) {
-                    mSensors[gyroscope] = new GyroSensor((char*)ss->reserved[0], 
+                    mSensors[gyroscope] = new GyroSensor((char*)ss->reserved[0],
                                                 ss->resolution, ss->minDelay);
                     mPollFds[gyroscope].fd = mSensors[gyroscope]->getFd();
                     mPollFds[gyroscope].events = POLLIN;
                     mPollFds[gyroscope].revents = 0;
                 }
                 break;
-                
+
             case SENSOR_TYPE_TEMPERATURE:
                 if( mSensors[temperature] == NULL) {
-                    mSensors[temperature] = new TemperatureSensor((char*)ss->reserved[0], 
+                    mSensors[temperature] = new TemperatureSensor((char*)ss->reserved[0],
                                                 ss->resolution, ss->minDelay);
                     mPollFds[temperature].fd = mSensors[temperature]->getFd();
                     mPollFds[temperature].events = POLLIN;
@@ -497,7 +499,7 @@ sensors_poll_context_t::sensors_poll_context_t()
                 break;
         }
     }
-    
+
     int wakeFds[2];
     int result = pipe(wakeFds);
     ALOGE_IF(result<0, "error creating wake pipe (%s)", strerror(errno));
