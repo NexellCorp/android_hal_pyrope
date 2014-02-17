@@ -1,0 +1,8 @@
+.*.cmd
+.tmp_versions
+Module.symvers
+*.o
+*.order
+*.mod.c
+*.ko
+__vrdrv_build_info_backup.c
