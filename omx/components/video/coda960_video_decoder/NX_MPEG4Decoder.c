@@ -110,11 +110,11 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 
 		pDecComp->bNeedKey = OMX_FALSE;
 		pDecComp->bInitialized = OMX_TRUE;
-		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, inData, 0, &decOut );
+		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, inData, 0, pInBuf->nTimeStamp, &decOut );
 	}
 	else
 	{
-		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, inData, inSize, &decOut );
+		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, inData, inSize, pInBuf->nTimeStamp, &decOut );
 	}
 
 

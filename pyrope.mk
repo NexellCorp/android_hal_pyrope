@@ -37,6 +37,7 @@ PRODUCT_PACKAGES += \
 # omx
 PRODUCT_PACKAGES += \
 	libstagefrighthw \
+	libnx_vpu \
 	libNX_OMX_VIDEO_DECODER \
 	libNX_OMX_VIDEO_ENCODER \
 	libNX_OMX_Base \
