@@ -21,7 +21,7 @@ LOCAL_PATH := $(call my-dir)
 # InvenSense fragment of the HAL
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := libinvensense_hal
+LOCAL_MODULE := libinvensense_vendor_hal
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := invensense
 
@@ -99,17 +99,6 @@ include $(BUILD_SHARED_LIBRARY)
 
 # Build a temporary HAL that links the InvenSense .so
 include $(CLEAR_VARS)
-ifeq ($(filter eng, userdebug, $(TARGET_BUILD_VARIANT)),)
-ifneq ($(filter manta full_grouper tilapia, $(TARGET_PRODUCT)),)
-LOCAL_MODULE := sensors.full_grouper
-else
-ifneq ($(filter aosp_hammerhead, $(TARGET_PRODUCT)),)
-LOCAL_MODULE := sensors.hammerhead
-endif
-endif
-else    # eng & userdebug builds
-LOCAL_MODULE := sensors.invensense
-endif   # eng & userdebug builds
 LOCAL_MODULE := sensors.$(TARGET_BOOTLOADER_BOARD_NAME)
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
 
@@ -158,7 +147,7 @@ else    # eng & userdebug builds
 LOCAL_SRC_FILES := sensors_mpl.cpp
 endif   # eng & userdebug builds
 
-LOCAL_SHARED_LIBRARIES := libinvensense_hal
+LOCAL_SHARED_LIBRARIES := libinvensense_vendor_hal
 LOCAL_SHARED_LIBRARIES += libcutils
 LOCAL_SHARED_LIBRARIES += libutils
 LOCAL_SHARED_LIBRARIES += libdl
