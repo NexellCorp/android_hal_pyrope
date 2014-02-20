@@ -116,6 +116,13 @@ extern "C" {
 
     void mlMatrixVectorMult(long matrix[9], const long vecIn[3], long *vecOut);
 
+	long inv_inverse_sqrt(long x0, int*rempow);
+	long inv_fast_sqrt(long x0);
+	long inv_one_over_x(long x0, int*pow);
+	int test_limits_and_scale(long *x0, int *pow);
+	int get_highest_bit_position(unsigned long *value);
+    int inv_compute_scalar_part(const long * inQuat, long* outQuat);
+
 #ifdef __cplusplus
 }
 #endif

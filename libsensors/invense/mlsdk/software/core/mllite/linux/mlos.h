@@ -1,6 +1,6 @@
 /*
  $License:
-    Copyright (C) 2011 InvenSense Corporation, All Rights Reserved.
+    Copyright (C) 2014 InvenSense Corporation, All Rights Reserved.
  $
  */
 
@@ -12,7 +12,7 @@
 #endif
 #include <pthread.h>
 
-#include "../../driver/include/mltypes.h"
+#include "mltypes.h"
 
 #ifdef __cplusplus
 extern "C" {

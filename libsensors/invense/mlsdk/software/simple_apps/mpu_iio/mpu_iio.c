@@ -19,18 +19,20 @@
 #include <termios.h>
 
 #include "iio_utils.h"
-#include "../../core/mllite/linux/ml_load_dmp.h"
-#include "../../core/mllite/linux/ml_sysfs_helper.h"
-#include "../../core/mpl/authenticate.h"
-#include "../../core/mllite/linux/mlos.h"
+#include "ml_load_dmp.h"
+#include "ml_sysfs_helper.h"
+#include "authenticate.h"
+#include "mlos.h"
 
 #define DMP_CODE_SIZE (3060)
 #define POLL_TIME     (2000) // 2sec
 
 // settings
+static int accel_only = false;
 static int test_motion = false;
 static int test_flick = false;
-static int accel_only = false;
+static int test_pedometer = false;
+static int test_orientation = false;
 int verbose = false;
 
 // paths
@@ -296,22 +298,24 @@ int setup_dmp(char *dev_path, int p_event)
             return ret;
     }
 
+    /*
     ret = write_sysfs_int_and_verify("tap_on", dev_path, 1);
     if (ret < 0)
         return ret;
+    */
 
-    ret = write_sysfs_int_and_verify("display_orientation_on",
+    /*ret = write_sysfs_int_and_verify("display_orientation_on",
                                      dev_path, 1);
     if (ret < 0)
-        return ret;
-    /*
-    ret = write_sysfs_int_and_verify("orientation_on", dev_path, 1);
+        return ret;*/
+    if (test_orientation) {
+        ret = write_sysfs_int_and_verify("orientation_on", dev_path, 1);
+        if (ret < 0)
+            return ret;
+    }
+   /* ret = write_sysfs_int_and_verify("dmp_output_rate", dev_path, 25);
     if (ret < 0)
-        return ret;
-    */
-    ret = write_sysfs_int_and_verify("dmp_output_rate", dev_path, 25);
-    if (ret < 0)
-        return ret;
+        return ret;*/
     ret = write_sysfs_int_and_verify("dmp_event_int_on", dev_path, p_event);
     if (ret < 0)
         return ret;
@@ -339,7 +343,6 @@ void handle_motion(int motion)
     printf("motion=%x\n", motion);
 }
 
-/*
 void handle_orientation(int orient)
 {
     printf("orientation=");
@@ -359,7 +362,6 @@ void handle_orientation(int orient)
         printf("flip");
     printf("\n");
 }
-*/
 
 void handle_tap(int tap)
 {
@@ -448,8 +450,9 @@ int handle_pedometer(int *got_event)
 
 void dump_dmp_event_struct(void)
 {
-    int i;
 #define VARVAL(f, v) printf("\t%s : " f "\n", #v, v);
+    int i;
+
     printf("dmp_feat structure content:\n");
     for (i = 0; i < FEAT_NUM; i++) {
         printf("%d - ", i);
@@ -544,9 +547,11 @@ void poll_dmp_event_fds(void)
         }
     }
 
-    // pedometer is not event based, therefore we poll using a timer every
-    //  pedometer_poll_timeout milliseconds
-    handle_pedometer(&got_event);
+    if (test_pedometer) {
+        /* pedometer is not event based, therefore we poll using a timer every
+           pedometer_poll_timeout milliseconds */
+        handle_pedometer(&got_event);
+    }
 }
 
 /*
@@ -643,7 +648,7 @@ int main(int argc, char **argv)
     // comment out/remove/if(0) the block corresponding to the feature 
     //  that you want to disable
 
-    if (1) {
+    if (0) {
         struct dmp_feat_t f = {
             true, 
             NULL, 
@@ -653,8 +658,7 @@ int main(int argc, char **argv)
         dmp_feat[pollfds_used] = f;
         pollfds_used++;
     }
-    /* - Feature not available -
-    if (1) {
+    if (test_orientation) {
         struct dmp_feat_t f = {
             true, 
             NULL, 
@@ -664,8 +668,7 @@ int main(int argc, char **argv)
         dmp_feat[pollfds_used] = f;
         pollfds_used++;
     }
-    */
-    if (1) {
+    /*if (1) {
         struct dmp_feat_t f = {
             true, 
             NULL, 
@@ -674,7 +677,7 @@ int main(int argc, char **argv)
         };
         dmp_feat[pollfds_used] = f;
         pollfds_used++;
-    }
+    }*/
     if (test_motion) {
         struct dmp_feat_t f = {
             true,
@@ -724,6 +727,10 @@ int main(int argc, char **argv)
             goto error_ret;
         }
     }
+
+   ret = write_sysfs_int_and_verify("master_enable", dev_dir_name, 0);
+    if (ret < 0)
+        return ret;
     ret = write_sysfs_int_and_verify("buffer/enable", dev_dir_name, 0);
     if (ret < 0)
         return ret;
@@ -742,10 +749,10 @@ int main(int argc, char **argv)
         if (ret < 0)
             return ret;
         // duration in ms up to 2^16
-        ret = write_sysfs_int_and_verify("motion_lpa_duration", dev_dir_name, 
-                                         200 * 1);
-        if (ret < 0)
-            return ret;
+      //  ret = write_sysfs_int_and_verify("motion_lpa_dur", dev_dir_name, 
+        //                                 200 * 1);
+        //if (ret < 0)
+          //  return ret;
         // motion_lpa_freq: 0 for 1.25, 1 for 5, 2 for 20, 3 for 40 Hz update rate 
         //  of the low power accel mode. 
         //  The higher the rate, the better responsiveness of the motion interrupt.
@@ -819,7 +826,7 @@ int main(int argc, char **argv)
     ret = enable_accel_se(dev_dir_name, &infoarray, &num_channels, 1);
     if (ret < 0)
         return ret;
-    ret = write_sysfs_int_and_verify("accl_enable", dev_dir_name, 1);
+    ret = write_sysfs_int_and_verify("accel_enable", dev_dir_name, 1);
     if (ret < 0)
         return ret;
 
@@ -828,7 +835,7 @@ int main(int argc, char **argv)
         ret = enable_quaternion_se(dev_dir_name, &infoarray, &num_channels, 1);
         if (ret < 0)
             return ret;
-        ret = write_sysfs_int_and_verify("quaternion_on", dev_dir_name, 1);
+        ret = write_sysfs_int_and_verify("three_axes_q_on", dev_dir_name, 1);
         if (ret < 0)
             return ret;
     } else {
@@ -859,7 +866,10 @@ int main(int argc, char **argv)
         ret = -ENOMEM;
         goto exit_here;
     }
-
+/*ADDED*/
+   ret = write_sysfs_int_and_verify("master_enable", dev_dir_name, 1);
+    if (ret < 0)
+        return ret;
     if (p_event) {
 
         /* polling events from the DMP */

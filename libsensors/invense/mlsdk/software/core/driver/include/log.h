@@ -56,8 +56,8 @@
 extern "C" {
 #endif
 
-#if defined ANDROID_JELLYBEAN
-#define LOG        ALOG
+#if defined ANDROID_JELLYBEAN || defined ANDROID_KITKAT
+#define LOG ALOG
 #define LOG_ERRROR ANDROID_LOG_ERROR
 #endif
 

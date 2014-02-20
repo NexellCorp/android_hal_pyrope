@@ -1,6 +1,6 @@
 /*
  $License:
-    Copyright (C) 2011 InvenSense Corporation, All Rights Reserved.
+    Copyright (C) 2014 InvenSense Corporation, All Rights Reserved.
  $
  */
 
@@ -9,6 +9,7 @@
  * $Id$
  *
  ******************************************************************************/
+
 #ifndef MLDMP_SYSFS_HELPER_H__
 #define MLDMP_SYSFS_HELPER_H__
 
@@ -19,6 +20,7 @@ extern "C" {
 #include "../invensense.h"
 
 int find_type_by_name(const char *name, const char *type);
+int find_name_by_sensor_type(const char *sensor_type, const char *type, char *sensor_name);
 inv_error_t inv_get_sysfs_path(char *name);
 inv_error_t inv_get_sysfs_abs_path(char *name);
 inv_error_t inv_get_dmpfile(char *name);

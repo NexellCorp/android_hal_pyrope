@@ -1,4 +1,4 @@
-# Copyright (C) 2008 The Android Open Source Project
+# Copyright (C) 2014 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,17 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # Modified 2011 by InvenSense, Inc
-#
 ifeq ($(BOARD_SENSOR_TYPE),invense)
 
 LOCAL_PATH := $(call my-dir)
-ifneq ($(TARGET_SIMULATOR),true)
+
+#ifneq ($(TARGET_SIMULATOR),true)
 
 # InvenSense fragment of the HAL
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libinvensense_hal
-
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := invensense
 
@@ -31,12 +30,13 @@ LOCAL_CFLAGS := -DLOG_TAG=\"Sensors\"
 # ANDROID version check
 MAJOR_VERSION :=$(shell echo $(PLATFORM_VERSION) | cut -f1 -d.)
 MINOR_VERSION :=$(shell echo $(PLATFORM_VERSION) | cut -f2 -d.)
-VERSION_JB :=$(shell test $(MAJOR_VERSION) -gt 4 -o $(MAJOR_VERSION) -eq 4 -a $(MINOR_VERSION) -gt 0 && echo true)
-$(info MAJOR_VERSION=$(MAJOR_VERSION))
-$(info MINOR_VERSION=$(MINOR_VERSION))
+VERSION_KK :=$(shell test $(MAJOR_VERSION) -gt 4 -o $(MAJOR_VERSION) -eq 4 -a $(MINOR_VERSION) -gt 3 && echo true)
+$(info ANDRIOD VERSION=$(MAJOR_VERSION).$(MINOR_VERSION))
 #ANDROID version check END
 
-ifeq ($(VERSION_JB),true)
+ifeq ($(VERSION_KK),true)
+LOCAL_CFLAGS += -DANDROID_KITKAT
+else
 LOCAL_CFLAGS += -DANDROID_JELLYBEAN
 endif
 
@@ -47,15 +47,6 @@ endif
 ifeq ($(COMPILE_THIRD_PARTY_ACCEL),1)
 LOCAL_CFLAGS += -DTHIRD_PARTY_ACCEL
 endif
-ifeq ($(COMPILE_COMPASS_YAS53x),1)
-LOCAL_CFLAGS += -DCOMPASS_YAS53x
-endif
-ifeq ($(COMPILE_COMPASS_AK8975),1)
-LOCAL_CFLAGS += -DCOMPASS_AK8975
-endif
-ifeq ($(COMPILE_COMPASS_AMI306),1)
-LOCAL_CFLAGS += -DCOMPASS_AMI306
-endif
 else # release builds, default
 LOCAL_CFLAGS += -DINVENSENSE_COMPASS_CAL
 endif
@@ -64,15 +55,15 @@ LOCAL_SRC_FILES += SensorBase.cpp
 LOCAL_SRC_FILES += MPLSensor.cpp
 LOCAL_SRC_FILES += MPLSupport.cpp
 LOCAL_SRC_FILES += InputEventReader.cpp
+LOCAL_SRC_FILES += PressureSensor.IIO.secondary.cpp
 
 ifneq (,$(filter $(TARGET_BUILD_VARIANT),eng userdebug))
 ifeq ($(COMPILE_INVENSENSE_COMPASS_CAL),0)
 LOCAL_SRC_FILES += AkmSensor.cpp
 LOCAL_SRC_FILES += CompassSensor.AKM.cpp
-else ifeq ($(COMPILE_COMPASS_AMI306),1)
+else ifeq ($(COMPILE_INVENSENSE_SENSOR_ON_PRIMARY_BUS), 1)
 LOCAL_SRC_FILES += CompassSensor.IIO.primary.cpp
-else ifeq ($(COMPILE_COMPASS_YAS53x),1)
-LOCAL_SRC_FILES += CompassSensor.IIO.primary.cpp
+LOCAL_CFLAGS += -DSENSOR_ON_PRIMARY_BUS
 else
 LOCAL_SRC_FILES += CompassSensor.IIO.9150.cpp
 endif
@@ -97,12 +88,28 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/mlsdk/software/core/mpl
 LOCAL_CPPFLAGS += -DLINUX=1
 LOCAL_PRELINK_MODULE := false
 
+LOCAL_SHARED_LIBRARIES += libmllite
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/mlsdk/software/core/mllite
+LOCAL_CPPFLAGS += -DLINUX=1
+LOCAL_PRELINK_MODULE := false
+
 include $(BUILD_SHARED_LIBRARY)
 
-endif # !TARGET_SIMULATOR
+#endif # !TARGET_SIMULATOR
 
 # Build a temporary HAL that links the InvenSense .so
 include $(CLEAR_VARS)
+ifeq ($(filter eng, userdebug, $(TARGET_BUILD_VARIANT)),)
+ifneq ($(filter manta full_grouper tilapia, $(TARGET_PRODUCT)),)
+LOCAL_MODULE := sensors.full_grouper
+else
+ifneq ($(filter aosp_hammerhead, $(TARGET_PRODUCT)),)
+LOCAL_MODULE := sensors.hammerhead
+endif
+endif
+else    # eng & userdebug builds
+LOCAL_MODULE := sensors.invensense
+endif   # eng & userdebug builds
 LOCAL_MODULE := sensors.$(TARGET_BOOTLOADER_BOARD_NAME)
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
 
@@ -117,7 +124,9 @@ LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS := -DLOG_TAG=\"Sensors\"
 
-ifeq ($(VERSION_JB),true)
+ifeq ($(VERSION_KK),true)
+LOCAL_CFLAGS += -DANDROID_KITKAT
+else
 LOCAL_CFLAGS += -DANDROID_JELLYBEAN
 endif
 
@@ -128,25 +137,26 @@ endif
 ifeq ($(COMPILE_THIRD_PARTY_ACCEL),1)
 LOCAL_CFLAGS += -DTHIRD_PARTY_ACCEL
 endif
-ifeq ($(COMPILE_COMPASS_YAS53x),1)
-LOCAL_CFLAGS += -DCOMPASS_YAS53x
-endif
-ifeq ($(COMPILE_COMPASS_AK8975),1)
-LOCAL_CFLAGS += -DCOMPASS_AK8975
-endif
-ifeq ($(COMPILE_COMPASS_AMI306),1)
-LOCAL_CFLAGS += -DCOMPASS_AMI306
+ifeq ($(COMPILE_INVENSENSE_SENSOR_ON_PRIMARY_BUS), 1)
+LOCAL_SRC_FILES += CompassSensor.IIO.primary.cpp
+LOCAL_CFLAGS += -DSENSOR_ON_PRIMARY_BUS
+else
+LOCAL_SRC_FILES += CompassSensor.IIO.9150.cpp
 endif
 else # release builds, default
-LOCAL_CFLAGS += -DINVENSENSE_COMPASS_CAL
+LOCAL_SRC_FILES += CompassSensor.IIO.9150.cpp
 endif # userdebug
 
+ifeq (,$(filter $(TARGET_BUILD_VARIANT),eng userdebug))
 ifneq ($(filter manta grouper tilapia, $(TARGET_DEVICE)),)
-LOCAL_SRC_FILES := sensors_mpl.cpp
+# it's already defined in some other Makefile for production builds
+#LOCAL_SRC_FILES := sensors_mpl.cpp
 else
 LOCAL_SRC_FILES := sensors_mpl.cpp
 endif
-
+else    # eng & userdebug builds
+LOCAL_SRC_FILES := sensors_mpl.cpp
+endif   # eng & userdebug builds
 
 LOCAL_SHARED_LIBRARIES := libinvensense_hal
 LOCAL_SHARED_LIBRARIES += libcutils

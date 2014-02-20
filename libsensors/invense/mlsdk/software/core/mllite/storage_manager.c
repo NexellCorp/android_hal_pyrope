@@ -14,6 +14,10 @@
  *       @file storage_manager.c
  *       @brief Load and Store Manager.
  */
+#undef MPL_LOG_NDEBUG
+#define MPL_LOG_NDEBUG 0 /* Use 0 to turn on MPL_LOGV output */
+#undef MPL_LOG_TAG
+#define MPL_LOG_TAG "MLLITE"
 
 #include <string.h>
 
@@ -127,6 +131,8 @@ inv_error_t inv_load_mpl_states(const unsigned char *data, size_t length)
     long len;
 
     len = length; // Important so we get negative numbers
+    if (data == NULL || len == 0)
+        return INV_SUCCESS;
     if (len < sizeof(struct data_header_t))
         return INV_ERROR_CALIBRATION_LOAD;  // No data
     hd = (struct data_header_t *)data;
@@ -173,6 +179,8 @@ inv_error_t inv_save_mpl_states(unsigned char *data, size_t sz)
     int kk;
     struct data_header_t *hd;
 
+    if (data == NULL || sz == 0)
+        return INV_ERROR_CALIBRATION_LOAD;
     if (sz >= ds.total_size) {
         cur = data + sizeof(struct data_header_t);
         for (kk = 0; kk < ds.num; ++kk) {

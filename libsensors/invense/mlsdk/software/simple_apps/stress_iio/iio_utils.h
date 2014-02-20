@@ -436,7 +436,8 @@ inline int _write_sysfs_int(char *filename, char *basedir, int val, int verify)
 	int ret;
 	FILE *sysfsfp;
 	int test;
-	char *temp = malloc(strlen(basedir) + strlen(filename) + 2);
+	//char *temp = malloc(strlen(basedir) + strlen(filename) + 2);
+	char temp[200];
 	ret = 0;
 	if (temp == NULL)
 		return -ENOMEM;
@@ -471,7 +472,7 @@ inline int _write_sysfs_int(char *filename, char *basedir, int val, int verify)
 	}
 error_free:
 	fclose(sysfsfp);
-	free(temp);
+	//free(temp);
 	return ret;
 }
 
@@ -484,6 +485,33 @@ int write_sysfs_int_and_verify(char *filename, char *basedir, int val)
 {
 	printf("echo %d > %s/%s\n", val, basedir, filename);
 	return _write_sysfs_int(filename, basedir, val, 1);
+}
+
+inline int write_sysfs_int64(char *filename, char *basedir, long long val)
+{
+	int ret;
+	FILE *sysfsfp;
+	int test;
+	//char *temp = malloc(strlen(basedir) + strlen(filename) + 2);
+	char temp[200];
+	ret = 0;
+	if (temp == NULL)
+		return -ENOMEM;
+	sprintf(temp, "%s/%s", basedir, filename);
+	sysfsfp = fopen(temp, "w");
+	if (sysfsfp == NULL) {
+		printf("failed to open write %s\n", temp);
+		ret = -errno;
+		printf("ERROR1=%d\n", ret);
+		while(1);
+		goto error_free;
+	}
+	fprintf(sysfsfp, "%lld", val);
+	fclose(sysfsfp);
+error_free:
+	fclose(sysfsfp);
+	//free(temp);
+	return ret;
 }
 
 int _write_sysfs_string(char *filename, char *basedir, char *val, int verify)
@@ -561,6 +589,28 @@ int read_sysfs_posint(char *filename, char *basedir)
 		goto error_free;
 	}
 	fscanf(sysfsfp, "%d\n", &ret);
+	fclose(sysfsfp);
+error_free:
+	free(temp);
+	return ret;
+}
+
+long long read_sysfs_poslonglong(char *filename, char *basedir)
+{
+	long long ret;
+	FILE  *sysfsfp;
+	char *temp = malloc(strlen(basedir) + strlen(filename) + 2);
+	if (temp == NULL) {
+		printf("Memory allocation failed");
+		return -ENOMEM;
+	}
+	sprintf(temp, "%s/%s", basedir, filename);
+	sysfsfp = fopen(temp, "r");
+	if (sysfsfp == NULL) {
+		ret = -errno;
+		goto error_free;
+	}
+	fscanf(sysfsfp, "%lld\n", &ret);
 	fclose(sysfsfp);
 error_free:
 	free(temp);

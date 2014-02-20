@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 The Android Open Source Project
+ * Copyright (C) 2014 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ CompassSensor::CompassSensor()
     mCompassSensor = new AkmSensor();
     LOGV_IF(SYSFS_VERBOSE, "HAL:sysfs:echo %d > %s (%lld)",
             0, "/sys/class/compass/akm8963/enable_mag", getTimestamp());
-    write_sysfs_int("/sys/class/compass/akm8963/enable_mag", 0);
+    write_sysfs_int((char*)"/sys/class/compass/akm8963/enable_mag", 0);
 }
 
 CompassSensor::~CompassSensor()
@@ -55,7 +55,7 @@ CompassSensor::~CompassSensor()
     // TODO: disable 3rd-party's funtionalities and delete the object
     LOGV_IF(SYSFS_VERBOSE, "HAL:sysfs:echo %d > %s (%lld)",
             0, "/sys/class/compass/akm8963/enable_mag", getTimestamp());
-    write_sysfs_int("/sys/class/compass/akm8963/enable_mag", 0);
+    write_sysfs_int((char*)"/sys/class/compass/akm8963/enable_mag", 0);
     delete mCompassSensor;
 }
 
@@ -128,6 +128,25 @@ int CompassSensor::readSample(long *data, int64_t *timestamp)
     return mCompassSensor->readSample(data, timestamp);
 }
 
+/**
+    @brief         Integrators need to implement this function per 3rd-party solution
+    @param[out]    data      sensor data is stored in this variable. Scaled such that
+                             1 uT = 2^16
+    @para[in]      timestamp data's timestamp
+    @return        1, if 1   sample read, 0, if not, negative if error
+**/
+int CompassSensor::readRawSample(float *data, int64_t *timestamp)
+{
+    VFUNC_LOG;
+    long ldata[3];
+
+    int res = mCompassSensor->readSample(ldata, timestamp);
+    for(int i=0; i<3; i++) {
+        data[i] = (float)ldata[i];
+    }
+    return res; 
+}
+
 void CompassSensor::fillList(struct sensor_t *list)
 {
     VFUNC_LOG;
@@ -152,7 +171,7 @@ void CompassSensor::fillList(struct sensor_t *list)
     }
 
     LOGE("HAL:unsupported compass id %s -- "
-         "this implementation only supports AKM compasses");
+         "this implementation only supports AKM compasses", compass);
     list->maxRange = COMPASS_AKM8975_RANGE;
     list->resolution = COMPASS_AKM8975_RESOLUTION;
     list->power = COMPASS_AKM8975_POWER;

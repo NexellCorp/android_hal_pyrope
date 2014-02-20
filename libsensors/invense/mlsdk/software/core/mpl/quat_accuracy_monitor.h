@@ -16,6 +16,7 @@
 #define QUAT_ACCURARCY_MONITOR_H__
 
 #include "../driver/include/mltypes.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

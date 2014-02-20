@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 The Android Open Source Project
+ * Copyright (C) 2014 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ public:
     // TODO: make sure either 3rd-party compass solution has following virtual
     //       functions, or SensorBase.cpp could provide equal functionalities
     virtual int getFd() const;
+    virtual int getRawFd() {return 0;};
     virtual int enable(int32_t handle, int enabled);
     virtual int setDelay(int32_t handle, int64_t ns);
     virtual int getEnable(int32_t handle);
@@ -55,9 +56,11 @@ public:
     //       reference (look into .cpp for detailed information, also refer to
     //       3rd-party's readEvents() for relevant APIs)
     int readSample(long *data, int64_t *timestamp);
+    int readRawSample(float *data, int64_t *timestamp);
     void fillList(struct sensor_t *list);
     void getOrientationMatrix(signed char *orient);
     int getAccuracy();
+    virtual void getCompassBias(long *bias) {return;};
 
     // TODO: if 3rd-party provides calibrated compass data, just return 1
     int providesCalibration() { return 1; }
@@ -68,6 +71,9 @@ public:
     /* all 3rd pary solution have compasses on the primary bus, hence they
        have no dependency on the MPU */
     int isIntegrated() { return 0; }
+
+    int checkCoilsReset(void) { return 0; };
+    int isYasCompass(void) { return 0; };
 
 private:
     AkmSensor *mCompassSensor;

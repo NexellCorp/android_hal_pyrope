@@ -1,12 +1,9 @@
 SHELL=/bin/bash
 
 TARGET       ?= android
-#PRODUCT      ?= beagleboard
-PRODUCT      ?= lynx
-#ANDROID_ROOT ?= /Android/trunk/0xdroid/beagle-eclair
-ANDROID_ROOT ?= /home/nexell/devel/nxp4330/android/aosp-4.2.2_r1
-#KERNEL_ROOT  ?= /Android/trunk/0xdroid/kernel
-KERNEL_ROOT ?= /home/nexell/devel/nxp4330/android/kernel/android-3.4
+PRODUCT      ?= beagleboard
+ANDROID_ROOT ?= /Android/trunk/0xdroid/beagle-eclair
+KERNEL_ROOT  ?= /Android/trunk/0xdroid/kernel
 MLSDK_ROOT   ?= $(CURDIR)
 
 ifeq ($(VERBOSE),1)
@@ -25,10 +22,11 @@ LIB_FOLDERS  = $(INV_ROOT)/core/mllite/build/$(TARGET)
 ifeq ($(BUILD_MPL),1)
 	LIB_FOLDERS += $(INV_ROOT)/core/mpl/build/$(TARGET)
 endif
-APP_FOLDERS  = $(INV_ROOT)/simple_apps/stress_iio/build/$(TARGET)
-APP_FOLDERS += $(INV_ROOT)/simple_apps/mpu_iio/build/$(TARGET)
+APP_FOLDERS  = $(INV_ROOT)/simple_apps/mpu_iio/build/$(TARGET)
 APP_FOLDERS += $(INV_ROOT)/simple_apps/self_test/build/$(TARGET)
 APP_FOLDERS += $(INV_ROOT)/simple_apps/gesture_test/build/$(TARGET)
+APP_FOLDERS += $(INV_ROOT)/simple_apps/playback/linux/build/$(TARGET)
+APP_FOLDERS += $(INV_ROOT)/simple_apps/devnode_parser/build/$(TARGET)
 
 INSTALL_DIR = $(CURDIR)
 
