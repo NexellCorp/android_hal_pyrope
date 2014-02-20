@@ -154,12 +154,12 @@ int NX_DecodeRVFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, NX
 		}
 		pDecComp->bNeedKey = OMX_FALSE;
 		pDecComp->bInitialized = OMX_TRUE;
-		NX_VidDecDecodeFrame( pDecComp->hVpuCodec, pDecComp->tmpInputBuffer, 0, &decOut );
+		NX_VidDecDecodeFrame( pDecComp->hVpuCodec, pDecComp->tmpInputBuffer, 0, pInBuf->nTimeStamp, &decOut );
 	}
 	else
 	{
 		rcSize = MakeRVPacketData( inData, inSize, pDecComp->tmpInputBuffer, pDecComp->rvFrameCnt++ );
-		NX_VidDecDecodeFrame( pDecComp->hVpuCodec, pDecComp->tmpInputBuffer, rcSize, &decOut );
+		NX_VidDecDecodeFrame( pDecComp->hVpuCodec, pDecComp->tmpInputBuffer, rcSize, pInBuf->nTimeStamp, &decOut );
 	}
 
 	if( decOut.outImgIdx >= 0 && ( decOut.outImgIdx < NX_OMX_MAX_BUF ) )

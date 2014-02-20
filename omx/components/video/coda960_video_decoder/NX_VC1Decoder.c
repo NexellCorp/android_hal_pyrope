@@ -162,12 +162,12 @@ int NX_DecodeVC1Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 		}
 		pDecComp->bNeedKey = OMX_FALSE;
 		pDecComp->bInitialized = OMX_TRUE;
-		decRet = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, pDecComp->tmpInputBuffer, 0, &decOut );
+		decRet = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, pDecComp->tmpInputBuffer, 0, pInBuf->nTimeStamp, &decOut );
 	}
 	else
 	{
 		rcSize = MakeVC1PacketData( pDecComp->codecType.wmvType.eFormat, inData, inSize, pDecComp->tmpInputBuffer, key, (int)(pInBuf->nTimeStamp/1000ll) );
-		decRet = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, pDecComp->tmpInputBuffer, rcSize, &decOut );
+		decRet = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, pDecComp->tmpInputBuffer, rcSize, pInBuf->nTimeStamp, &decOut );
 	}
 
 	//DbgMsg("decRet = %d, decOut.outImgIdx = %d\n", decRet, decOut.outImgIdx );

@@ -8,6 +8,7 @@ LOCAL_PRELINK_MODULE := false
 
 NX_HW_TOP := $(TOP)/hardware/nexell/pyrope/
 NX_HW_INCLUDE := $(NX_HW_TOP)/include
+NX_LINUX_INCLUDE := $(TOP)/linux/pyrope/library/include
 
 OMX_TOP := $(TOP)/hardware/nexell/pyrope/omx
 
@@ -28,7 +29,8 @@ LOCAL_C_INCLUDES += \
 	$(OMX_TOP)/include \
 	$(OMX_TOP)/core/inc \
 	$(OMX_TOP)/codec/video/coda960 \
-	$(OMX_TOP)/components/base
+	$(OMX_TOP)/components/base \
+	$(NX_LINUX_INCLUDE)
 
 LOCAL_SHARED_LIBRARIES := \
 	libNX_OMX_Common \

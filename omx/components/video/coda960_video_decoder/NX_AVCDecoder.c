@@ -111,11 +111,11 @@ int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 
 		pDecComp->bNeedKey = OMX_FALSE;
 		pDecComp->bInitialized = OMX_TRUE;
-		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, inData, 0, &decOut );
+		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, inData, 0, pInBuf->nTimeStamp, &decOut );
 	}
 	else
 	{
-		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, inData, inSize, &decOut );
+		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, inData, inSize, pInBuf->nTimeStamp, &decOut );
 	}
 
 	if( ret==0 && decOut.outImgIdx >= 0 && ( decOut.outImgIdx < NX_OMX_MAX_BUF ) )

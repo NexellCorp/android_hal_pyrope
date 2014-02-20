@@ -287,7 +287,23 @@ static OMX_ERRORTYPE NX_VidDec_GetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 			struct GetAndroidNativeBufferUsageParams *pBufUsage = (struct GetAndroidNativeBufferUsageParams *)ComponentParamStruct;
 			if( pBufUsage->nPortIndex != 1 )
 				return OMX_ErrorBadPortIndex;
-			pBufUsage->nUsage = 1;	//	Enable Native Buffer Usage
+			pBufUsage->nUsage |= (GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_EXTERNAL_DISP);	//	Enable Native Buffer Usage
+			break;
+		}
+		case OMX_IndexParamPortDefinition:
+		{
+			OMX_PARAM_PORTDEFINITIONTYPE *pPortDef = (OMX_PARAM_PORTDEFINITIONTYPE *)ComponentParamStruct;
+			OMX_ERRORTYPE error = OMX_ErrorNone;
+			error = NX_BaseGetParameter( hComp, nParamIndex, ComponentParamStruct );
+			if( error != OMX_ErrorNone )
+			{
+				DbgMsg("Error NX_BaseGetParameter() failed !!! for OMX_IndexParamPortDefinition \n");
+				return error;
+			}
+			if( pPortDef->nPortIndex == 1 )
+			{
+				pPortDef->format.video.eColorFormat = HAL_PIXEL_FORMAT_YV12;
+			}
 			break;
 		}
 		default :
@@ -521,13 +537,20 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 		case OMX_IndexParamPortDefinition:
 		{
 			OMX_PARAM_PORTDEFINITIONTYPE *pPortDef = (OMX_PARAM_PORTDEFINITIONTYPE *)ComponentParamStruct;
+			OMX_ERRORTYPE error = OMX_ErrorNone;
+			error = NX_BaseSetParameter( hComp, nParamIndex, ComponentParamStruct );
+			if( error != OMX_ErrorNone )
+			{
+				DbgMsg("Error NX_BaseSetParameter() failed !!! for OMX_IndexParamPortDefinition \n");
+				return error;
+			}
 			if( pPortDef->nPortIndex == 0 )
 			{
 				//	Set Input Width & Height
 				pDecComp->width = pPortDef->format.video.nFrameWidth;
 				pDecComp->height = pPortDef->format.video.nFrameWidth;
 			}
-			return NX_BaseSetParameter( hComp, nParamIndex, ComponentParamStruct );
+			break;
 		}
 		default :
 			return NX_BaseSetParameter( hComp, nParamIndex, ComponentParamStruct );
