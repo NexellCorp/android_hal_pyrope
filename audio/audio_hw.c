@@ -1043,6 +1043,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
         	ret = -ENOMEM;
         	goto err_open;
     	}
+		memset(in->buffer, 0x0, length);
 
         ret = create_resampler(pcm->rate, in->request_rate,
 							popcount(in->channel_mask),
