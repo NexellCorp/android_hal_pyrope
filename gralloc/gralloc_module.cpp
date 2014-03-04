@@ -224,6 +224,8 @@ static int gralloc_unregister_buffer(gralloc_module_t const* module, buffer_hand
                 munmap(base1, hnd->sizes[1]);
                 munmap(base2, hnd->sizes[2]);
             }
+            ion_close(hnd->ion_client);
+            hnd->ion_client = -1;
 #else
             AERR( "Can't unregister DMA_BUF buffer for hnd %p. Not supported", hnd );
 #endif
