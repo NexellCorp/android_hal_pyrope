@@ -1,0 +1,2 @@
+replace GooglePinyIME.apk system/app/PinyinIME.apk
+remove system/xbin/su
