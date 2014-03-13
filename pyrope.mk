@@ -6,10 +6,6 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
 	gralloc.pyrope
 
-# camera HAL
-# PRODUCT_PACKAGES += \
-# 	camera.pyrope
-
 # audio HAL
 PRODUCT_PACKAGES += \
 	audio.primary.pyrope
@@ -22,9 +18,9 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
 	power.pyrope
 
-# keymaster HAL
+# keystore HAL
 PRODUCT_PACKAGES += \
-	keymaster.pyrope
+	keystore.pyrope
 
 # ion library
 PRODUCT_PACKAGES += \
@@ -54,15 +50,11 @@ ifeq ($(EN_FFMPEG_EXTRACTOR),true)
 PRODUCT_PACKAGES += libNX_FFMpegExtractor
 endif
 
-# for legacy : only 3200
-# PRODUCT_PACKAGES += \
-# 	libNX_Mem
-
 # for ogl_4330
-PRODUCT_PACKAGES += \
-	libVR \
-	libGLESv1_CM_vr \
-	libGLESv2_vr \
-	libEGL_vr
+#PRODUCT_PACKAGES += \
+	#libVR \
+	#libGLESv1_CM_vr \
+	#libGLESv2_vr \
+	#libEGL_vr
 
 PRODUCT_VENDOR_KERNEL_HEADERS := hardware/nexell/pyrope/kernel-headers
