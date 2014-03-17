@@ -135,7 +135,9 @@ status_t NXCameraSensor::constructStaticInfo(camera_metadata_t **info,
     int32_t pixelArraySize[2] = {
         RawSensor->Width, RawSensor->Height};
     ADD_OR_SIZE(ANDROID_SENSOR_INFO_PIXEL_ARRAY_SIZE, pixelArraySize, 2);
-    ADD_OR_SIZE(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE, pixelArraySize, 2);
+
+    int32_t activeArraySize[4] = { 0, 0, pixelArraySize[0], pixelArraySize[1] };
+    ADD_OR_SIZE(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE, activeArraySize, 4);
 
     ADD_OR_SIZE(ANDROID_SENSOR_INFO_WHITE_LEVEL, &NXCameraSensor::kMaxRawValue, 1);
 
@@ -153,7 +155,6 @@ status_t NXCameraSensor::constructStaticInfo(camera_metadata_t **info,
     ADD_OR_SIZE(ANDROID_FLASH_INFO_CHARGE_DURATION, &flashChargeDuration, 1);
 
     // android.tonemap
-
     static const int32_t tonemapCurvePoints = 128;
     ADD_OR_SIZE(ANDROID_TONEMAP_MAX_CURVE_POINTS, &tonemapCurvePoints, 1);
 
@@ -167,33 +168,13 @@ status_t NXCameraSensor::constructStaticInfo(camera_metadata_t **info,
 
     ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_RAW_MIN_DURATIONS, kAvailableRawMinDurations, sizeof(kAvailableRawMinDurations)/sizeof(uint64_t));
 
-    // test camcoder
-#if 0
-    static const int32_t processed_sizes[] = {
-        720, 480,
-        352, 288,
-        320, 240,
-        176, 144,
-        160, 120,
-    };
-    ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES, processed_sizes, 5 * 2);
-#else
     ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES, RawSensor->Resolutions, RawSensor->NumResolutions * 2);
-#endif
 
-    // TODO
-#if 1
     ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_JPEG_SIZES, RawSensor->Resolutions, RawSensor->NumResolutions * 2);
-#else
-    static const uint32_t availableJpegSizes[2] = {
-        800, 600
-    };
-    ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_JPEG_SIZES, availableJpegSizes, sizeof(availableJpegSizes)/sizeof(uint32_t));
-#endif
 
-     static float maxZoom = (float)RawSensor->getZoomFactor();
-     if (maxZoom <= 1.0)
-         maxZoom = DEFAULT_ZOOM_FACTOR;
+    static float maxZoom = (float)RawSensor->getZoomFactor();
+    if (maxZoom <= 1.0)
+        maxZoom = DEFAULT_ZOOM_FACTOR;
     ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM, &maxZoom, 1);
 
     // android.jpeg
