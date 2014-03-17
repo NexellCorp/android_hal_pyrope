@@ -1,2 +1,2 @@
-replace GooglePinyIME.apk system/app/PinyinIME.apk
+replace GooglePinyinIME.apk system/app/PinyinIME.apk
 remove system/xbin/su
