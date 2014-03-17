@@ -104,6 +104,10 @@ static const uint8_t AvailableAwbModesSP0A19[] = {
     ANDROID_CONTROL_AWB_MODE_INCANDESCENT
 };
 
+static const int32_t AvailableFpsRangesSP0A19[] = {
+    8, 15
+};
+
 void SP0A19::init()
 {
     Width = ResolutionSP0A19[0];
@@ -125,6 +129,8 @@ void SP0A19::init()
     NumAvailEffects = ARRAY_SIZE(AvailableEffectsSP0A19);
     AvailableSceneModes = AvailableSceneModesSP0A19;
     NumAvailSceneModes = ARRAY_SIZE(AvailableSceneModesSP0A19);
+    AvailableFpsRanges = AvailableFpsRangesSP0A19;
+    NumAvailableFpsRanges = ARRAY_SIZE(AvailableFpsRangesSP0A19);
 
     // TODO
     FocalLength = 3.43f;
