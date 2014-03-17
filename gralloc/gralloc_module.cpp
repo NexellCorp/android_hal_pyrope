@@ -181,6 +181,7 @@ cleanup:
     return retval;
 }
 
+#if 0
 static int gralloc_unregister_buffer(gralloc_module_t const* module, buffer_handle_t handle)
 {
     if (private_handle_t::validate(handle) < 0) {
@@ -244,6 +245,69 @@ static int gralloc_unregister_buffer(gralloc_module_t const* module, buffer_hand
 
     return 0;
 }
+#else
+static int gralloc_unregister_buffer(gralloc_module_t const* module, buffer_handle_t handle)
+{
+    if (private_handle_t::validate(handle) < 0) {
+        AERR("unregistering invalid buffer 0x%x, returning error", (int)handle);
+        return -EINVAL;
+    }
+
+    private_handle_t* hnd = (private_handle_t*)handle;
+
+    // psw0523 fix for kitkat
+    //AERR_IF(hnd->lockState & private_handle_t::LOCK_STATE_READ_MASK, "[unregister] handle %p still locked (state=%08x)", hnd, hnd->lockState);
+
+    if (hnd->flags & private_handle_t::PRIV_FLAGS_FRAMEBUFFER) {
+        AERR( "Can't unregister buffer 0x%x as it is a framebuffer", (unsigned int)handle );
+    } else {
+        // never unmap buffers that were not created in this process
+        pthread_mutex_lock(&s_map_lock);
+
+        if (hnd->flags & private_handle_t::PRIV_FLAGS_USES_UMP) {
+#if GRALLOC_ARM_UMP_MODULE
+            ump_mapped_pointer_release((ump_handle)hnd->ump_mem_handle);
+            hnd->base = 0;
+            ump_reference_release((ump_handle)hnd->ump_mem_handle);
+            hnd->ump_mem_handle = (int)UMP_INVALID_MEMORY_HANDLE;
+#else
+            AERR( "Can't unregister UMP buffer for handle 0x%x. Not supported", (unsigned int)handle );
+#endif
+        } else if ( hnd->flags & private_handle_t::PRIV_FLAGS_USES_ION ) {
+#if GRALLOC_ARM_DMA_BUF_MODULE
+            // psw0523 fix : mmap only 1 plane
+            if ( hnd->format != HAL_PIXEL_FORMAT_YV12 && hnd->format != HAL_PIXEL_FORMAT_YV12_444) {
+                void* base = (void*)hnd->base;
+                size_t size = hnd->size;
+                if ( munmap( base,size ) < 0 )
+                    AERR("Could not munmap base:0x%x size:%d '%s'", (unsigned int)base, size, strerror(errno));
+            } else {
+                void *base = (void *)hnd->base;
+                void *base1 = (void *)hnd->base1;
+                void *base2 = (void *)hnd->base2;
+                munmap(base, hnd->sizes[0]);
+                munmap(base1, hnd->sizes[1]);
+                munmap(base2, hnd->sizes[2]);
+            }
+            ion_close(hnd->ion_client);
+            hnd->ion_client = -1;
+#else
+            AERR( "Can't unregister DMA_BUF buffer for hnd %p. Not supported", hnd );
+#endif
+        } else {
+            AERR("Unregistering unknown buffer is not supported. Flags = %d", hnd->flags );
+        }
+
+        hnd->base = 0;
+        hnd->lockState  = 0;
+        hnd->writeOwner = 0;
+
+        pthread_mutex_unlock(&s_map_lock);
+    }
+
+    return 0;
+}
+#endif
 
 static int gralloc_lock(gralloc_module_t const* module, buffer_handle_t handle, int usage, int l, int t, int w, int h, void** vaddr)
 {
