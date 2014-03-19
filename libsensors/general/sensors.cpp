@@ -105,6 +105,16 @@ static const struct sensor_t sSensorSupportList[] = {
           0.20f, 10, 0, 0,
           { (void*)"bma250" }    // reserved[0] --> input device name
         },
+        { 
+          "BMA255 3-axis Accelerometer",
+          "Bosch Sensortec",
+          1, SENSORS_ACCELERATION_HANDLE,
+          SENSOR_TYPE_ACCELEROMETER, 
+          (4.0f * GRAVITY_EARTH), 
+          (4.0f * GRAVITY_EARTH) / 4096.0f,     // -2G ~ +2G, 12 bit
+          0.20f, 10, 0, 0,
+          { (void*)"bma2x2" }    // reserved[0] --> input device name
+        },
         {
           "MMA7660 3-axis Accelerometer",
           "Freescale Semi",
@@ -235,6 +245,16 @@ static const struct sensor_t sSensorSupportList[] = {
           ((1.0f / 16.4f) * ((float)M_PI / 180.0f)),    // 1/16.4 dps/LSB
           6.1f, 10, 0, 0,
           { (void*)"mpu3050c" }    // reserved[0] --> input device name
+        },
+        { 
+          "BMG160 Gyroscope sensor",
+          "Bosch Sensortec",
+          1, SENSORS_GYROSCOPE_HANDLE,
+          SENSOR_TYPE_GYROSCOPE, 
+          (4000.0f*(float)M_PI/180.0f),         // -2000dps ~ +2000dps
+          ((1.0f / 16.4f) * ((float)M_PI / 180.0f)),    // 1/16.4 dps/LSB
+          6.1f, 10, 0, 0,
+          { (void*)"bmg160" }    // reserved[0] --> input device name
         },
         {
           "BMA250 Thermometer",

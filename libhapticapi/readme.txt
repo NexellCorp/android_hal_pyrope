@@ -1,0 +1,1 @@
+to build the api, change dir into jni and run ndk-build
