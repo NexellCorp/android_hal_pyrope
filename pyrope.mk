@@ -57,4 +57,11 @@ endif
 	#libGLESv2_vr \
 	#libEGL_vr
 
+# haptic HAL
+ifeq ($(BOARD_HAS_HAPTIC),true)
+PRODUCT_PACKAGES += \
+	libhapticapi \
+	libhapticjavaapi
+endif
+
 PRODUCT_VENDOR_KERNEL_HEADERS := hardware/nexell/pyrope/kernel-headers
