@@ -120,6 +120,8 @@ struct tNX_VIDDEC_VIDEO_COMP_TYPE{
 	NX_QUEUE					*pInputPortQueue;
 	NX_QUEUE					*pOutputPortQueue;
 
+	OMX_BOOL					isOutIdr;
+
 	union {
 		OMX_VIDEO_PARAM_AVCTYPE avcType;
 		OMX_VIDEO_PARAM_MPEG2TYPE mpeg2Type;

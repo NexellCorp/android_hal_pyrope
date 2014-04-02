@@ -69,10 +69,12 @@ static OMX_ERRORTYPE RegisterAllComponents()
 {
 #ifdef USE_AUDIO_COMPONENT
 	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mpeg",NULL);
+	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mp1",NULL);
+	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mp2",NULL);
 	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mp3",NULL);
 	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.ac3",NULL);
 	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.ra",NULL);
-	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.wma",NULL);
+	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.x-ms-wma",NULL);
 	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.dts",NULL);
 	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.flac",NULL);
 #endif
@@ -80,7 +82,7 @@ static OMX_ERRORTYPE RegisterAllComponents()
 	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.mpeg4",NULL);
 	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.mpeg2",NULL);
 
-	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.wmv",NULL);
+	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.x-ms-wmv",NULL);
 	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.h263",NULL);
 	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.rv",NULL);
 

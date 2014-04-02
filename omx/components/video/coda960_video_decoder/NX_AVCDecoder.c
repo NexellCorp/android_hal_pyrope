@@ -31,7 +31,7 @@ int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 	inData = pInBuf->pBuffer;
 	inSize = pInBuf->nFilledLen;
 
-	TRACE("pInBuf->nFlags = 0x%08x\n", (int)pInBuf->nFlags );
+	TRACE("pInBuf->nFlags = 0x%08x, size = %ld\n", (int)pInBuf->nFlags, pInBuf->nFilledLen );
 
 	if( pInBuf->nFlags & OMX_BUFFERFLAG_EOS )
 	{
@@ -94,11 +94,23 @@ int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 	//	Step 2. Find First Key Frame & Do Initialize VPU
 	if( OMX_FALSE == pDecComp->bInitialized )
 	{
-		int initBufSize = inSize + pDecComp->codecSpecificDataSize;
-		unsigned char *initBuf = (unsigned char *)malloc( initBufSize );
-		memcpy( initBuf, pDecComp->codecSpecificData, pDecComp->codecSpecificDataSize );
-		memcpy( initBuf + pDecComp->codecSpecificDataSize, inData, inSize );
+		int initBufSize;
+		unsigned char *initBuf;
 
+		if( pDecComp->codecSpecificDataSize == 0 && pDecComp->nExtraDataSize>0 )
+		{
+			initBufSize = inSize + pDecComp->nExtraDataSize;
+			initBuf = (unsigned char *)malloc( initBufSize );
+			memcpy( initBuf, pDecComp->pExtraData, pDecComp->nExtraDataSize );
+			memcpy( initBuf + pDecComp->nExtraDataSize, inData, inSize );
+		}
+		else
+		{
+			initBufSize = inSize + pDecComp->codecSpecificDataSize;
+			initBuf = (unsigned char *)malloc( initBufSize );
+			memcpy( initBuf, pDecComp->codecSpecificData, pDecComp->codecSpecificDataSize );
+			memcpy( initBuf + pDecComp->codecSpecificDataSize, inData, inSize );
+		}
 		//	Initialize VPU
 		ret = InitialzieCodaVpu(pDecComp, initBuf, initBufSize );
 		free( initBuf );
@@ -192,6 +204,13 @@ int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 		}
 		else
 		{
+			if( pDecComp->isOutIdr == OMX_FALSE && decOut.picType != PIC_TYPE_I )
+			{
+				NX_VidDecClrDspFlag( pDecComp->hVpuCodec, NULL, decOut.outImgIdx );
+				goto Exit;
+			}
+			pDecComp->isOutIdr = OMX_TRUE;
+
 			//	Native Window Buffer Mode
 			//	Get Output Buffer Pointer From Output Buffer Pool
 			pOutBuf = pDecComp->pOutputBuffers[decOut.outImgIdx];

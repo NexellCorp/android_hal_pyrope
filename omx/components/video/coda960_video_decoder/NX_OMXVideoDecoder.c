@@ -51,8 +51,13 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent)
 	OMX_U32 i=0;
 	NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp;
 
+	FUNC_IN;
+
 	if( gstNumInstance >= gstMaxInstance )
+	{
+		ErrMsg( "%s() : Instance Creation Failed = %ld\n", __func__, gstNumInstance );
 		return OMX_ErrorInsufficientResources;
+	}
 
 	pDecComp = (NX_VIDDEC_VIDEO_COMP_TYPE *)NxMalloc(sizeof(NX_VIDDEC_VIDEO_COMP_TYPE));
 	if( pDecComp == NULL ){
@@ -168,6 +173,8 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent)
 
 	gstNumInstance ++;
 
+	FUNC_OUT;
+
 	return OMX_ErrorNone;
 }
 
@@ -176,6 +183,7 @@ static OMX_ERRORTYPE NX_VidDec_ComponentDeInit(OMX_HANDLETYPE hComponent)
 	OMX_COMPONENTTYPE *pComp = (OMX_COMPONENTTYPE *)hComponent;
 	NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp = (NX_VIDDEC_VIDEO_COMP_TYPE *)pComp->pComponentPrivate;
 	OMX_U32 i=0;
+	FUNC_IN;
 
 	//	prevent duplacation
 	if( NULL == pComp->pComponentPrivate )
@@ -221,7 +229,7 @@ static OMX_ERRORTYPE NX_VidDec_ComponentDeInit(OMX_HANDLETYPE hComponent)
 	}
 
 	gstNumInstance --;
-
+	FUNC_OUT;
 	return OMX_ErrorNone;
 }
 
@@ -356,7 +364,7 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 				pDecComp->inputFormat.nPortIndex= 0;
 				pDecComp->videoCodecId = NX_H263_DEC;
 			}
-			else if ( !strcmp( (OMX_STRING)pInRole->cRole, "video_decoder.wmv") )
+			else if ( !strcmp( (OMX_STRING)pInRole->cRole, "video_decoder.x-ms-wmv") )
 			{
 				//	Set Input Format
 				pDecComp->inputFormat.eCompressionFormat = OMX_VIDEO_CodingWMV;
@@ -607,7 +615,7 @@ static OMX_ERRORTYPE NX_VidDec_UseBuffer (OMX_HANDLETYPE hComponent, OMX_BUFFERH
 			}else{
 				pPortBuf[i]->nOutputPortIndex = pPort->stdPortDef.nPortIndex;
 				pDecComp->outUsableBuffers ++;
-				DbgBuffer( "%s() : outUsableBuffers= %ld\n", __FUNCTION__, pDecComp->outUsableBuffers);
+				DbgBuffer( "%s() : outUsableBuffers= %ld, pPort->nAllocatedBuf = %ld\n", __FUNCTION__, pDecComp->outUsableBuffers, pPort->nAllocatedBuf);
 			}
 			pPort->nAllocatedBuf ++;
 			if( pPort->nAllocatedBuf == pPort->stdPortDef.nBufferCountActual ){
@@ -743,13 +751,13 @@ static OMX_ERRORTYPE NX_VidDec_EmptyThisBuffer (OMX_HANDLETYPE hComp, OMX_BUFFER
 		}
 	}
 
-	TRACE("%s() : pBuffer = %p", __FUNCTION__, pBuffer);
+	DbgBuffer("%s() : pBuffer = %p", __FUNCTION__, pBuffer);
 
 	if( 0 != NX_PushQueue( pDecComp->pInputPortQueue, pBuffer ) )
 	{
 		return OMX_ErrorUndefined;
 	}
-	TRACE("%s() : pBuffer = %p --", __FUNCTION__, pBuffer);
+	DbgBuffer("%s() : pBuffer = %p --", __FUNCTION__, pBuffer);
 	NX_PostSem( pDecComp->hBufChangeSem );
 	FUNC_OUT;
 	return OMX_ErrorNone;
@@ -1386,6 +1394,8 @@ int openVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 	OMX_S32 mp4Class = 0;
 	FUNC_IN;
 
+	pDecComp->isOutIdr = OMX_FALSE;
+
 	//	FIXME : Move to Port SetParameter Part
 	pDecComp->width = pDecComp->pInputPort->stdPortDef.format.video.nFrameWidth;
 	pDecComp->height = pDecComp->pInputPort->stdPortDef.format.video.nFrameHeight;
@@ -1441,13 +1451,12 @@ void closeVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 {
 	FUNC_IN;
 	if( pDecComp->hVpuCodec ){
-		int i;
-		for( i=0 ; i<10 ; i++ )
-			NX_VidDecFlush( pDecComp->hVpuCodec );
+		NX_VidDecFlush( pDecComp->hVpuCodec );
 		NX_VidDecClose( pDecComp->hVpuCodec );
 		pDecComp->bInitialized = OMX_FALSE;
 		pDecComp->bNeedKey = OMX_TRUE;
 		pDecComp->hVpuCodec = NULL;
+		pDecComp->isOutIdr = OMX_FALSE;
 		FUNC_OUT;
 	}
 	FUNC_OUT;
@@ -1455,13 +1464,11 @@ void closeVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 
 int flushVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 {
-	int i;
 	FUNC_IN;
 	if( pDecComp->hVpuCodec )
 	{
-		InitVideoTimeStamp( pDecComp );
-		for( i=0 ; i<10 ; i++ )
-			NX_VidDecFlush( pDecComp->hVpuCodec );
+		NX_VidDecFlush( pDecComp->hVpuCodec );
+		pDecComp->isOutIdr = OMX_FALSE;
 		return NX_VidDecFlush( pDecComp->hVpuCodec );
 	}
 	FUNC_OUT;
@@ -1481,7 +1488,7 @@ int InitialzieCodaVpu(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, unsigned char *buf, i
 		if( pDecComp->bUseNativeBuffer )
 		{
 			struct private_handle_t const *handle;
-			DbgMsg("Native Buffer Mode : pDecComp->outUsableBuffers=%ld, ExtraSize = %ld\n", pDecComp->outUsableBuffers, pDecComp->codecSpecificDataSize );
+			DbgMsg("Native Buffer Mode : pDecComp->outUsableBuffers=%ld, ExtraSize = %ld, MAX_DEC_FRAME_BUFFERS = %d\n", pDecComp->outUsableBuffers, pDecComp->codecSpecificDataSize, MAX_DEC_FRAME_BUFFERS );
 
 			//	Translate Gralloc Memory Buffer Type To Nexell Video Memory Type
 			for( i=0 ; i<pDecComp->outUsableBuffers ; i++ )

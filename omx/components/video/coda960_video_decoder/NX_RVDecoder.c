@@ -42,6 +42,8 @@ static int MakeRVPacketData( OMX_U8 *pIn, OMX_S32 inSize, OMX_U8 *pOut, OMX_U16 
     OMX_S32 i, val, offset;
 	OMX_S32 size;
 
+	frameCnt = frameCnt;
+
 	cSlice = p[0] + 1;
 	nSlice =  inSize - 1 - (cSlice * 8);
 	size = 20 + (cSlice*8);

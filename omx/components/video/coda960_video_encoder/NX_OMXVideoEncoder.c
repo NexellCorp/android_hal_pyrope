@@ -339,16 +339,27 @@ static OMX_ERRORTYPE NX_VidEncGetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE 
 			OMX_U32 nIndex = pVideoFormat->nIndex;
 			TRACE("%s() : OMX_IndexParamVideoPortFormat : port Index = %ld, format index = %ld\n", __FUNCTION__, pVideoFormat->nPortIndex, pVideoFormat->nIndex );
 			if( pVideoFormat->nPortIndex == 0 ){	//	Input Information
-				if( nIndex > 0 )
-					return OMX_ErrorNoMore;
-				memcpy( pVideoFormat, &pEncComp->inputFormat, sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE) );
+				switch( nIndex )
+				{
+					case 0:
+						memcpy( pVideoFormat, &pEncComp->inputFormat, sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE) );
+						pVideoFormat->eColorFormat = OMX_COLOR_FormatYUV420Planar;
+						break;
+					case 1:
+						memcpy( pVideoFormat, &pEncComp->inputFormat, sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE) );
+						pVideoFormat->eColorFormat = OMX_COLOR_FormatAndroidOpaque;
+						break;
+					default:
+						return OMX_ErrorNoMore;
+				}
 				pVideoFormat->nIndex = nIndex;
-				pVideoFormat->eColorFormat = OMX_COLOR_FormatYUV420Planar;
-			}
-			else{								//	Output
+			} 
+			else	//	Output Format
+			{
 				if( nIndex > 0 )
 					return OMX_ErrorNoMore;
 				memcpy( pVideoFormat, &pEncComp->outputFormat, sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE) );
+				pVideoFormat->nIndex = nIndex;
 			}
 			break;
 		}
@@ -368,6 +379,7 @@ static OMX_ERRORTYPE NX_VidEncGetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE 
 			if( pAvcType->nPortIndex != 1 )
 				return OMX_ErrorBadPortIndex;
 			memcpy( pAvcType, &pEncComp->omxAVCEncParam, sizeof(OMX_VIDEO_PARAM_AVCTYPE) );
+			pAvcType->nPortIndex = 1;
 			break;
 		}
 		case OMX_IndexParamVideoProfileLevelQuerySupported:
@@ -1181,6 +1193,12 @@ static OMX_S32 EncoderOpen(NX_VIDENC_COMP_TYPE *pEncComp)
 
 	memset(&encInitParam, 0, sizeof(encInitParam));
 
+	//	Check NV12 Format
+	if( pEncComp->inputFormat.eColorFormat == OMX_COLOR_FormatAndroidOpaque )
+	{
+		DbgMsg("Encoder Input Format NV12\n");
+		encInitParam.chromaInterleave = 1;
+	}
 	encInitParam.width   = pEncComp->encWidth;
 	encInitParam.height  = pEncComp->encHeight;
 	encInitParam.gopSize = pEncComp->encKeyInterval;
@@ -1246,24 +1264,47 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 	}
 
 	hPrivate = (struct private_handle_t const *)recodingBuffer[1];
-
-	inputMem.memoryMap = 0;		//	Linear
-	inputMem.fourCC    = FOURCC_YV12;
-	inputMem.imgWidth  = pEncComp->encWidth;
-	inputMem.imgHeight = pEncComp->encHeight;
-	inputMem.luPhyAddr = hPrivate->phys ;
-	inputMem.cbPhyAddr = hPrivate->phys1;
-	inputMem.crPhyAddr = hPrivate->phys2;
-	inputMem.luVirAddr = hPrivate->base ;
-	inputMem.cbVirAddr = hPrivate->base1;
-	inputMem.crVirAddr = hPrivate->base2;
-	inputMem.luStride = ((pEncComp->encWidth+15)>>4)<<4;
-	inputMem.cbStride = ((pEncComp->encWidth+31)>>5)<<4;
-	inputMem.crStride = ((pEncComp->encWidth+31)>>5)<<4;
-	TRACE("fds(%d), fds(0x%08x,0x%08x,0x%08x), phys( 0x%08x, 0x%08x, 0x%08x ), base(0x%08x, 0x%08x, 0x%08x)\n",
-		hPrivate->share_fd, hPrivate->share_fds[0], hPrivate->share_fds[1], hPrivate->share_fds[2],
-		hPrivate->phys, hPrivate->phys1, hPrivate->phys2,
-		hPrivate->base, hPrivate->base1, hPrivate->base2 );
+	if( pEncComp->inputFormat.eColorFormat == OMX_COLOR_FormatAndroidOpaque )
+	{
+		memset( &inputMem, 0, sizeof(inputMem) );
+		inputMem.memoryMap = 0;		//	Linear
+		inputMem.fourCC    = FOURCC_NV12;
+		inputMem.imgWidth  = pEncComp->encWidth;
+		inputMem.imgHeight = pEncComp->encHeight;
+		inputMem.luPhyAddr = hPrivate->phys ;
+		inputMem.cbPhyAddr = hPrivate->phys1;
+		inputMem.crPhyAddr = 0;
+		inputMem.luVirAddr = hPrivate->base ;
+		inputMem.cbVirAddr = hPrivate->base1;
+		inputMem.crVirAddr = 0;
+		inputMem.luStride = ((pEncComp->encWidth+15)>>4)<<4;
+		inputMem.cbStride = ((pEncComp->encWidth+31)>>5)<<4;
+		inputMem.crStride = 0;
+		TRACE("fds(%d), fds(0x%08x,0x%08x), phys( 0x%08x,0x%08x ), base(0x%08x, 0x%08x)\n",
+			hPrivate->share_fd, hPrivate->share_fds[0], hPrivate->share_fds[1],
+			hPrivate->phys, hPrivate->phys1,
+			hPrivate->base, hPrivate->base1 );
+	}
+	else
+	{
+		inputMem.memoryMap = 0;		//	Linear
+		inputMem.fourCC    = FOURCC_YV12;
+		inputMem.imgWidth  = pEncComp->encWidth;
+		inputMem.imgHeight = pEncComp->encHeight;
+		inputMem.luPhyAddr = hPrivate->phys ;
+		inputMem.cbPhyAddr = hPrivate->phys1;
+		inputMem.crPhyAddr = hPrivate->phys2;
+		inputMem.luVirAddr = hPrivate->base ;
+		inputMem.cbVirAddr = hPrivate->base1;
+		inputMem.crVirAddr = hPrivate->base2;
+		inputMem.luStride = ((pEncComp->encWidth+15)>>4)<<4;
+		inputMem.cbStride = ((pEncComp->encWidth+31)>>5)<<4;
+		inputMem.crStride = ((pEncComp->encWidth+31)>>5)<<4;
+		TRACE("fds(%d), fds(0x%08x,0x%08x,0x%08x), phys( 0x%08x, 0x%08x, 0x%08x ), base(0x%08x, 0x%08x, 0x%08x)\n",
+			hPrivate->share_fd, hPrivate->share_fds[0], hPrivate->share_fds[1], hPrivate->share_fds[2],
+			hPrivate->phys, hPrivate->phys1, hPrivate->phys2,
+			hPrivate->base, hPrivate->base1, hPrivate->base2 );
+	}
 
 	NX_PopQueue( pOutQueue, (void**)&pOutBuf );
 
