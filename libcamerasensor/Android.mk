@@ -15,7 +15,9 @@ LOCAL_SRC_FILES := \
 	S5K5CAGX.cpp \
 	SP0838.cpp \
 	SP0A19.cpp \
-	SP2518.cpp
+	SP2518.cpp \
+	GC2035.cpp\
+	GC0308.cpp
 
 LOCAL_SHARED_LIBRARIES := liblog libv4l2-nexell
 LOCAL_MODULE := libcamerasensor
