@@ -36,6 +36,10 @@ const uint64_t kAvailableProcessedMinDurations[1] = {
     NXCameraSensor::kFrameDurationRange[0],
 };
 
+const uint64_t kAvailableJpegMinDurations[1] = {
+    NXCameraSensor::kFrameDurationRange[0],
+};
+
 NXCameraSensor::NXCameraSensor(int cameraId)
     : CameraId(cameraId)
 {
@@ -100,6 +104,11 @@ status_t NXCameraSensor::constructStaticInfo(camera_metadata_t **info,
     if ( ( ret = addOrSize(*info, sizeRequest, &entryCount, &dataCount, \
                     tag, data, count) ) != OK) return ret;
 
+    // android.info
+    int32_t hardwareLevel = ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED;
+    ADD_OR_SIZE(ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL,
+            &hardwareLevel, 1);
+
     // android.lens
     ADD_OR_SIZE(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE, &RawSensor->MinFocusDistance, 1);
     ADD_OR_SIZE(ANDROID_LENS_INFO_HYPERFOCAL_DISTANCE, &RawSensor->MinFocusDistance, 1);
@@ -120,6 +129,10 @@ status_t NXCameraSensor::constructStaticInfo(camera_metadata_t **info,
 
     int32_t lensFacing = CameraId ? ANDROID_LENS_FACING_FRONT : ANDROID_LENS_FACING_BACK;
     ADD_OR_SIZE(ANDROID_LENS_FACING, &lensFacing, 1);
+
+    static const int32_t maxNumOutputStreams[] = {1, 3, 1};
+    ADD_OR_SIZE(ANDROID_REQUEST_MAX_NUM_OUTPUT_STREAMS, maxNumOutputStreams,
+            sizeof(maxNumOutputStreams)/sizeof(int32_t));
 
     // android.sensor
     ADD_OR_SIZE(ANDROID_SENSOR_INFO_EXPOSURE_TIME_RANGE, NXCameraSensor::kExposureTimeRange, 2);
@@ -147,8 +160,12 @@ status_t NXCameraSensor::constructStaticInfo(camera_metadata_t **info,
     };
     ADD_OR_SIZE(ANDROID_SENSOR_BLACK_LEVEL_PATTERN, blackLevelPattern, sizeof(blackLevelPattern)/sizeof(int32_t));
 
+    static const int32_t orientation[1] = {0};
+    ADD_OR_SIZE(ANDROID_SENSOR_ORIENTATION, orientation, 1);
+
     // android.flash
-    uint8_t flashAvailable = (CameraId == 0) ? 1 : 0;
+    //uint8_t flashAvailable = (CameraId == 0) ? 1 : 0;
+    uint8_t flashAvailable = 0;
     ADD_OR_SIZE(ANDROID_FLASH_INFO_AVAILABLE, &flashAvailable, 1);
 
     static const int64_t flashChargeDuration = 0;
@@ -172,6 +189,14 @@ status_t NXCameraSensor::constructStaticInfo(camera_metadata_t **info,
 
     ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_JPEG_SIZES, RawSensor->Resolutions, RawSensor->NumResolutions * 2);
 
+    ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_PROCESSED_MIN_DURATIONS,
+            kAvailableProcessedMinDurations,
+            sizeof(kAvailableProcessedMinDurations)/sizeof(uint64_t));
+
+    ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_JPEG_MIN_DURATIONS,
+            kAvailableJpegMinDurations,
+            sizeof(kAvailableJpegMinDurations)/sizeof(uint64_t));
+
     static float maxZoom = (float)RawSensor->getZoomFactor();
     if (maxZoom <= 1.0)
         maxZoom = DEFAULT_ZOOM_FACTOR;
@@ -187,7 +212,8 @@ status_t NXCameraSensor::constructStaticInfo(camera_metadata_t **info,
     };
     ADD_OR_SIZE(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES, jpegThumnailSizes, sizeof(jpegThumnailSizes)/sizeof(int32_t));
 
-    static const int32_t jpegMaxSize = 10 * 1024 * 1024; // 10M
+    //static const int32_t jpegMaxSize = 10 * 1024 * 1024; // 10M
+    static const int32_t jpegMaxSize = 1600*1200;
     ADD_OR_SIZE(ANDROID_JPEG_MAX_SIZE, &jpegMaxSize, 1);
 
     // android.stats
@@ -319,6 +345,9 @@ status_t NXCameraSensor::constructDefaultRequest(int requestTemplate,
     ADD_OR_SIZE(ANDROID_LENS_OPTICAL_STABILIZATION_MODE, &opticalStabilizationMode, 1);
 
     // android.Sensor
+    static const int64_t defaultExposureTime = 8000000LL; // 1/125 s
+    ADD_OR_SIZE(ANDROID_SENSOR_EXPOSURE_TIME, &defaultExposureTime, 1);
+
     static const int64_t frameDuration = 33333333L; // 1/30 s
     ADD_OR_SIZE(ANDROID_SENSOR_FRAME_DURATION, &frameDuration, 1);
 
@@ -439,7 +468,7 @@ status_t NXCameraSensor::constructDefaultRequest(int requestTemplate,
     ADD_OR_SIZE(ANDROID_JPEG_ORIENTATION, &jpegOrientation, 1);
 
     // android.stats
-    static const uint8_t faceDetectMode = ANDROID_STATISTICS_FACE_DETECT_MODE_OFF;
+    static const uint8_t faceDetectMode = ANDROID_STATISTICS_FACE_DETECT_MODE_FULL;
     ADD_OR_SIZE(ANDROID_STATISTICS_FACE_DETECT_MODE, &faceDetectMode, 1);
 
     static const uint8_t histogramMode = ANDROID_STATISTICS_HISTOGRAM_MODE_OFF;
@@ -497,7 +526,7 @@ status_t NXCameraSensor::constructDefaultRequest(int requestTemplate,
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, aeTargetFpsRange, 2);
 
-    static const uint8_t aeAntibandingMode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF;
+    static const uint8_t aeAntibandingMode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO;
     ADD_OR_SIZE(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &aeAntibandingMode, 1);
 
     static const uint8_t awbMode = ANDROID_CONTROL_AWB_MODE_AUTO;

@@ -17,5 +17,6 @@ uint32_t getNXCpuVersion()
     char temp[16] = {0, };
     int err = read(fd, temp, sizeof(temp));
     uint32_t version = atoi(temp);
+    close(fd);
     return version;
 }

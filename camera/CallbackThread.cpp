@@ -97,7 +97,7 @@ bool CallbackThread::threadLoop()
     private_handle_t const *srcHandle = previewThread->getLastBuffer(width, height);
     if (!srcHandle) {
         ALOGE("can't get preview thread last buffer... wait");
-        usleep(100*1000);
+        usleep(500*1000);
         return true;
     }
     CHECK_AND_EXIT();
@@ -117,7 +117,7 @@ bool CallbackThread::threadLoop()
     CHECK_AND_EXIT();
 
     ret = stream->enqueueBuffer(systemTime(SYSTEM_TIME_MONOTONIC));
-    ALOGV("enqueueBuffer end(timestamp: %llu)", timestamp);
+    ALOGD("enqueueBuffer end");
 
     if (ret != NO_ERROR) {
         ALOGE("failed to enqueue_buffer");
