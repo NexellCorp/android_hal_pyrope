@@ -185,7 +185,7 @@ status_t NXStreamThread::stop(bool waitExit, bool streamOff)
     if (getState() == STATE_EXIT)
         return NO_ERROR;
 
-    int timeOut = 10;
+    int timeOut = 3;
     if (waitExit) {
         setState(STATE_WAIT_EXIT);
         while (getState() != STATE_EXIT && timeOut > 0) {

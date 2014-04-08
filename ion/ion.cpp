@@ -7,6 +7,7 @@
 
 #include <linux/ion.h>
 #include <linux/nxp_ion.h>
+//#include <ion/ion.h>
 #include <ion-private.h>
 
 #define LOG_TAG "nexell-ion"
@@ -35,7 +36,17 @@ int ion_get_phys(int fd, int buf_fd, unsigned long *phys)
     if (ret) {
         ALOGE("%s error: failed ION_IOC_CUSTOM\n", __func__);
         return ret;
-    }   
+    }
     *phys = custom_data.phys;
     return 0;
+}
+
+int ion_sync_from_device(int fd, int handle_fd)
+{
+    struct ion_custom_data data;
+    struct ion_fd_data custom_data;
+    custom_data.fd = handle_fd;
+    data.cmd = NXP_ION_SYNC_FROM_DEVICE;
+    data.arg = (unsigned long)&custom_data;
+    return ion_ioctl(fd, ION_IOC_CUSTOM, &data);
 }
