@@ -37,6 +37,7 @@ static int s_ump_is_open = 0;
 #include <linux/ion.h>
 #include <ion/ion.h>
 #include <sys/mman.h>
+#include <../include/ion-private.h>
 #endif
 
 static pthread_mutex_t s_map_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -319,9 +320,15 @@ static int gralloc_lock(gralloc_module_t const* module, buffer_handle_t handle, 
     private_handle_t* hnd = (private_handle_t*)handle;
     if (hnd->flags & private_handle_t::PRIV_FLAGS_USES_UMP || hnd->flags & private_handle_t::PRIV_FLAGS_USES_ION) {
         hnd->writeOwner = usage & GRALLOC_USAGE_SW_WRITE_MASK;
+        //hnd->writeOwner = usage & (GRALLOC_USAGE_SW_WRITE_MASK | GRALLOC_USAGE_SW_READ_MASK);
     }
     if (usage & (GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK)) {
         *vaddr = (void*)hnd->base;
+    }
+
+    if (usage & GRALLOC_USAGE_SW_READ_MASK) {
+        //ALOGD("gralloc_lock: cpu read --> call ion_sync_from_device()!");
+        ion_sync_from_device(hnd->ion_client, hnd->share_fd);
     }
     return 0;
 }
@@ -346,6 +353,7 @@ static int gralloc_unlock(gralloc_module_t const* module, buffer_handle_t handle
 #endif
     } else if ( hnd->flags & private_handle_t::PRIV_FLAGS_USES_ION && hnd->writeOwner) {
 #if GRALLOC_ARM_DMA_BUF_MODULE
+        //ALOGD("gralloc_unlock(): call ion_sync_fd");
         ion_sync_fd(hnd->ion_client, hnd->share_fd);
 #endif
     }
