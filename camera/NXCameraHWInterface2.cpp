@@ -185,6 +185,11 @@ int NXCameraHWInterface2::registerStreamBuffers(uint32_t streamId, int numBuffer
 int NXCameraHWInterface2::releaseStream(uint32_t streamId)
 {
     trace();
+    ALOGD("%s: id %d", __func__, streamId);
+    if (streamId == STREAM_ID_INVALID) {
+        ALOGE("can't releaseStream invalid");
+        return 0;
+    }
     NXStreamThread *streamThread = StreamManager->getStreamThread(streamId);
     if (!streamThread) {
         ALOGE("can't get streamThread for %d", streamId);

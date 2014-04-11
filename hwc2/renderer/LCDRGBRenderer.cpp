@@ -71,6 +71,7 @@ int LCDRGBRenderer::render()
         if (mHandle->flags & private_handle_t::PRIV_FLAGS_FRAMEBUFFER) {
             mFBVarInfo.activate = FB_ACTIVATE_VBL;
             mFBVarInfo.yoffset  = mHandle->offset / mFBLineLength;
+            //ALOGD("%s: yoffset 0x%x", __func__, mFBVarInfo.yoffset);
             if (ioctl(mFBFd, FBIOPUT_VSCREENINFO, &mFBVarInfo) == -1) {
                 ALOGE("failed to FBIOPUT_VSCREENINFO");
                 return -EINVAL;
