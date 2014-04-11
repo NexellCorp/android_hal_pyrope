@@ -12,6 +12,7 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 	OMX_BUFFERHEADERTYPE* pInBuf = NULL, *pOutBuf = NULL;
 	int inSize = 0;
 	OMX_BYTE inData;
+	NX_VID_DEC_IN decIn;
 	NX_VID_DEC_OUT decOut;
 	int ret = 0;
 
@@ -31,33 +32,19 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 	inData = pInBuf->pBuffer;
 	inSize = pInBuf->nFilledLen;
 
-	TRACE("pInBuf->nFlags = 0x%08x\n", (int)pInBuf->nFlags );
+	TRACE("[%6ld]pInBuf->nFlags = 0x%08x\n", pDecComp->inFrameCount++, (int)pInBuf->nFlags );
 
 	if( pInBuf->nFlags & OMX_BUFFERFLAG_EOS )
 	{
-		OMX_S32 i=0;
-		for( i=0 ; i<NX_OMX_MAX_BUF ; i++ )
-		{
-			if( pDecComp->outBufferUseFlag[i] )
-			{
-				pOutBuf = pDecComp->pOutputBuffers[i];
-				break;
-			}
-		}
-		pDecComp->outBufferUseFlag[i] = 0;
-		pDecComp->curOutBuffers --;
-		DbgMsg("=========================> Receive End of Stream Message \n");
-		pInBuf->nFilledLen = 0;
-		pDecComp->pCallbacks->EmptyBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pInBuf);
+		DbgMsg("=========================> Receive Endof Stream Message (%ld)\n", pInBuf->nFilledLen);
 
-		if( pOutBuf )
+		pDecComp->bStartEoS = OMX_TRUE;
+		if( inSize <= 0)
 		{
-			pOutBuf->nFilledLen = 0;
-			pOutBuf->nTimeStamp = pInBuf->nTimeStamp;
-			pOutBuf->nFlags     = OMX_BUFFERFLAG_EOS;
-			pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
+			pInBuf->nFilledLen = 0;
+			pDecComp->pCallbacks->EmptyBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pInBuf);
+			return 0;
 		}
-		return 0;
 	}
 
 	//	Step 1. Found Sequence Information
@@ -76,8 +63,6 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 			goto Exit;
 		}
 	}
-
-//	DbgMsg( "isIdrFrame = %d\n", isIdrFrame( pInBuf->pBuffer , pInBuf->nFilledLen ) );
 
 	//{
 	//	OMX_U8 *buf = pInBuf->pBuffer;
@@ -100,7 +85,7 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 		memcpy( initBuf + pDecComp->codecSpecificDataSize, inData, inSize );
 
 		//	Initialize VPU
-		ret = InitialzieCodaVpu(pDecComp, initBuf, initBufSize );
+		ret = InitializeCodaVpu(pDecComp, initBuf, initBufSize );
 		free( initBuf );
 
 		if( 0 != ret )
@@ -110,15 +95,23 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 
 		pDecComp->bNeedKey = OMX_FALSE;
 		pDecComp->bInitialized = OMX_TRUE;
-		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, inData, 0, pInBuf->nTimeStamp, &decOut );
+		decIn.strmBuf = inData;
+		decIn.strmSize = 0;
+		decIn.timeStamp = pInBuf->nTimeStamp;
+		decIn.eos = 0;
+		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, &decIn, &decOut );
 	}
 	else
 	{
-		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, inData, inSize, pInBuf->nTimeStamp, &decOut );
+		decIn.strmBuf = inData;
+		decIn.strmSize = inSize;
+		decIn.timeStamp = pInBuf->nTimeStamp;
+		decIn.eos = 0;
+		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, &decIn, &decOut );
 	}
 
 
-	if( ret==0 && decOut.outImgIdx >= 0 && ( decOut.outImgIdx < NX_OMX_MAX_BUF ) )
+	if( ret==0 && (decOut.outImgIdx>=0) && ( decOut.outImgIdx < NX_OMX_MAX_BUF ) )
 	{
 		if( OMX_TRUE == pDecComp->bEnableThumbNailMode )
 		{
@@ -210,7 +203,9 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 				pOutBuf->nTimeStamp = pInBuf->nTimeStamp;
 				pOutBuf->nFlags     = pInBuf->nFlags;
 			}
-			TRACE("nTimeStamp = %lld\n", pOutBuf->nTimeStamp/1000);
+
+			pDecComp->outFrameCount++;
+			TRACE("[%6ld]nTimeStamp = %lld\n", pDecComp->outFrameCount, pOutBuf->nTimeStamp/1000);
 			pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
 		}
 	}

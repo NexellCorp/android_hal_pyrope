@@ -81,10 +81,11 @@ static OMX_ERRORTYPE RegisterAllComponents()
 	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.avc",NULL);
 	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.mpeg4",NULL);
 	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.mpeg2",NULL);
-
-	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.x-ms-wmv",NULL);
 	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.h263",NULL);
-	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.rv",NULL);
+	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.mp43",NULL);
+	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.x-flv",NULL);
+	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.x-ms-wmv",NULL);
+	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.x-pn-realvideo",NULL);
 
 	NX_OMXRegisterComponent("OMX.NX.VIDEO_ENCODER",			"video_decoder.avc",NULL);
 	return OMX_ErrorNone;

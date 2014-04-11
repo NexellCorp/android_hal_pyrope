@@ -56,6 +56,8 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent);
 #define	DEBUG_BUFFER	0
 #define	DEBUG_FUNC		0
 #define	TRACE_ON		0
+#define	DEBUG_FLUSH		0
+#define	DEBUG_STATE		0
 
 #if DEBUG_BUFFER
 #define	DbgBuffer(fmt,...)	DbgMsg(fmt, ##__VA_ARGS__)
@@ -76,6 +78,19 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent);
 #define	FUNC_IN				do{}while(0)
 #define	FUNC_OUT			do{}while(0)
 #endif
+
+#if DEBUG_STATE
+#define	DBG_STATE(fmt,...)		DbgMsg(fmt, ##__VA_ARGS__)
+#else
+#define	DBG_STATE(fmt,...)		do{}while(0)
+#endif
+
+#if DEBUG_FLUSH
+#define	DBG_FLUSH(fmt,...)		DbgMsg(fmt, ##__VA_ARGS__)
+#else
+#define	DBG_FLUSH(fmt,...)		do{}while(0)
+#endif
+
 
 
 struct OutBufferTimeInfo{
@@ -136,6 +151,8 @@ struct tNX_VIDDEC_VIDEO_COMP_TYPE{
 	OMX_S32						videoCodecId;
 	OMX_BOOL					bInitialized;
 	OMX_BOOL					bNeedKey;
+	OMX_BOOL					bStartEoS;
+	OMX_BOOL					frameDelay;
 	OMX_U16						rvFrameCnt;
 
 	int							(*DecodeFrame)(NX_VIDDEC_VIDEO_COMP_TYPE *, NX_QUEUE *, NX_QUEUE *);
@@ -161,6 +178,9 @@ struct tNX_VIDDEC_VIDEO_COMP_TYPE{
 	NX_VID_MEMORY_INFO			vidFrameBuf[MAX_DEC_FRAME_BUFFERS];	//	Video Buffer Info
 	NX_VID_MEMORY_HANDLE		hVidFrameBuf[MAX_DEC_FRAME_BUFFERS];
 
+	//	for Debugging
+	OMX_S32						inFrameCount;
+	OMX_S32						outFrameCount;
 };
 
 
