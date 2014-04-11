@@ -528,7 +528,6 @@ static int hwc_set(struct hwc_composer_device_1 *dev,
     if (android_atomic_acquire_load(&me->mChangingScenario) > 0)
         me->changeUsageScenario();
 
-
     {
         Mutex::Autolock l(me->mSyncLock);
         me->mPrepared = false;

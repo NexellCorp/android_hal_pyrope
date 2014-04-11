@@ -326,8 +326,8 @@ static int gralloc_lock(gralloc_module_t const* module, buffer_handle_t handle, 
         *vaddr = (void*)hnd->base;
     }
 
-    if (usage & GRALLOC_USAGE_SW_READ_MASK) {
-        //ALOGD("gralloc_lock: cpu read --> call ion_sync_from_device()!");
+    if ((usage & GRALLOC_USAGE_SW_READ_MASK) && (hnd->format != HAL_PIXEL_FORMAT_BLOB)) {
+        //ALOGD("gralloc_lock: cpu read --> call ion_sync_from_device()!, usage 0x%x", usage);
         ion_sync_from_device(hnd->ion_client, hnd->share_fd);
     }
     return 0;

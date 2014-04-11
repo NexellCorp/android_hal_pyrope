@@ -40,6 +40,7 @@ NXStreamThread::NXStreamThread(nxp_v4l2_id id,
       State(STATE_EXIT)
 {
     ZoomController->setFormat(PIXINDEX2PIXCODE(PixelIndex), PIXINDEX2PIXCODE(PixelIndex));
+    ThreadName[0] = '\0';
 }
 
 NXStreamThread::NXStreamThread(int width, int height, sp<NXStreamManager> &streamManager)
@@ -52,6 +53,7 @@ NXStreamThread::NXStreamThread(int width, int height, sp<NXStreamManager> &strea
       Pausing(false),
       State(STATE_EXIT)
 {
+    ThreadName[0] = '\0';
 }
 
 NXStreamThread::~NXStreamThread()
@@ -180,10 +182,10 @@ status_t NXStreamThread::start(int streamId, char *threadName, unsigned int prio
 
 status_t NXStreamThread::stop(bool waitExit, bool streamOff)
 {
-    ALOGD("<=== stop %s, streamId %d, state %d, waitExit %d", ThreadName, ActiveStreamId, getState(), waitExit);
-
     if (getState() == STATE_EXIT)
         return NO_ERROR;
+
+    ALOGD("<=== stop %s, streamId %d, state %d, waitExit %d", ThreadName, ActiveStreamId, getState(), waitExit);
 
     int timeOut = 3;
     if (waitExit) {
