@@ -37,6 +37,8 @@ const int32_t ResolutionSP0A19[] = {
 // TOP/system/media/camera/include/system/camera_metadata_tags.h
 static const uint8_t AvailableAfModesSP0A19[] = {
     ANDROID_CONTROL_AF_MODE_OFF,
+    // add for cts[android.hardware.cts.CameraTest#testFocusAreas]
+    ANDROID_CONTROL_AF_MODE_AUTO,
 };
 
 static const uint8_t AvailableAeModesSP0A19[] = {
