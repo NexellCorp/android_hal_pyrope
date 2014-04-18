@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2010-2011 ARM Limited
+ * (C) COPYRIGHT 2010-2011, 2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -19,7 +19,7 @@ VR_STATIC_INLINE _vr_osk_errcode_t _vr_timestamp_reset(void)
 	 * reset counters and overflow flags
 	 */
 
-    u32 mask = (1 << 0) | /* enable all three counters */
+	u32 mask = (1 << 0) | /* enable all three counters */
 	           (0 << 1) | /* reset both Count Registers to 0x0 */
 	           (1 << 2) | /* reset the Cycle Counter Register to 0x0 */
 	           (0 << 3) | /* 1 = Cycle Counter Register counts every 64th processor clock cycle */

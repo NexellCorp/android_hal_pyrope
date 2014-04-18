@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2012 ARM Limited
+ * (C) COPYRIGHT 2012-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -32,6 +32,14 @@ _vr_osk_errcode_t vr_dlbu_reset(struct vr_dlbu_core *dlbu);
 
 void vr_dlbu_add_group(struct vr_dlbu_core *dlbu, struct vr_group *group);
 void vr_dlbu_remove_group(struct vr_dlbu_core *dlbu, struct vr_group *group);
+
+/** @brief Called to update HW after DLBU state changed
+ *
+ * This function must be called after \a vr_dlbu_add_group or \a
+ * vr_dlbu_remove_group to write the updated mask to hardware, unless the
+ * same is accomplished by calling \a vr_dlbu_reset.
+ */
+void vr_dlbu_update_mask(struct vr_dlbu_core *dlbu);
 
 void vr_dlbu_config_job(struct vr_dlbu_core *dlbu, struct vr_pp_job *job);
 

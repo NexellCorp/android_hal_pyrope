@@ -1,7 +1,7 @@
 /**
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2008-2012 ARM Limited
+ * (C) COPYRIGHT 2008-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -33,12 +33,13 @@
 #include "vr_kernel_sysfs.h"
 #include "vr_pm.h"
 #include "vr_kernel_license.h"
-#include "vr_dma_buf.h"
+#include "vr_memory.h"
+#include "vr_memory_dma_buf.h"
 #if defined(CONFIG_VR400_INTERNAL_PROFILING)
 #include "vr_profiling_internal.h"
 #endif
 
-/* Streamline support for the VR driver */
+/* Streamline support for the Vr driver */
 #if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_VR400_PROFILING)
 /* Ask Linux to create the tracepoints */
 #define CREATE_TRACE_POINTS
@@ -49,37 +50,34 @@
 extern const char *__vrdrv_build_info(void);
 
 /* Module parameter to control log level */
-#if 1 /* org */
 int vr_debug_level = 2;
-#else /* temp test */
-int vr_debug_level = 4;
-#endif
 module_param(vr_debug_level, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH); /* rw-rw-r-- */
 MODULE_PARM_DESC(vr_debug_level, "Higher number, more dmesg output");
 
+extern int vr_max_job_runtime;
 module_param(vr_max_job_runtime, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH);
 MODULE_PARM_DESC(vr_max_job_runtime, "Maximum allowed job runtime in msecs.\nJobs will be killed after this no matter what");
 
 extern int vr_l2_max_reads;
 module_param(vr_l2_max_reads, int, S_IRUSR | S_IRGRP | S_IROTH);
-MODULE_PARM_DESC(vr_l2_max_reads, "Maximum reads for VR L2 cache");
+MODULE_PARM_DESC(vr_l2_max_reads, "Maximum reads for Vr L2 cache");
 
-extern int vr_dedicated_mem_start;
-module_param(vr_dedicated_mem_start, int, S_IRUSR | S_IRGRP | S_IROTH);
-MODULE_PARM_DESC(vr_dedicated_mem_start, "Physical start address of dedicated VR GPU memory.");
+extern unsigned int vr_dedicated_mem_start;
+module_param(vr_dedicated_mem_start, uint, S_IRUSR | S_IRGRP | S_IROTH);
+MODULE_PARM_DESC(vr_dedicated_mem_start, "Physical start address of dedicated Vr GPU memory.");
 
-extern int vr_dedicated_mem_size;
-module_param(vr_dedicated_mem_size, int, S_IRUSR | S_IRGRP | S_IROTH);
-MODULE_PARM_DESC(vr_dedicated_mem_size, "Size of dedicated VR GPU memory.");
+extern unsigned int vr_dedicated_mem_size;
+module_param(vr_dedicated_mem_size, uint, S_IRUSR | S_IRGRP | S_IROTH);
+MODULE_PARM_DESC(vr_dedicated_mem_size, "Size of dedicated Vr GPU memory.");
 
-extern int vr_shared_mem_size;
-module_param(vr_shared_mem_size, int, S_IRUSR | S_IRGRP | S_IROTH);
-MODULE_PARM_DESC(vr_shared_mem_size, "Size of shared VR GPU memory.");
+extern unsigned int vr_shared_mem_size;
+module_param(vr_shared_mem_size, uint, S_IRUSR | S_IRGRP | S_IROTH);
+MODULE_PARM_DESC(vr_shared_mem_size, "Size of shared Vr GPU memory.");
 
 #if defined(CONFIG_VR400_PROFILING)
 extern int vr_boot_profiling;
 module_param(vr_boot_profiling, int, S_IRUSR | S_IRGRP | S_IROTH);
-MODULE_PARM_DESC(vr_boot_profiling, "Start profiling as a part of VR driver initialization");
+MODULE_PARM_DESC(vr_boot_profiling, "Start profiling as a part of Vr driver initialization");
 #endif
 
 extern int vr_max_pp_cores_group_1;
@@ -88,7 +86,27 @@ MODULE_PARM_DESC(vr_max_pp_cores_group_1, "Limit the number of PP cores to use f
 
 extern int vr_max_pp_cores_group_2;
 module_param(vr_max_pp_cores_group_2, int, S_IRUSR | S_IRGRP | S_IROTH);
-MODULE_PARM_DESC(vr_max_pp_cores_group_2, "Limit the number of PP cores to use from second PP group (VR-450 only).");
+MODULE_PARM_DESC(vr_max_pp_cores_group_2, "Limit the number of PP cores to use from second PP group (Vr-450 only).");
+
+#if defined(CONFIG_VR400_POWER_PERFORMANCE_POLICY)
+/** the max fps the same as display vsync default 60, can set by module insert parameter */
+extern int vr_max_system_fps;
+module_param(vr_max_system_fps, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH);
+MODULE_PARM_DESC(vr_max_system_fps, "Max system fps the same as display VSYNC.");
+
+/** a lower limit on their desired FPS default 58, can set by module insert parameter*/
+extern int vr_desired_fps;
+module_param(vr_desired_fps, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH);
+MODULE_PARM_DESC(vr_desired_fps, "A bit lower than max_system_fps which user desired fps");
+#endif
+
+#if VR_ENABLE_CPU_CYCLES
+#include <linux/cpumask.h>
+#include <linux/timer.h>
+#include <asm/smp.h>
+static struct timer_list vr_init_cpu_clock_timers[8];
+static u32 vr_cpu_clock_last_value[8] = {0,};
+#endif
 
 /* Export symbols from common code: vr_user_settings.c */
 #include "vr_user_settings_db.h"
@@ -97,10 +115,10 @@ EXPORT_SYMBOL(vr_get_user_setting);
 
 static char vr_dev_name[] = "vr"; /* should be const, but the functions we call requires non-cost */
 
-/* This driver only supports one VR device, and this variable stores this single platform device */
+/* This driver only supports one Vr device, and this variable stores this single platform device */
 struct platform_device *vr_platform_device = NULL;
 
-/* This driver only supports one VR device, and this variable stores the exposed misc device (/dev/vr) */
+/* This driver only supports one Vr device, and this variable stores the exposed misc device (/dev/vr) */
 static struct miscdevice vr_miscdevice = { 0, };
 
 static int vr_miscdevice_register(struct platform_device *pdev);
@@ -113,7 +131,6 @@ static long vr_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 #else
 static int vr_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg);
 #endif
-static int vr_mmap(struct file * filp, struct vm_area_struct * vma);
 
 static int vr_probe(struct platform_device *pdev);
 static int vr_remove(struct platform_device *pdev);
@@ -132,10 +149,9 @@ extern int vr_platform_device_register(void);
 extern int vr_platform_device_unregister(void);
 #endif
 
-/* Linux power management operations provided by the VR device driver */
+/* Linux power management operations provided by the Vr device driver */
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29))
-struct pm_ext_ops vr_dev_ext_pm_ops =
-{
+struct pm_ext_ops vr_dev_ext_pm_ops = {
 	.base =
 	{
 		.suspend = vr_driver_suspend_scheduler,
@@ -145,8 +161,7 @@ struct pm_ext_ops vr_dev_ext_pm_ops =
 	},
 };
 #else
-static const struct dev_pm_ops vr_dev_pm_ops =
-{
+static const struct dev_pm_ops vr_dev_pm_ops = {
 #ifdef CONFIG_PM_RUNTIME
 	.runtime_suspend = vr_driver_runtime_suspend,
 	.runtime_resume = vr_driver_runtime_resume,
@@ -156,12 +171,12 @@ static const struct dev_pm_ops vr_dev_pm_ops =
 	.resume = vr_driver_resume_scheduler,
 	.freeze = vr_driver_suspend_scheduler,
 	.thaw = vr_driver_resume_scheduler,
+	.poweroff = vr_driver_suspend_scheduler,
 };
 #endif
 
-/* The VR device driver struct */
-static struct platform_driver vr_platform_driver =
-{
+/* The Vr device driver struct */
+static struct platform_driver vr_platform_driver = {
 	.probe  = vr_probe,
 	.remove = vr_remove,
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29))
@@ -179,8 +194,7 @@ static struct platform_driver vr_platform_driver =
 };
 
 /* Linux misc device operations (/dev/vr) */
-struct file_operations vr_fops =
-{
+struct file_operations vr_fops = {
 	.owner = THIS_MODULE,
 	.open = vr_open,
 	.release = vr_release,
@@ -192,8 +206,7 @@ struct file_operations vr_fops =
 	.mmap = vr_mmap
 };
 
-
-
+/* NEXELL_FEATURE_PORTING */
 //added by nexell
 #include <asm/io.h>
 #include <linux/clk.h>
@@ -708,26 +721,147 @@ static void nx_vr_power_up_all_at_insmod(void)
 	#endif
 }
 
+#if VR_ENABLE_CPU_CYCLES
+void vr_init_cpu_time_counters(int reset, int enable_divide_by_64)
+{
+	/* The CPU assembly reference used is: ARM Architecture Reference Manual ARMv7-AR C.b */
+	u32 write_value;
+
+	/* See B4.1.116 PMCNTENSET, Performance Monitors Count Enable Set register, VMSA */
+	/* setting p15 c9 c12 1 to 0x8000000f==CPU_CYCLE_ENABLE |EVENT_3_ENABLE|EVENT_2_ENABLE|EVENT_1_ENABLE|EVENT_0_ENABLE */
+	asm volatile("mcr p15, 0, %0, c9, c12, 1" :: "r"(0x8000000f));
+
+
+	/* See B4.1.117 PMCR, Performance Monitors Control Register. Writing to p15, c9, c12, 0 */
+	write_value = 1<<0; /* Bit 0 set. Enable counters */
+	if (reset) {
+		write_value |= 1<<1; /* Reset event counters */
+		write_value |= 1<<2; /* Reset cycle counter  */
+	}
+	if (enable_divide_by_64) {
+		write_value |= 1<<3; /* Enable the Clock divider by 64 */
+	}
+	write_value |= 1<<4; /* Export enable. Not needed */
+	asm volatile ("MCR p15, 0, %0, c9, c12, 0\t\n" :: "r"(write_value ));
+
+	/* PMOVSR Overflow Flag Status Register - Clear Clock and Event overflows */
+	asm volatile ("MCR p15, 0, %0, c9, c12, 3\t\n" :: "r"(0x8000000f));
+
+
+	/* See B4.1.124 PMUSERENR - setting p15 c9 c14 to 1" */
+	/* User mode access to the Performance Monitors enabled. */
+	/* Lets User space read cpu clock cycles */
+	asm volatile( "mcr p15, 0, %0, c9, c14, 0" :: "r"(1) );
+}
+
+/** A timer function that configures the cycle clock counter on current CPU.
+	The function \a vr_init_cpu_time_counters_on_all_cpus sets up this function
+	to trigger on all Cpus during module load. */
+static void vr_init_cpu_clock_timer_func(unsigned long data)
+{
+	int reset_counters, enable_divide_clock_counter_by_64;
+	int current_cpu = raw_smp_processor_id();
+	unsigned int sample0;
+	unsigned int sample1;
+
+	VR_IGNORE(data);
+
+	reset_counters= 1;
+	enable_divide_clock_counter_by_64 = 0;
+	vr_init_cpu_time_counters(reset_counters, enable_divide_clock_counter_by_64);
+
+	sample0 = vr_get_cpu_cyclecount();
+	sample1 = vr_get_cpu_cyclecount();
+
+	VR_DEBUG_PRINT(3, ("Init Cpu %d cycle counter- First two samples: %08x %08x \n", current_cpu, sample0, sample1));
+}
+
+/** A timer functions for storing current time on all cpus.
+    Used for checking if the clocks have similar values or if they are drifting. */
+static void vr_print_cpu_clock_timer_func(unsigned long data)
+{
+	int current_cpu = raw_smp_processor_id();
+	unsigned int sample0;
+
+	VR_IGNORE(data);
+	sample0 = vr_get_cpu_cyclecount();
+	if ( current_cpu<8 ) {
+		vr_cpu_clock_last_value[current_cpu] = sample0;
+	}
+}
+
+/** Init the performance registers on all CPUs to count clock cycles.
+	For init \a print_only should be 0.
+    If \a print_only is 1, it will intead print the current clock value of all CPUs.*/
+void vr_init_cpu_time_counters_on_all_cpus(int print_only)
+{
+	int i = 0;
+	int cpu_number;
+	int jiffies_trigger;
+	int jiffies_wait;
+
+	jiffies_wait = 2;
+	jiffies_trigger = jiffies + jiffies_wait;
+
+	for ( i=0 ; i < 8 ; i++ ) {
+		init_timer(&vr_init_cpu_clock_timers[i]);
+		if (print_only) vr_init_cpu_clock_timers[i].function = vr_print_cpu_clock_timer_func;
+		else            vr_init_cpu_clock_timers[i].function = vr_init_cpu_clock_timer_func;
+		vr_init_cpu_clock_timers[i].expires = jiffies_trigger ;
+	}
+	cpu_number = cpumask_first(cpu_online_mask);
+	for ( i=0 ; i < 8 ; i++ ) {
+		int next_cpu;
+		add_timer_on(&vr_init_cpu_clock_timers[i], cpu_number);
+		next_cpu = cpumask_next(cpu_number, cpu_online_mask);
+		if (next_cpu >= nr_cpu_ids) break;
+		cpu_number = next_cpu;
+	}
+
+	while (jiffies_wait) jiffies_wait= schedule_timeout_uninterruptible(jiffies_wait);
+
+	for ( i=0 ; i < 8 ; i++ ) {
+		del_timer_sync(&vr_init_cpu_clock_timers[i]);
+	}
+
+	if (print_only) {
+		if ( (0==vr_cpu_clock_last_value[2]) &&  (0==vr_cpu_clock_last_value[3]) ) {
+			/* Diff can be printed if we want to check if the clocks are in sync
+			int diff = vr_cpu_clock_last_value[0] - vr_cpu_clock_last_value[1];*/
+			VR_DEBUG_PRINT(2, ("CPU cycle counters readout all: %08x %08x\n", vr_cpu_clock_last_value[0], vr_cpu_clock_last_value[1]));
+		} else {
+			VR_DEBUG_PRINT(2, ("CPU cycle counters readout all: %08x %08x %08x %08x\n", vr_cpu_clock_last_value[0], vr_cpu_clock_last_value[1], vr_cpu_clock_last_value[2], vr_cpu_clock_last_value[3] ));
+		}
+	}
+}
+#endif
+
+
 int vr_module_init(void)
 {
 	int err = 0;
 	
+	/* NEXELL_FEATURE_PORTING */
 	//added by nexell
 	nx_vr_power_up_all_at_insmod();
-	vr_pmu_powerup();
+	//vr_pmu_powerup();
 
-	VR_DEBUG_PRINT(2, ("Inserting VR v%d device driver. \n",_VR_API_VERSION));
+	VR_DEBUG_PRINT(2, ("Inserting Vr v%d device driver. \n",_VR_API_VERSION));
 	VR_DEBUG_PRINT(2, ("Compiled: %s, time: %s.\n", __DATE__, __TIME__));
 	VR_DEBUG_PRINT(2, ("Driver revision: %s\n", SVN_REV_STRING));
 
-	/* Initialize module wide settings */
-	vr_osk_low_level_mem_init();
+#if VR_ENABLE_CPU_CYCLES
+	vr_init_cpu_time_counters_on_all_cpus(0);
+	VR_DEBUG_PRINT(2, ("CPU cycle counter setup complete\n"));
+	/* Printing the current cpu counters */
+	vr_init_cpu_time_counters_on_all_cpus(1);
+#endif
 
+	/* Initialize module wide settings */
 #if defined(VR_FAKE_PLATFORM_DEVICE)
 	VR_DEBUG_PRINT(2, ("vr_module_init() registering device\n"));
 	err = vr_platform_device_register();
-	if (0 != err)
-	{
+	if (0 != err) {
 		return err;
 	}
 #endif
@@ -736,8 +870,7 @@ int vr_module_init(void)
 
 	err = platform_driver_register(&vr_platform_driver);
 
-	if (0 != err)
-	{
+	if (0 != err) {
 		VR_DEBUG_PRINT(2, ("vr_module_init() Failed to register driver (%d)\n", err));
 #if defined(VR_FAKE_PLATFORM_DEVICE)
 		vr_platform_device_unregister();
@@ -747,28 +880,26 @@ int vr_module_init(void)
 	}
 
 #if defined(CONFIG_VR400_INTERNAL_PROFILING)
-        err = _vr_internal_profiling_init(vr_boot_profiling ? VR_TRUE : VR_FALSE);
-        if (0 != err)
-        {
-                /* No biggie if we wheren't able to initialize the profiling */
-                VR_PRINT_ERROR(("Failed to initialize profiling, feature will be unavailable\n"));
-        }
+	err = _vr_internal_profiling_init(vr_boot_profiling ? VR_TRUE : VR_FALSE);
+	if (0 != err) {
+		/* No biggie if we wheren't able to initialize the profiling */
+		VR_PRINT_ERROR(("Failed to initialize profiling, feature will be unavailable\n"));
+	}
 #endif
 
-	VR_PRINT(("VR device driver loaded(ver1.0)\n"));
-
+	VR_PRINT(("VR device driver loaded(ver1.2)\n"));
 
 	return 0; /* Success */
 }
 
 void vr_module_exit(void)
 {
-	VR_DEBUG_PRINT(2, ("Unloading VR v%d device driver.\n",_VR_API_VERSION));
+	VR_DEBUG_PRINT(2, ("Unloading Vr v%d device driver.\n",_VR_API_VERSION));
 
 	VR_DEBUG_PRINT(2, ("vr_module_exit() unregistering driver\n"));
 
 #if defined(CONFIG_VR400_INTERNAL_PROFILING)
-        _vr_internal_profiling_term();
+	_vr_internal_profiling_term();
 #endif
 
 	platform_driver_unregister(&vr_platform_driver);
@@ -778,8 +909,7 @@ void vr_module_exit(void)
 	vr_platform_device_unregister();
 #endif
 
-	vr_osk_low_level_mem_term();
-
+	/* NEXELL_FEATURE_PORTING */
 	//added by nexell
 	/*
 	this function occurs segfualt error in case of rmmod.
@@ -789,8 +919,7 @@ void vr_module_exit(void)
 
 	//added by nexell 
 	nx_vr_power_down_all();
-
-	VR_PRINT(("VR device driver unloaded\n"));
+	VR_PRINT(("Vr device driver unloaded\n"));
 }
 
 static int vr_probe(struct platform_device *pdev)
@@ -799,46 +928,35 @@ static int vr_probe(struct platform_device *pdev)
 
 	VR_DEBUG_PRINT(2, ("vr_probe(): Called for platform device %s\n", pdev->name));
 
-	if (NULL != vr_platform_device)
-	{
+	if (NULL != vr_platform_device) {
 		/* Already connected to a device, return error */
-		VR_PRINT_ERROR(("vr_probe(): The VR driver is already connected with a VR device."));
+		VR_PRINT_ERROR(("vr_probe(): The Vr driver is already connected with a Vr device."));
 		return -EEXIST;
 	}
 
 	vr_platform_device = pdev;
 
-	if (_VR_OSK_ERR_OK == _vr_osk_wq_init())
-	{
-		/* Initialize the VR GPU HW specified by pdev */
-		if (_VR_OSK_ERR_OK == vr_initialize_subsystems())
-		{
+	if (_VR_OSK_ERR_OK == _vr_osk_wq_init()) {
+		/* Initialize the Vr GPU HW specified by pdev */
+		if (_VR_OSK_ERR_OK == vr_initialize_subsystems()) {
 			/* Register a misc device (so we are accessible from user space) */
 			err = vr_miscdevice_register(pdev);
-			if (0 == err)
-			{
+			if (0 == err) {
 				/* Setup sysfs entries */
 				err = vr_sysfs_register(vr_dev_name);
-				if (0 == err)
-				{
+				if (0 == err) {
 					VR_DEBUG_PRINT(2, ("vr_probe(): Successfully initialized driver for platform device %s\n", pdev->name));
 					return 0;
-				}
-				else
-				{
+				} else {
 					VR_PRINT_ERROR(("vr_probe(): failed to register sysfs entries"));
 				}
 				vr_miscdevice_unregister();
-			}
-			else
-			{
-				VR_PRINT_ERROR(("vr_probe(): failed to register VR misc device."));
+			} else {
+				VR_PRINT_ERROR(("vr_probe(): failed to register Vr misc device."));
 			}
 			vr_terminate_subsystems();
-		}
-		else
-		{
-			VR_PRINT_ERROR(("vr_probe(): Failed to initialize VR device driver."));
+		} else {
+			VR_PRINT_ERROR(("vr_probe(): Failed to initialize Vr device driver."));
 		}
 		_vr_osk_wq_term();
 	}
@@ -868,8 +986,7 @@ static int vr_miscdevice_register(struct platform_device *pdev)
 	vr_miscdevice.parent = get_device(&pdev->dev);
 
 	err = misc_register(&vr_miscdevice);
-	if (0 != err)
-	{
+	if (0 != err) {
 		VR_PRINT_ERROR(("Failed to register misc device, misc_register() returned %d\n", err));
 	}
 
@@ -880,6 +997,7 @@ static void vr_miscdevice_unregister(void)
 {
 	misc_deregister(&vr_miscdevice);
 }
+
 static int vr_driver_suspend_scheduler(struct device *dev)
 {
 	VR_PM_DBG("-----------------------------------------------------\n");
@@ -914,7 +1032,6 @@ static int vr_driver_runtime_suspend(struct device *dev)
 	//VR_PM_DBG("	VR POWERDown Start(CONFIG_PM_RUNTIME)\n");
 
 	vr_pm_runtime_suspend();
-	//nx_vr_power_down_all();
 	
 	//VR_PM_DBG("	VR POWERDown End(CONFIG_PM_RUNTIME)\n");
 	//VR_PM_DBG("-----------------------------------------------------\n");
@@ -926,8 +1043,6 @@ static int vr_driver_runtime_resume(struct device *dev)
 	//VR_PM_DBG("-----------------------------------------------------\n");
 	//VR_PM_DBG("	VR POWERUp Start(CONFIG_PM_RUNTIME)\n");
 
-	//nx_vr_power_up_all_first();
-	//nx_vr_power_up_all_second();
 	vr_pm_runtime_resume();
 	
 	//VR_PM_DBG("	VR POWERUp End(CONFIG_PM_RUNTIME)\n");
@@ -942,61 +1057,20 @@ static int vr_driver_runtime_idle(struct device *dev)
 }
 #endif
 
-/** @note munmap handler is done by vma close handler */
-static int vr_mmap(struct file * filp, struct vm_area_struct * vma)
-{
-	struct vr_session_data * session_data;
-	_vr_uk_mem_mmap_s args = {0, };
-
-    session_data = (struct vr_session_data *)filp->private_data;
-	if (NULL == session_data)
-	{
-		VR_PRINT_ERROR(("mmap called without any session data available\n"));
-		return -EFAULT;
-	}
-
-	VR_DEBUG_PRINT(4, ("MMap() handler: start=0x%08X, phys=0x%08X, size=0x%08X vma->flags 0x%08x\n", (unsigned int)vma->vm_start, (unsigned int)(vma->vm_pgoff << PAGE_SHIFT), (unsigned int)(vma->vm_end - vma->vm_start), vma->vm_flags));
-
-	/* Re-pack the arguments that mmap() packed for us */
-	args.ctx = session_data;
-	args.phys_addr = vma->vm_pgoff << PAGE_SHIFT;
-	args.size = vma->vm_end - vma->vm_start;
-	args.ukk_private = vma;
-
-	if ( VM_SHARED== (VM_SHARED  & vma->vm_flags))
-	{
-		args.cache_settings = VR_CACHE_STANDARD ;
-		VR_DEBUG_PRINT(3,("Allocate - Standard - Size: %d kb\n", args.size/1024));
-	}
-	else
-	{
-		args.cache_settings = VR_CACHE_GP_READ_ALLOCATE;
-		VR_DEBUG_PRINT(3,("Allocate - GP Cached - Size: %d kb\n", args.size/1024));
-	}
-	/* Setting it equal to VM_SHARED and not Private, which would have made the later io_remap fail for VR_CACHE_GP_READ_ALLOCATE */
-	vma->vm_flags = 0x000000fb;
-
-	/* Call the common mmap handler */
-	VR_CHECK(_VR_OSK_ERR_OK ==_vr_ukk_mem_mmap( &args ), -EFAULT);
-
-    return 0;
-}
-
 static int vr_open(struct inode *inode, struct file *filp)
 {
 	struct vr_session_data * session_data;
-    _vr_osk_errcode_t err;
+	_vr_osk_errcode_t err;
 
 	/* input validation */
-	if (vr_miscdevice.minor != iminor(inode))
-	{
+	if (vr_miscdevice.minor != iminor(inode)) {
 		VR_PRINT_ERROR(("vr_open() Minor does not match\n"));
 		return -ENODEV;
 	}
 
 	/* allocated struct to track this session */
-    err = _vr_ukk_open((void **)&session_data);
-    if (_VR_OSK_ERR_OK != err) return map_errcode(err);
+	err = _vr_ukk_open((void **)&session_data);
+	if (_VR_OSK_ERR_OK != err) return map_errcode(err);
 
 	/* initialize file pointer */
 	filp->f_pos = 0;
@@ -1009,35 +1083,42 @@ static int vr_open(struct inode *inode, struct file *filp)
 
 static int vr_release(struct inode *inode, struct file *filp)
 {
-    _vr_osk_errcode_t err;
+	_vr_osk_errcode_t err;
 
 	/* input validation */
-	if (vr_miscdevice.minor != iminor(inode))
-	{
+	if (vr_miscdevice.minor != iminor(inode)) {
 		VR_PRINT_ERROR(("vr_release() Minor does not match\n"));
 		return -ENODEV;
 	}
 
-    err = _vr_ukk_close((void **)&filp->private_data);
-    if (_VR_OSK_ERR_OK != err) return map_errcode(err);
+	err = _vr_ukk_close((void **)&filp->private_data);
+	if (_VR_OSK_ERR_OK != err) return map_errcode(err);
 
 	return 0;
 }
 
 int map_errcode( _vr_osk_errcode_t err )
 {
-    switch(err)
-    {
-        case _VR_OSK_ERR_OK : return 0;
-        case _VR_OSK_ERR_FAULT: return -EFAULT;
-        case _VR_OSK_ERR_INVALID_FUNC: return -ENOTTY;
-        case _VR_OSK_ERR_INVALID_ARGS: return -EINVAL;
-        case _VR_OSK_ERR_NOMEM: return -ENOMEM;
-        case _VR_OSK_ERR_TIMEOUT: return -ETIMEDOUT;
-        case _VR_OSK_ERR_RESTARTSYSCALL: return -ERESTARTSYS;
-        case _VR_OSK_ERR_ITEM_NOT_FOUND: return -ENOENT;
-        default: return -EFAULT;
-    }
+	switch(err) {
+	case _VR_OSK_ERR_OK :
+		return 0;
+	case _VR_OSK_ERR_FAULT:
+		return -EFAULT;
+	case _VR_OSK_ERR_INVALID_FUNC:
+		return -ENOTTY;
+	case _VR_OSK_ERR_INVALID_ARGS:
+		return -EINVAL;
+	case _VR_OSK_ERR_NOMEM:
+		return -ENOMEM;
+	case _VR_OSK_ERR_TIMEOUT:
+		return -ETIMEDOUT;
+	case _VR_OSK_ERR_RESTARTSYSCALL:
+		return -ERESTARTSYS;
+	case _VR_OSK_ERR_ITEM_NOT_FOUND:
+		return -ENOENT;
+	default:
+		return -EFAULT;
+	}
 }
 
 #ifdef HAVE_UNLOCKED_IOCTL
@@ -1057,206 +1138,214 @@ static int vr_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, un
 	VR_DEBUG_PRINT(7, ("Ioctl received 0x%08X 0x%08lX\n", cmd, arg));
 
 	session_data = (struct vr_session_data *)filp->private_data;
-	if (NULL == session_data)
-	{
+	if (NULL == session_data) {
 		VR_DEBUG_PRINT(7, ("filp->private_data was NULL\n"));
 		return -ENOTTY;
 	}
 
-	if (NULL == (void *)arg)
-	{
+	if (NULL == (void *)arg) {
 		VR_DEBUG_PRINT(7, ("arg was NULL\n"));
 		return -ENOTTY;
 	}
 
-	switch(cmd)
-	{
-		case VR_IOC_WAIT_FOR_NOTIFICATION:
-			err = wait_for_notification_wrapper(session_data, (_vr_uk_wait_for_notification_s __user *)arg);
-			break;
+	switch(cmd) {
+	case VR_IOC_WAIT_FOR_NOTIFICATION:
+		err = wait_for_notification_wrapper(session_data, (_vr_uk_wait_for_notification_s __user *)arg);
+		break;
 
-		case VR_IOC_GET_API_VERSION:
-			err = get_api_version_wrapper(session_data, (_vr_uk_get_api_version_s __user *)arg);
-			break;
+	case VR_IOC_GET_API_VERSION:
+		err = get_api_version_wrapper(session_data, (_vr_uk_get_api_version_s __user *)arg);
+		break;
 
-		case VR_IOC_POST_NOTIFICATION:
-			err = post_notification_wrapper(session_data, (_vr_uk_post_notification_s __user *)arg);
-			break;
+	case VR_IOC_POST_NOTIFICATION:
+		err = post_notification_wrapper(session_data, (_vr_uk_post_notification_s __user *)arg);
+		break;
 
-		case VR_IOC_GET_USER_SETTINGS:
-			err = get_user_settings_wrapper(session_data, (_vr_uk_get_user_settings_s __user *)arg);
-			break;
+	case VR_IOC_GET_USER_SETTINGS:
+		err = get_user_settings_wrapper(session_data, (_vr_uk_get_user_settings_s __user *)arg);
+		break;
+
+	case VR_IOC_REQUEST_HIGH_PRIORITY:
+		err = request_high_priority_wrapper(session_data, (_vr_uk_request_high_priority_s __user *)arg);
+		break;
 
 #if defined(CONFIG_VR400_PROFILING)
-		case VR_IOC_PROFILING_START:
-			err = profiling_start_wrapper(session_data, (_vr_uk_profiling_start_s __user *)arg);
-			break;
+	case VR_IOC_PROFILING_START:
+		err = profiling_start_wrapper(session_data, (_vr_uk_profiling_start_s __user *)arg);
+		break;
 
-		case VR_IOC_PROFILING_ADD_EVENT:
-			err = profiling_add_event_wrapper(session_data, (_vr_uk_profiling_add_event_s __user *)arg);
-			break;
+	case VR_IOC_PROFILING_ADD_EVENT:
+		err = profiling_add_event_wrapper(session_data, (_vr_uk_profiling_add_event_s __user *)arg);
+		break;
 
-		case VR_IOC_PROFILING_STOP:
-			err = profiling_stop_wrapper(session_data, (_vr_uk_profiling_stop_s __user *)arg);
-			break;
+	case VR_IOC_PROFILING_STOP:
+		err = profiling_stop_wrapper(session_data, (_vr_uk_profiling_stop_s __user *)arg);
+		break;
 
-		case VR_IOC_PROFILING_GET_EVENT:
-			err = profiling_get_event_wrapper(session_data, (_vr_uk_profiling_get_event_s __user *)arg);
-			break;
+	case VR_IOC_PROFILING_GET_EVENT:
+		err = profiling_get_event_wrapper(session_data, (_vr_uk_profiling_get_event_s __user *)arg);
+		break;
 
-		case VR_IOC_PROFILING_CLEAR:
-			err = profiling_clear_wrapper(session_data, (_vr_uk_profiling_clear_s __user *)arg);
-			break;
+	case VR_IOC_PROFILING_CLEAR:
+		err = profiling_clear_wrapper(session_data, (_vr_uk_profiling_clear_s __user *)arg);
+		break;
 
-		case VR_IOC_PROFILING_GET_CONFIG:
-			/* Deprecated: still compatible with get_user_settings */
-			err = get_user_settings_wrapper(session_data, (_vr_uk_get_user_settings_s __user *)arg);
-			break;
+	case VR_IOC_PROFILING_GET_CONFIG:
+		/* Deprecated: still compatible with get_user_settings */
+		err = get_user_settings_wrapper(session_data, (_vr_uk_get_user_settings_s __user *)arg);
+		break;
 
-		case VR_IOC_PROFILING_REPORT_SW_COUNTERS:
-			err = profiling_report_sw_counters_wrapper(session_data, (_vr_uk_sw_counters_report_s __user *)arg);
-			break;
+	case VR_IOC_PROFILING_REPORT_SW_COUNTERS:
+		err = profiling_report_sw_counters_wrapper(session_data, (_vr_uk_sw_counters_report_s __user *)arg);
+		break;
 
 #else
 
-		case VR_IOC_PROFILING_START:              /* FALL-THROUGH */
-		case VR_IOC_PROFILING_ADD_EVENT:          /* FALL-THROUGH */
-		case VR_IOC_PROFILING_STOP:               /* FALL-THROUGH */
-		case VR_IOC_PROFILING_GET_EVENT:          /* FALL-THROUGH */
-		case VR_IOC_PROFILING_CLEAR:              /* FALL-THROUGH */
-		case VR_IOC_PROFILING_GET_CONFIG:         /* FALL-THROUGH */
-		case VR_IOC_PROFILING_REPORT_SW_COUNTERS: /* FALL-THROUGH */
-			VR_DEBUG_PRINT(2, ("Profiling not supported\n"));
-			err = -ENOTTY;
-			break;
+	case VR_IOC_PROFILING_START:              /* FALL-THROUGH */
+	case VR_IOC_PROFILING_ADD_EVENT:          /* FALL-THROUGH */
+	case VR_IOC_PROFILING_STOP:               /* FALL-THROUGH */
+	case VR_IOC_PROFILING_GET_EVENT:          /* FALL-THROUGH */
+	case VR_IOC_PROFILING_CLEAR:              /* FALL-THROUGH */
+	case VR_IOC_PROFILING_GET_CONFIG:         /* FALL-THROUGH */
+	case VR_IOC_PROFILING_REPORT_SW_COUNTERS: /* FALL-THROUGH */
+		VR_DEBUG_PRINT(2, ("Profiling not supported\n"));
+		err = -ENOTTY;
+		break;
 
 #endif
 
-		case VR_IOC_MEM_INIT:
-			err = mem_init_wrapper(session_data, (_vr_uk_init_mem_s __user *)arg);
-			break;
+	case VR_IOC_MEM_WRITE_SAFE:
+		err = mem_write_safe_wrapper(session_data, (_vr_uk_mem_write_safe_s __user *)arg);
+		break;
 
-		case VR_IOC_MEM_TERM:
-			err = mem_term_wrapper(session_data, (_vr_uk_term_mem_s __user *)arg);
-			break;
+	case VR_IOC_MEM_MAP_EXT:
+		err = mem_map_ext_wrapper(session_data, (_vr_uk_map_external_mem_s __user *)arg);
+		break;
 
-		case VR_IOC_MEM_MAP_EXT:
-			err = mem_map_ext_wrapper(session_data, (_vr_uk_map_external_mem_s __user *)arg);
-			break;
+	case VR_IOC_MEM_UNMAP_EXT:
+		err = mem_unmap_ext_wrapper(session_data, (_vr_uk_unmap_external_mem_s __user *)arg);
+		break;
 
-		case VR_IOC_MEM_UNMAP_EXT:
-			err = mem_unmap_ext_wrapper(session_data, (_vr_uk_unmap_external_mem_s __user *)arg);
-			break;
+	case VR_IOC_MEM_QUERY_MMU_PAGE_TABLE_DUMP_SIZE:
+		err = mem_query_mmu_page_table_dump_size_wrapper(session_data, (_vr_uk_query_mmu_page_table_dump_size_s __user *)arg);
+		break;
 
-		case VR_IOC_MEM_QUERY_MMU_PAGE_TABLE_DUMP_SIZE:
-			err = mem_query_mmu_page_table_dump_size_wrapper(session_data, (_vr_uk_query_mmu_page_table_dump_size_s __user *)arg);
-			break;
-
-		case VR_IOC_MEM_DUMP_MMU_PAGE_TABLE:
-			err = mem_dump_mmu_page_table_wrapper(session_data, (_vr_uk_dump_mmu_page_table_s __user *)arg);
-			break;
+	case VR_IOC_MEM_DUMP_MMU_PAGE_TABLE:
+		err = mem_dump_mmu_page_table_wrapper(session_data, (_vr_uk_dump_mmu_page_table_s __user *)arg);
+		break;
 
 #if defined(CONFIG_VR400_UMP)
 
-		case VR_IOC_MEM_ATTACH_UMP:
-			err = mem_attach_ump_wrapper(session_data, (_vr_uk_attach_ump_mem_s __user *)arg);
-			break;
+	case VR_IOC_MEM_ATTACH_UMP:
+		err = mem_attach_ump_wrapper(session_data, (_vr_uk_attach_ump_mem_s __user *)arg);
+		break;
 
-		case VR_IOC_MEM_RELEASE_UMP:
-			err = mem_release_ump_wrapper(session_data, (_vr_uk_release_ump_mem_s __user *)arg);
-			break;
+	case VR_IOC_MEM_RELEASE_UMP:
+		err = mem_release_ump_wrapper(session_data, (_vr_uk_release_ump_mem_s __user *)arg);
+		break;
 
 #else
 
-		case VR_IOC_MEM_ATTACH_UMP:
-		case VR_IOC_MEM_RELEASE_UMP: /* FALL-THROUGH */
-			VR_DEBUG_PRINT(2, ("UMP not supported\n"));
-			err = -ENOTTY;
-			break;
+	case VR_IOC_MEM_ATTACH_UMP:
+	case VR_IOC_MEM_RELEASE_UMP: /* FALL-THROUGH */
+		VR_DEBUG_PRINT(2, ("UMP not supported\n"));
+		err = -ENOTTY;
+		break;
 #endif
 
 #ifdef CONFIG_DMA_SHARED_BUFFER
-		case VR_IOC_MEM_ATTACH_DMA_BUF:
-			err = vr_attach_dma_buf(session_data, (_vr_uk_attach_dma_buf_s __user *)arg);
-			break;
+	case VR_IOC_MEM_ATTACH_DMA_BUF:
+		err = vr_attach_dma_buf(session_data, (_vr_uk_attach_dma_buf_s __user *)arg);
+		break;
 
-		case VR_IOC_MEM_RELEASE_DMA_BUF:
-			err = vr_release_dma_buf(session_data, (_vr_uk_release_dma_buf_s __user *)arg);
-			break;
+	case VR_IOC_MEM_RELEASE_DMA_BUF:
+		err = vr_release_dma_buf(session_data, (_vr_uk_release_dma_buf_s __user *)arg);
+		break;
 
-		case VR_IOC_MEM_DMA_BUF_GET_SIZE:
-			err = vr_dma_buf_get_size(session_data, (_vr_uk_dma_buf_get_size_s __user *)arg);
-			break;
+	case VR_IOC_MEM_DMA_BUF_GET_SIZE:
+		err = vr_dma_buf_get_size(session_data, (_vr_uk_dma_buf_get_size_s __user *)arg);
+		break;
 #else
 
-		case VR_IOC_MEM_ATTACH_DMA_BUF:   /* FALL-THROUGH */
-		case VR_IOC_MEM_RELEASE_DMA_BUF:  /* FALL-THROUGH */
-		case VR_IOC_MEM_DMA_BUF_GET_SIZE: /* FALL-THROUGH */
-			VR_DEBUG_PRINT(2, ("DMA-BUF not supported\n"));
-			err = -ENOTTY;
-			break;
+	case VR_IOC_MEM_ATTACH_DMA_BUF:   /* FALL-THROUGH */
+	case VR_IOC_MEM_RELEASE_DMA_BUF:  /* FALL-THROUGH */
+	case VR_IOC_MEM_DMA_BUF_GET_SIZE: /* FALL-THROUGH */
+		VR_DEBUG_PRINT(2, ("DMA-BUF not supported\n"));
+		err = -ENOTTY;
+		break;
 #endif
 
-		case VR_IOC_PP_START_JOB:
-			err = pp_start_job_wrapper(session_data, (_vr_uk_pp_start_job_s __user *)arg);
-			break;
+	case VR_IOC_PP_START_JOB:
+		err = pp_start_job_wrapper(session_data, (_vr_uk_pp_start_job_s __user *)arg);
+		break;
 
-		case VR_IOC_PP_NUMBER_OF_CORES_GET:
-			err = pp_get_number_of_cores_wrapper(session_data, (_vr_uk_get_pp_number_of_cores_s __user *)arg);
-			break;
+	case VR_IOC_PP_AND_GP_START_JOB:
+		err = pp_and_gp_start_job_wrapper(session_data, (_vr_uk_pp_and_gp_start_job_s __user *)arg);
+		break;
 
-		case VR_IOC_PP_CORE_VERSION_GET:
-			err = pp_get_core_version_wrapper(session_data, (_vr_uk_get_pp_core_version_s __user *)arg);
-			break;
+	case VR_IOC_PP_NUMBER_OF_CORES_GET:
+		err = pp_get_number_of_cores_wrapper(session_data, (_vr_uk_get_pp_number_of_cores_s __user *)arg);
+		break;
 
-		case VR_IOC_PP_DISABLE_WB:
-			err = pp_disable_wb_wrapper(session_data, (_vr_uk_pp_disable_wb_s __user *)arg);
-			break;
+	case VR_IOC_PP_CORE_VERSION_GET:
+		err = pp_get_core_version_wrapper(session_data, (_vr_uk_get_pp_core_version_s __user *)arg);
+		break;
 
-		case VR_IOC_GP2_START_JOB:
-			err = gp_start_job_wrapper(session_data, (_vr_uk_gp_start_job_s __user *)arg);
-			break;
+	case VR_IOC_PP_DISABLE_WB:
+		err = pp_disable_wb_wrapper(session_data, (_vr_uk_pp_disable_wb_s __user *)arg);
+		break;
 
-		case VR_IOC_GP2_NUMBER_OF_CORES_GET:
-			err = gp_get_number_of_cores_wrapper(session_data, (_vr_uk_get_gp_number_of_cores_s __user *)arg);
-			break;
+	case VR_IOC_GP2_START_JOB:
+		err = gp_start_job_wrapper(session_data, (_vr_uk_gp_start_job_s __user *)arg);
+		break;
 
-		case VR_IOC_GP2_CORE_VERSION_GET:
-			err = gp_get_core_version_wrapper(session_data, (_vr_uk_get_gp_core_version_s __user *)arg);
-			break;
+	case VR_IOC_GP2_NUMBER_OF_CORES_GET:
+		err = gp_get_number_of_cores_wrapper(session_data, (_vr_uk_get_gp_number_of_cores_s __user *)arg);
+		break;
 
-		case VR_IOC_GP2_SUSPEND_RESPONSE:
-			err = gp_suspend_response_wrapper(session_data, (_vr_uk_gp_suspend_response_s __user *)arg);
-			break;
+	case VR_IOC_GP2_CORE_VERSION_GET:
+		err = gp_get_core_version_wrapper(session_data, (_vr_uk_get_gp_core_version_s __user *)arg);
+		break;
 
-		case VR_IOC_VSYNC_EVENT_REPORT:
-			err = vsync_event_report_wrapper(session_data, (_vr_uk_vsync_event_report_s __user *)arg);
-			break;
+	case VR_IOC_GP2_SUSPEND_RESPONSE:
+		err = gp_suspend_response_wrapper(session_data, (_vr_uk_gp_suspend_response_s __user *)arg);
+		break;
 
-		case VR_IOC_STREAM_CREATE:
-#if defined(CONFIG_SYNC)
-			err = stream_create_wrapper(session_data, (_vr_uk_stream_create_s __user *)arg);
-			break;
-#endif
-		case VR_IOC_FENCE_VALIDATE:
-#if defined(CONFIG_SYNC)
-			err = sync_fence_validate_wrapper(session_data, (_vr_uk_fence_validate_s __user *)arg);
-			break;
-#else
-			VR_DEBUG_PRINT(2, ("Sync objects not supported\n"));
-			err = -ENOTTY;
-			break;
-#endif
+	case VR_IOC_VSYNC_EVENT_REPORT:
+		err = vsync_event_report_wrapper(session_data, (_vr_uk_vsync_event_report_s __user *)arg);
+		break;
 
-		case VR_IOC_MEM_GET_BIG_BLOCK: /* Fallthrough */
-		case VR_IOC_MEM_FREE_BIG_BLOCK:
-			VR_PRINT_ERROR(("Non-MMU mode is no longer supported.\n"));
-			err = -ENOTTY;
-			break;
+	case VR_IOC_TIMELINE_GET_LATEST_POINT:
+		err = timeline_get_latest_point_wrapper(session_data, (_vr_uk_timeline_get_latest_point_s __user *)arg);
+		break;
+	case VR_IOC_TIMELINE_WAIT:
+		err = timeline_wait_wrapper(session_data, (_vr_uk_timeline_wait_s __user *)arg);
+		break;
+	case VR_IOC_TIMELINE_CREATE_SYNC_FENCE:
+		err = timeline_create_sync_fence_wrapper(session_data, (_vr_uk_timeline_create_sync_fence_s __user *)arg);
+		break;
+	case VR_IOC_SOFT_JOB_START:
+		err = soft_job_start_wrapper(session_data, (_vr_uk_soft_job_start_s __user *)arg);
+		break;
+	case VR_IOC_SOFT_JOB_SIGNAL:
+		err = soft_job_signal_wrapper(session_data, (_vr_uk_soft_job_signal_s __user *)arg);
+		break;
 
-		default:
-			VR_DEBUG_PRINT(2, ("No handler for ioctl 0x%08X 0x%08lX\n", cmd, arg));
-			err = -ENOTTY;
+	case VR_IOC_MEM_INIT: /* Fallthrough */
+	case VR_IOC_MEM_TERM: /* Fallthrough */
+		VR_DEBUG_PRINT(2, ("Deprecated ioctls called\n"));
+		err = -ENOTTY;
+		break;
+
+	case VR_IOC_MEM_GET_BIG_BLOCK: /* Fallthrough */
+	case VR_IOC_MEM_FREE_BIG_BLOCK:
+		VR_PRINT_ERROR(("Non-MMU mode is no longer supported.\n"));
+		err = -ENOTTY;
+		break;
+
+	default:
+		VR_DEBUG_PRINT(2, ("No handler for ioctl 0x%08X 0x%08lX\n", cmd, arg));
+		err = -ENOTTY;
 	};
 
 	return err;
@@ -1267,5 +1356,5 @@ module_init(vr_module_init);
 module_exit(vr_module_exit);
 
 MODULE_LICENSE(VR_KERNEL_LINUX_LICENSE);
-MODULE_AUTHOR("ARM Ltd.");
+MODULE_AUTHOR("NEXELL Ltd.");
 MODULE_VERSION(SVN_REV_STRING);

@@ -3,6 +3,8 @@
 #ifdef ANDROID
 #define LOG_TAG "nxp-v4l2"
 #include <utils/Log.h>
+#include <system/graphics.h>
+#include <nexell_format.h>
 #endif
 
 #include "nxp-v4l2-private.cpp"
@@ -125,13 +127,54 @@ int v4l2_qbuf(int id, int plane_num, int index0, struct private_handle_t *b0, in
     if (b1) {
         if (plane_num == 1)
             return _priv->qBuf(id, plane_num, index0, &b0->share_fd, &b0->size, syncfd0, index1, &b1->share_fd, &b1->size, syncfd1);
-        else
-            return _priv->qBuf(id, plane_num, index0, b0->share_fds, b0->sizes, syncfd0, index1, b1->share_fds, b1->sizes, syncfd1);
+        else {
+            int srcFds0[3] = { b0->share_fd, b0->share_fd1, b0->share_fd2 };
+            int srcFds1[3] = { b1->share_fd, b1->share_fd1, b1->share_fd2 };
+            int sizes0[3];
+            sizes0[0] = b0->stride * ALIGN(b0->height, 16);
+            switch (b0->format) {
+            case HAL_PIXEL_FORMAT_YV12:
+                sizes0[1] = ALIGN(b0->stride >> 1, 16) * ALIGN(b0->height >> 1, 16);
+                sizes0[2] = sizes0[1];
+                break;
+            case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+                sizes0[1] = b0->stride * ALIGN(b0->height >> 1, 16);
+                sizes0[2] = 0;
+                break;
+            }
+            int sizes1[3];
+            sizes1[0] = b1->stride * ALIGN(b1->height, 16);
+            switch (b1->format) {
+            case HAL_PIXEL_FORMAT_YV12:
+                sizes1[1] = ALIGN(b1->stride >> 1, 16) * ALIGN(b1->height >> 1, 16);
+                sizes1[2] = sizes1[1];
+                break;
+            case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+                sizes1[1] = b1->stride * ALIGN(b1->height >> 1, 16);
+                sizes1[2] = 0;
+                break;
+            }
+            return _priv->qBuf(id, plane_num, index0, srcFds0, sizes0, syncfd0, index1, srcFds1, sizes1, syncfd1);
+        }
     } else {
         if (plane_num == 1)
             return _priv->qBuf(id, plane_num, index0, &b0->share_fd, &b0->size, syncfd0);
-        else
-            return _priv->qBuf(id, plane_num, index0, b0->share_fds, b0->sizes, syncfd0);
+        else {
+            int srcFds0[3] = { b0->share_fd, b0->share_fd1, b0->share_fd2 };
+            int sizes0[3];
+            sizes0[0] = b0->stride * ALIGN(b0->height, 16);
+            switch (b0->format) {
+            case HAL_PIXEL_FORMAT_YV12:
+                sizes0[1] = ALIGN(b0->stride >> 1, 16) * ALIGN(b0->height >> 1, 16);
+                sizes0[2] = sizes0[1];
+                break;
+            case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+                sizes0[1] = b0->stride * ALIGN(b0->height >> 1, 16);
+                sizes0[2] = 0;
+                break;
+            }
+            return _priv->qBuf(id, plane_num, index0, srcFds0, sizes0, syncfd0);
+        }
     }
 }
 
@@ -141,13 +184,54 @@ int v4l2_qbuf(int id, int plane_num, int index0, struct private_handle_t const *
     if (b1) {
         if (plane_num == 1)
             return _priv->qBuf(id, plane_num, index0, &b0->share_fd, &b0->size, syncfd0, index1, &b1->share_fd, &b1->size, syncfd1);
-        else
-            return _priv->qBuf(id, plane_num, index0, b0->share_fds, b0->sizes, syncfd0, index1, b1->share_fds, b1->sizes, syncfd1);
+        else {
+            int srcFds0[3] = { b0->share_fd, b0->share_fd1, b0->share_fd2 };
+            int srcFds1[3] = { b1->share_fd, b1->share_fd1, b1->share_fd2 };
+            int sizes0[3];
+            sizes0[0] = b0->stride * ALIGN(b0->height, 16);
+            switch (b0->format) {
+            case HAL_PIXEL_FORMAT_YV12:
+                sizes0[1] = ALIGN(b0->stride >> 1, 16) * ALIGN(b0->height >> 1, 16);
+                sizes0[2] = sizes0[1];
+                break;
+            case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+                sizes0[1] = b0->stride * ALIGN(b0->height >> 1, 16);
+                sizes0[2] = 0;
+                break;
+            }
+            int sizes1[3];
+            sizes1[0] = b1->stride * ALIGN(b1->height, 16);
+            switch (b1->format) {
+            case HAL_PIXEL_FORMAT_YV12:
+                sizes1[1] = ALIGN(b1->stride >> 1, 16) * ALIGN(b1->height >> 1, 16);
+                sizes1[2] = sizes1[1];
+                break;
+            case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+                sizes1[1] = b1->stride * ALIGN(b1->height >> 1, 16);
+                sizes1[2] = 0;
+                break;
+            }
+            return _priv->qBuf(id, plane_num, index0, srcFds0, sizes0, syncfd0, index1, srcFds1, sizes1, syncfd1);
+        }
     } else {
         if (plane_num == 1)
             return _priv->qBuf(id, plane_num, index0, &b0->share_fd, &b0->size, syncfd0);
-        else
-            return _priv->qBuf(id, plane_num, index0, b0->share_fds, b0->sizes, syncfd0);
+        else {
+            int srcFds0[3] = { b0->share_fd, b0->share_fd1, b0->share_fd2 };
+            int sizes0[3];
+            sizes0[0] = b0->stride * ALIGN(b0->height, 16);
+            switch (b0->format) {
+            case HAL_PIXEL_FORMAT_YV12:
+                sizes0[1] = ALIGN(b0->stride >> 1, 16) * ALIGN(b0->height >> 1, 16);
+                sizes0[2] = sizes0[1];
+                break;
+            case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+                sizes0[1] = b0->stride * ALIGN(b0->height >> 1, 16);
+                sizes0[2] = 0;
+                break;
+            }
+            return _priv->qBuf(id, plane_num, index0, srcFds0, sizes0, syncfd0);
+        }
     }
 }
 #endif

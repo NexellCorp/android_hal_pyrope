@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2011-2012 ARM Limited
+ * (C) COPYRIGHT 2011-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -22,12 +22,9 @@ struct vr_group;
  * Definition of the GP core struct
  * Used to track a GP core in the system.
  */
-struct vr_gp_core
-{
+struct vr_gp_core {
 	struct vr_hw_core  hw_core;           /**< Common for all HW cores */
 	_vr_osk_irq_t     *irq;               /**< IRQ handler */
-	u32                  counter_src0_used; /**< The selected performance counter 0 when a job is running */
-	u32                  counter_src1_used; /**< The selected performance counter 1 when a job is running */
 };
 
 _vr_osk_errcode_t vr_gp_initialize(void);

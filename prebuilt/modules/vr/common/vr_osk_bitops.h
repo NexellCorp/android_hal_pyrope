@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2008-2010 ARM Limited
+ * (C) COPYRIGHT 2008-2010, 2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -17,8 +17,7 @@
 #define __VR_OSK_BITOPS_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 VR_STATIC_INLINE void _vr_internal_clear_bit( u32 bit, u32 *addr )
@@ -57,7 +56,7 @@ VR_STATIC_INLINE int _vr_internal_find_first_zero_bit( u32 value )
 
 	/* Isolate the zero: it is preceeded by a run of 1s, so add 1 to it */
 	negated = (u32)-inverted ; /* -a == ~a + 1 (mod 2^n) for n-bit numbers */
-    /* negated = xxx...x1000...0 */
+	/* negated = xxx...x1000...0 */
 
 	isolated = negated & inverted ; /* xxx...x1000...0 & zzz...z1000...0, zs are ~xs */
 	/* And so the first zero bit is in the same position as the 1 == number of 1s that preceeded it
@@ -136,22 +135,19 @@ VR_STATIC_INLINE u32 _vr_osk_find_first_zero_bit( const u32 *addr, u32 maxbit )
 {
 	u32 total;
 
-	for ( total = 0; total < maxbit; total += 32, ++addr )
-	{
+	for ( total = 0; total < maxbit; total += 32, ++addr ) {
 		int result;
 		result = _vr_internal_find_first_zero_bit( *addr );
 
 		/* non-negative signifies the bit was found */
-		if ( result >= 0 )
-		{
+		if ( result >= 0 ) {
 			total += (u32)result;
 			break;
 		}
 	}
 
 	/* Now check if we reached maxbit or above */
-	if ( total >= maxbit )
-	{
+	if ( total >= maxbit ) {
 		total = maxbit;
 	}
 

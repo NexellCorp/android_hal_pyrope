@@ -794,6 +794,7 @@ static int hwc_open(const struct hw_module_t *module, const char *name, struct h
         ALOGW("invalid hwc scenario %d", scenario);
         scenario = HWCreator::LCD_USE_ONLY_GL_HDMI_USE_ONLY_MIRROR;
     }
+    ALOGD("scenario : %d", scenario);
     me->mUsageScenario = scenario;
 
     me->mLCDImpl = HWCreator::create(HWCreator::DISPLAY_LCD, scenario, me->mScreenInfo.width, me->mScreenInfo.height);

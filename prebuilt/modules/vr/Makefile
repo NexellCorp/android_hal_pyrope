@@ -1,7 +1,7 @@
 #
 # This confidential and proprietary software may be used only as
 # authorised by a licensing agreement from ARM Limited
-# (C) COPYRIGHT 2007-2012 ARM Limited
+# (C) COPYRIGHT 2007-2013 ARM Limited
 # ALL RIGHTS RESERVED
 # The entire notice above must be reproduced on all authorised
 # copies and copies may only be made to the extent permitted
@@ -11,6 +11,10 @@
 USE_UMPV2=0
 USING_PROFILING ?= 1
 USING_INTERNAL_PROFILING ?= 0
+USING_POWER_PERFORMANCE_POLICY ?= 0
+VR_HEATMAPS_ENABLED ?= 0
+VR_DMA_BUF_MAP_ON_ATTACH ?= 1
+VR_PMU_PARALLEL_POWER_UP ?= 0
 
 # The Makefile sets up "arch" based on the CONFIG, creates the version info
 # string and the __vrdrv_build_info.c file, and then call the Linux build
@@ -43,13 +47,13 @@ ifneq ($(CPU),)
 $(warning "You have specified the CPU variable which is no longer in used. Use TARGET_PLATFORM instead.")
 endif
 
-# Include the mapping between TARGET_PLATFORM and KDIR + MALI_PLATFORM
--include MALI_CONFIGURATION
+# Include the mapping between TARGET_PLATFORM and KDIR + VR_PLATFORM
+-include VR_CONFIGURATION
 export KDIR ?= $(KDIR-$(TARGET_PLATFORM))
-export MALI_PLATFORM ?= $(MALI_PLATFORM-$(TARGET_PLATFORM))
+export VR_PLATFORM ?= $(VR_PLATFORM-$(TARGET_PLATFORM))
 
 ifneq ($(TARGET_PLATFORM),)
-ifeq ($(MALI_PLATFORM),)
+ifeq ($(VR_PLATFORM),)
 $(error "Invalid TARGET_PLATFORM: $(TARGET_PLATFORM)")
 endif
 endif
@@ -61,8 +65,8 @@ endif
 
 
 ifeq ($(USING_UMP),1)
-export CONFIG_MALI400_UMP=y
-export EXTRA_DEFINES += -DCONFIG_MALI400_UMP=1
+export CONFIG_VR400_UMP=y
+export EXTRA_DEFINES += -DCONFIG_VR400_UMP=1
 ifeq ($(USE_UMPV2),1)
 UMP_SYMVERS_FILE ?= ../umpv2/Module.symvers
 else
@@ -79,7 +83,8 @@ include $(KDIR)/.config
 
 ifeq ($(ARCH), arm)
 # when compiling for ARM we're cross compiling
-# export CROSS_COMPILE ?= $(call check_cc2, arm-linux-gnueabi-gcc, arm-linux-gnueabi-, arm-generic-linux-gnueabi-)
+#export CROSS_COMPILE ?= $(call check_cc2, arm-linux-gnueabi-gcc, arm-linux-gnueabi-, arm-generic-linux-gnueabi-)
+#nexell add
 export CROSS_COMPILE ?= arm-eabi-
 endif
 
@@ -87,38 +92,64 @@ endif
 ifdef ARM_INTERNAL_BUILD
 $(warning TARGET_PLATFORM $(TARGET_PLATFORM))
 $(warning KDIR $(KDIR))
-$(warning MALI_PLATFORM $(MALI_PLATFORM))
+$(warning VR_PLATFORM $(VR_PLATFORM))
 endif
 
 # Set up build config
-export CONFIG_MALI400=m
+export CONFIG_VR400=m
+export CONFIG_VR450=y
 
-ifneq ($(MALI_PLATFORM),)
-export EXTRA_DEFINES += -DMALI_FAKE_PLATFORM_DEVICE=1
-export MALI_PLATFORM_FILES = $(wildcard platform/$(MALI_PLATFORM)/*.c)
+export EXTRA_DEFINES += -DCONFIG_VR400=1
+export EXTRA_DEFINES += -DCONFIG_VR450=1
+
+ifneq ($(VR_PLATFORM),)
+export EXTRA_DEFINES += -DVR_FAKE_PLATFORM_DEVICE=1
+export VR_PLATFORM_FILES = $(wildcard platform/$(VR_PLATFORM)/*.c)
 endif
 
 ifeq ($(USING_PROFILING),1)
 ifeq ($(CONFIG_TRACEPOINTS),)
-$(warning CONFIG_TRACEPOINTS reqired for profiling)
+$(warning CONFIG_TRACEPOINTS required for profiling)
 else
-export CONFIG_MALI400_PROFILING=y
-export EXTRA_DEFINES += -DCONFIG_MALI400_PROFILING=1
+export CONFIG_VR400_PROFILING=y
+export EXTRA_DEFINES += -DCONFIG_VR400_PROFILING=1
 ifeq ($(USING_INTERNAL_PROFILING),1)
-export CONFIG_MALI400_INTERNAL_PROFILING=y
-export EXTRA_DEFINES += -DCONFIG_MALI400_INTERNAL_PROFILING=1
+export CONFIG_VR400_INTERNAL_PROFILING=y
+export EXTRA_DEFINES += -DCONFIG_VR400_INTERNAL_PROFILING=1
+endif
+ifeq ($(VR_HEATMAPS_ENABLED),1)
+export VR_HEATMAPS_ENABLED=y
+export EXTRA_DEFINES += -DCONFIG_VR400_HEATMAPS_ENABLED
 endif
 endif
 endif
 
+ifeq ($(VR_DMA_BUF_MAP_ON_ATTACH),1)
+export CONFIG_VR_DMA_BUF_MAP_ON_ATTACH=y
+export EXTRA_DEFINES += -DCONFIG_VR_DMA_BUF_MAP_ON_ATTACH
+endif
+
+ifeq ($(VR_SHARED_INTERRUPTS),1)
+export CONFIG_VR_SHARED_INTERRUPTS=y
+export EXTRA_DEFINES += -DCONFIG_VR_SHARED_INTERRUPTS
+endif
+
+ifeq ($(USING_POWER_PERFORMANCE_POLICY),1)
+export CONFIG_VR400_POWER_PERFORMANCE_POLICY=y
+export EXTRA_DEFINES += -DCONFIG_VR400_POWER_PERFORMANCE_POLICY
+endif
+
+ifeq ($(VR_PMU_PARALLEL_POWER_UP),1)
+export CONFIG_VR_PMU_PARALLEL_POWER_UP=y
+export EXTRA_DEFINES += -DCONFIG_VR_PMU_PARALLEL_POWER_UP
+endif
+
 ifneq ($(BUILD),release)
-#caution debug mode
-export CONFIG_MALI400_DEBUG=y
+export CONFIG_VR400_DEBUG=y
 endif
 
 all: $(UMP_SYMVERS_FILE)
 	$(MAKE) ARCH=$(ARCH) -C $(KDIR) M=$(CURDIR) modules
-	@cp $(FILES_PREFIX)__vrdrv_build_info.c $(FILES_PREFIX)__vrdrv_build_info_backup.c
 	@rm $(FILES_PREFIX)__vrdrv_build_info.c $(FILES_PREFIX)__vrdrv_build_info.o
 
 clean:

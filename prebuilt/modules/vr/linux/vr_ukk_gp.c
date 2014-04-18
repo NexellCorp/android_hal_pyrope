@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2008-2010, 2012 ARM Limited
+ * (C) COPYRIGHT 2008-2010, 2012-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -20,6 +20,9 @@ int gp_start_job_wrapper(struct vr_session_data *session_data, _vr_uk_gp_start_j
 {
 	_vr_osk_errcode_t err;
 
+	/* If the job was started successfully, 0 is returned.  If there was an error, but the job
+	 * was started, we return -ENOENT.  For anything else returned, the job was not started. */
+
 	VR_CHECK_NON_NULL(uargs, -EINVAL);
 	VR_CHECK_NON_NULL(session_data, -EINVAL);
 
@@ -31,58 +34,58 @@ int gp_start_job_wrapper(struct vr_session_data *session_data, _vr_uk_gp_start_j
 
 int gp_get_core_version_wrapper(struct vr_session_data *session_data, _vr_uk_get_gp_core_version_s __user *uargs)
 {
-    _vr_uk_get_gp_core_version_s kargs;
-    _vr_osk_errcode_t err;
+	_vr_uk_get_gp_core_version_s kargs;
+	_vr_osk_errcode_t err;
 
-    VR_CHECK_NON_NULL(uargs, -EINVAL);
-    VR_CHECK_NON_NULL(session_data, -EINVAL);
+	VR_CHECK_NON_NULL(uargs, -EINVAL);
+	VR_CHECK_NON_NULL(session_data, -EINVAL);
 
-    kargs.ctx = session_data;
-    err =  _vr_ukk_get_gp_core_version(&kargs);
-    if (_VR_OSK_ERR_OK != err) return map_errcode(err);
+	kargs.ctx = session_data;
+	err =  _vr_ukk_get_gp_core_version(&kargs);
+	if (_VR_OSK_ERR_OK != err) return map_errcode(err);
 
 	/* no known transactions to roll-back */
 
-    if (0 != put_user(kargs.version, &uargs->version)) return -EFAULT;
+	if (0 != put_user(kargs.version, &uargs->version)) return -EFAULT;
 
-    return 0;
+	return 0;
 }
 
 int gp_suspend_response_wrapper(struct vr_session_data *session_data, _vr_uk_gp_suspend_response_s __user *uargs)
 {
-    _vr_uk_gp_suspend_response_s kargs;
-    _vr_osk_errcode_t err;
+	_vr_uk_gp_suspend_response_s kargs;
+	_vr_osk_errcode_t err;
 
-    VR_CHECK_NON_NULL(uargs, -EINVAL);
-    VR_CHECK_NON_NULL(session_data, -EINVAL);
+	VR_CHECK_NON_NULL(uargs, -EINVAL);
+	VR_CHECK_NON_NULL(session_data, -EINVAL);
 
-    if (0 != copy_from_user(&kargs, uargs, sizeof(_vr_uk_gp_suspend_response_s))) return -EFAULT;
+	if (0 != copy_from_user(&kargs, uargs, sizeof(_vr_uk_gp_suspend_response_s))) return -EFAULT;
 
-    kargs.ctx = session_data;
-    err = _vr_ukk_gp_suspend_response(&kargs);
-    if (_VR_OSK_ERR_OK != err) return map_errcode(err);
+	kargs.ctx = session_data;
+	err = _vr_ukk_gp_suspend_response(&kargs);
+	if (_VR_OSK_ERR_OK != err) return map_errcode(err);
 
-    if (0 != put_user(kargs.cookie, &uargs->cookie)) return -EFAULT;
+	if (0 != put_user(kargs.cookie, &uargs->cookie)) return -EFAULT;
 
-    /* no known transactions to roll-back */
-    return 0;
+	/* no known transactions to roll-back */
+	return 0;
 }
 
 int gp_get_number_of_cores_wrapper(struct vr_session_data *session_data, _vr_uk_get_gp_number_of_cores_s __user *uargs)
 {
-    _vr_uk_get_gp_number_of_cores_s kargs;
-    _vr_osk_errcode_t err;
+	_vr_uk_get_gp_number_of_cores_s kargs;
+	_vr_osk_errcode_t err;
 
-    VR_CHECK_NON_NULL(uargs, -EINVAL);
-    VR_CHECK_NON_NULL(session_data, -EINVAL);
+	VR_CHECK_NON_NULL(uargs, -EINVAL);
+	VR_CHECK_NON_NULL(session_data, -EINVAL);
 
-    kargs.ctx = session_data;
-    err = _vr_ukk_get_gp_number_of_cores(&kargs);
-    if (_VR_OSK_ERR_OK != err) return map_errcode(err);
+	kargs.ctx = session_data;
+	err = _vr_ukk_get_gp_number_of_cores(&kargs);
+	if (_VR_OSK_ERR_OK != err) return map_errcode(err);
 
 	/* no known transactions to roll-back */
 
-    if (0 != put_user(kargs.number_of_cores, &uargs->number_of_cores)) return -EFAULT;
+	if (0 != put_user(kargs.number_of_cores, &uargs->number_of_cores)) return -EFAULT;
 
-    return 0;
+	return 0;
 }

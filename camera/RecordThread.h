@@ -34,13 +34,10 @@ protected:
 private:
     virtual bool threadLoop();
 
-// private:
-//     uint32_t PreviewWidth;
-//     uint32_t PreviewHeight;
-
 private:
-    nxp_v4l2_id SensorId;
-    NXCameraBoardSensor *Sensor;
+    bool UseZoom;
+    uint32_t PlaneNum;
+    uint32_t Format;
 };
 
 }; // namespace

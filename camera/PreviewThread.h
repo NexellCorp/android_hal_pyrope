@@ -33,6 +33,11 @@ protected:
 
 private:
     virtual bool threadLoop();
+
+private:
+    bool UseZoom;
+    uint32_t PlaneNum;
+    uint32_t Format;
 };
 
 }; // namespace

@@ -15,6 +15,8 @@
 #include <NXAllocator.h>
 #include <fourcc.h>
 
+#include <utils/Log.h>
+
 #include "Constants.h"
 #include "ScalerZoomController.h"
 #include "NXExifProcessor.h"
