@@ -22,6 +22,14 @@ RecordThread::RecordThread(nxp_v4l2_id id,
     : NXStreamThread(id, width, height, zoomController, streamManager)
 {
     init(id);
+    UseZoom = ZoomController->useZoom();
+    if (UseZoom) {
+        PlaneNum = 3;
+        Format = V4L2_PIX_FMT_YUV420M;
+    } else {
+        PlaneNum = 1;
+        Format = V4L2_PIX_FMT_YUV420;
+    }
 }
 
 RecordThread::~RecordThread()
@@ -59,7 +67,7 @@ status_t RecordThread::readyToRun()
         return NO_INIT;
     }
 
-    int ret = v4l2_set_format(Id, Width, Height, PIXINDEX2PIXFORMAT(PixelIndex));
+    int ret = v4l2_set_format(Id, Width, Height, Format);
     if (ret < 0) {
         ALOGE("failed to v4l2_set_format for %d", Id);
         return NO_INIT;
@@ -71,7 +79,7 @@ status_t RecordThread::readyToRun()
         return NO_INIT;
     }
 
-    if (ZoomController->useZoom()) {
+    if (UseZoom) {
         if (false == ZoomController->allocBuffer(MAX_RECORD_ZOOM_BUFFER, Width, Height, PIXINDEX2PIXFORMAT(PixelIndex))) {
             ALOGE("failed to allocate record zoom buffer");
             return NO_MEMORY;
@@ -82,9 +90,9 @@ status_t RecordThread::readyToRun()
             return NO_INIT;
         }
 
-        int planeNum = ZoomController->getBuffer(0)->plane_num;
+        PlaneNum = ZoomController->getBuffer(0)->plane_num;
         for (int i = 0; i < ZoomController->getBufferCount(); i++) {
-            ret = v4l2_qbuf(Id, planeNum, i, ZoomController->getBuffer(i), -1, NULL);
+            ret = v4l2_qbuf(Id, PlaneNum, i, ZoomController->getBuffer(i), -1, NULL);
             if (ret < 0) {
                 ALOGE("failed to v4l2_qbuf for record %d", i);
                 return NO_INIT;
@@ -100,7 +108,7 @@ status_t RecordThread::readyToRun()
 
         for (size_t i = 0; i < queuedSize; i++) {
             const buffer_handle_t *b = stream->getQueuedBuffer(queuedSize - i - 1);
-            ret = v4l2_qbuf(Id, 3, i, reinterpret_cast<private_handle_t const *>(*b), -1, NULL);
+            ret = v4l2_qbuf(Id, PlaneNum, i, reinterpret_cast<private_handle_t const *>(*b), -1, NULL);
             if (ret < 0) {
                 ALOGE("failed to v4l2_qbuf for %d", Id);
                 return NO_INIT;
@@ -132,7 +140,7 @@ bool RecordThread::threadLoop()
     }
 
     ALOGV("dqEnter");
-    ret = v4l2_dqbuf(Id, 3, &dqIdx, NULL);
+    ret = v4l2_dqbuf(Id, PlaneNum, &dqIdx, NULL);
     if (ret < 0) {
         ALOGE("failed to v4l2_dqbuf for %d", Id);
         return false;
@@ -141,7 +149,7 @@ bool RecordThread::threadLoop()
 
     CHECK_AND_EXIT();
 
-    if (ZoomController->useZoom()) {
+    if (UseZoom) {
         struct nxp_vid_buffer *srcBuf = ZoomController->getBuffer(dqIdx);
         private_handle_t const *dstHandle = stream->getNextBuffer();
         ZoomController->handleZoom(srcBuf, dstHandle);
@@ -172,11 +180,10 @@ bool RecordThread::threadLoop()
     }
     ALOGV("end dequeueBuffer");
 
-    if (ZoomController->useZoom()) {
-        ret = v4l2_qbuf(Id, 3, dqIdx, ZoomController->getBuffer(dqIdx), -1, NULL);
-    } else {
-        ret = v4l2_qbuf(Id, 3, dqIdx, reinterpret_cast<private_handle_t const *>(*buf), -1, NULL);
-    }
+    if (UseZoom)
+        ret = v4l2_qbuf(Id, PlaneNum, dqIdx, ZoomController->getBuffer(dqIdx), -1, NULL);
+    else
+        ret = v4l2_qbuf(Id, PlaneNum, dqIdx, reinterpret_cast<private_handle_t const *>(*buf), -1, NULL);
     if (ret) {
         ALOGE("failed to v4l2_qbuf()");
         ERROR_EXIT();

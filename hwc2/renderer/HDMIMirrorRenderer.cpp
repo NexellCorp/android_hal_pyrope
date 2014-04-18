@@ -41,7 +41,8 @@ HDMIMirrorRenderer::HDMIMirrorRenderer(int id, int maxBufferCount)
     mMaxBufferCount(maxBufferCount),
     mOutCount(0),
     mOutIndex(0),
-    mStarted(false)
+    mStarted(false),
+    mHandle(NULL)
 {
     for (int i = 0; i < mMaxBufferCount; i++)
         mMirrorHandleArray[i] = NULL;
@@ -62,6 +63,7 @@ HDMIMirrorRenderer::~HDMIMirrorRenderer()
 #define NXPFB_GET_FB_FD _IOWR('N', 101, __u32)
 int HDMIMirrorRenderer::setHandle(private_handle_t const *handle)
 {
+#if 0
     if (!handle)
         return 0;
 
@@ -105,19 +107,30 @@ int HDMIMirrorRenderer::setHandle(private_handle_t const *handle)
         hnd->offset = 0;
         mMirrorHandleArray[mMirrorIndex] = hnd;
     }
+#else
+    mHandle = const_cast<private_handle_t *>(handle);
+#endif
 
     return 0;
 }
 
 private_handle_t const *HDMIMirrorRenderer::getHandle()
 {
+#if 0
     return mMirrorHandleArray[mMirrorIndex];
+#else
+    return mHandle;
+#endif
 }
 
 int HDMIMirrorRenderer::render()
 {
     int ret;
+#if 0
     private_handle_t *hnd = mMirrorHandleArray[mMirrorIndex];
+#else
+    private_handle_t *hnd = mHandle;
+#endif
 
     if (!hnd)
         return 0;

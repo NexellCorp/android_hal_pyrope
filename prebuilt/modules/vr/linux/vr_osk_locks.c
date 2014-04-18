@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2008-2012 ARM Limited
+ * (C) COPYRIGHT 2008-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -13,321 +13,269 @@
  * Implemenation of the OS abstraction layer for the kernel device driver
  */
 
-#include <linux/spinlock.h>
-#include <linux/rwsem.h>
-#include <linux/mutex.h>
-
-#include <linux/slab.h>
-
-#include "vr_osk.h"
+#include "vr_osk_locks.h"
 #include "vr_kernel_common.h"
+#include "vr_osk.h"
 
-/* These are all the locks we implement: */
-typedef enum
-{
-	_VR_OSK_INTERNAL_LOCKTYPE_SPIN,            /* Mutex, implicitly non-interruptable, use spin_lock/spin_unlock */
-	_VR_OSK_INTERNAL_LOCKTYPE_SPIN_IRQ,        /* Mutex, IRQ version of spinlock, use spin_lock_irqsave/spin_unlock_irqrestore */
-	_VR_OSK_INTERNAL_LOCKTYPE_MUTEX,           /* Interruptable, use mutex_unlock()/down_interruptable() */
-	_VR_OSK_INTERNAL_LOCKTYPE_MUTEX_NONINT,    /* Non-Interruptable, use mutex_unlock()/down() */
-	_VR_OSK_INTERNAL_LOCKTYPE_MUTEX_NONINT_RW, /* Non-interruptable, Reader/Writer, use {mutex_unlock,down}{read,write}() */
-
-	/* Linux supports, but we do not support:
-	 * Non-Interruptable Reader/Writer spinlock mutexes - RW optimization will be switched off
-	 */
-
-	/* Linux does not support:
-	 * One-locks, of any sort - no optimization for this fact will be made.
-	 */
-
-} _vr_osk_internal_locktype;
-
-struct _vr_osk_lock_t_struct
-{
-    _vr_osk_internal_locktype type;
-	unsigned long flags;
-    union
-    {
-        spinlock_t spinlock;
-	struct mutex mutex;
-        struct rw_semaphore rw_sema;
-    } obj;
-	VR_DEBUG_CODE(
-				  /** original flags for debug checking */
-				  _vr_osk_lock_flags_t orig_flags;
-
-				  /* id of the thread currently holding this lock, 0 if no
-				   * threads hold it. */
-				  u32 owner;
-				  /* number of owners this lock currently has (can be > 1 if
-				   * taken in R/O mode. */
-				  u32 nOwners;
-				  /* what mode the lock was taken in */
-				  _vr_osk_lock_mode_t mode;
-	); /* VR_DEBUG_CODE */
-};
-
-_vr_osk_lock_t *_vr_osk_lock_init( _vr_osk_lock_flags_t flags, u32 initial, u32 order )
-{
-    _vr_osk_lock_t *lock = NULL;
-
-	/* Validate parameters: */
-	/* Flags acceptable */
-	VR_DEBUG_ASSERT( 0 == ( flags & ~(_VR_OSK_LOCKFLAG_SPINLOCK
-                                      | _VR_OSK_LOCKFLAG_SPINLOCK_IRQ
-                                      | _VR_OSK_LOCKFLAG_NONINTERRUPTABLE
-                                      | _VR_OSK_LOCKFLAG_READERWRITER
-                                      | _VR_OSK_LOCKFLAG_ORDERED
-                                      | _VR_OSK_LOCKFLAG_ONELOCK )) );
-	/* Spinlocks are always non-interruptable */
-	VR_DEBUG_ASSERT( (((flags & _VR_OSK_LOCKFLAG_SPINLOCK) || (flags & _VR_OSK_LOCKFLAG_SPINLOCK_IRQ)) && (flags & _VR_OSK_LOCKFLAG_NONINTERRUPTABLE))
-					 || !(flags & _VR_OSK_LOCKFLAG_SPINLOCK));
-	/* Parameter initial SBZ - for future expansion */
-	VR_DEBUG_ASSERT( 0 == initial );
-
-	lock = kmalloc(sizeof(_vr_osk_lock_t), GFP_KERNEL);
-
-	if ( NULL == lock )
-	{
-		return lock;
-	}
-
-	/* Determine type of mutex: */
-    /* defaults to interruptable mutex if no flags are specified */
-
-	if ( (flags & _VR_OSK_LOCKFLAG_SPINLOCK) )
-	{
-		/* Non-interruptable Spinlocks override all others */
-		lock->type = _VR_OSK_INTERNAL_LOCKTYPE_SPIN;
-		spin_lock_init( &lock->obj.spinlock );
-	}
-	else if ( (flags & _VR_OSK_LOCKFLAG_SPINLOCK_IRQ ) )
-	{
-		lock->type = _VR_OSK_INTERNAL_LOCKTYPE_SPIN_IRQ;
-		lock->flags = 0;
-		spin_lock_init( &lock->obj.spinlock );
-	}
-	else if ( (flags & _VR_OSK_LOCKFLAG_NONINTERRUPTABLE)
-			  && (flags & _VR_OSK_LOCKFLAG_READERWRITER) )
-	{
-		lock->type = _VR_OSK_INTERNAL_LOCKTYPE_MUTEX_NONINT_RW;
-		init_rwsem( &lock->obj.rw_sema );
-	}
-	else
-	{
-		/* Usual mutex types */
-		if ( (flags & _VR_OSK_LOCKFLAG_NONINTERRUPTABLE) )
-		{
-			lock->type = _VR_OSK_INTERNAL_LOCKTYPE_MUTEX_NONINT;
-		}
-		else
-		{
-			lock->type = _VR_OSK_INTERNAL_LOCKTYPE_MUTEX;
-		}
-
-		/* Initially unlocked */
-		mutex_init(&lock->obj.mutex);
-	}
 
 #ifdef DEBUG
-	/* Debug tracking of flags */
-	lock->orig_flags = flags;
+#ifdef LOCK_ORDER_CHECKING
+static DEFINE_SPINLOCK(lock_tracking_lock);
+static vr_bool add_lock_to_log_and_check(struct _vr_osk_lock_debug_s *lock, uint32_t tid);
+static void remove_lock_from_log(struct _vr_osk_lock_debug_s *lock, uint32_t tid);
+static const char * const lock_order_to_string(_vr_osk_lock_order_t order);
+#endif /* LOCK_ORDER_CHECKING */
 
-	/* Debug tracking of lock owner */
-	lock->owner = 0;
-	lock->nOwners = 0;
-#endif /* DEBUG */
+void _vr_osk_locks_debug_init(struct _vr_osk_lock_debug_s *checker, _vr_osk_lock_flags_t flags, _vr_osk_lock_order_t order)
+{
+	checker->orig_flags = flags;
+	checker->owner = 0;
 
-    return lock;
+#ifdef LOCK_ORDER_CHECKING
+	checker->order = order;
+	checker->next = NULL;
+#endif
 }
 
-#ifdef DEBUG
-u32 _vr_osk_lock_get_owner( _vr_osk_lock_t *lock )
+void _vr_osk_locks_debug_add(struct _vr_osk_lock_debug_s *checker)
 {
-	return lock->owner;
-}
+	checker->owner = _vr_osk_get_tid();
 
-u32 _vr_osk_lock_get_number_owners( _vr_osk_lock_t *lock )
-{
-	return lock->nOwners;
-}
-
-u32 _vr_osk_lock_get_mode( _vr_osk_lock_t *lock )
-{
-	return lock->mode;
-}
-#endif /* DEBUG */
-
-_vr_osk_errcode_t _vr_osk_lock_wait( _vr_osk_lock_t *lock, _vr_osk_lock_mode_t mode)
-{
-    _vr_osk_errcode_t err = _VR_OSK_ERR_OK;
-
-	/* Parameter validation */
-	VR_DEBUG_ASSERT_POINTER( lock );
-
-	VR_DEBUG_ASSERT( _VR_OSK_LOCKMODE_RW == mode
-					 || _VR_OSK_LOCKMODE_RO == mode );
-
-	/* Only allow RO locks when the initial object was a Reader/Writer lock
-	 * Since information is lost on the internal locktype, we use the original
-	 * information, which is only stored when built for DEBUG */
-	VR_DEBUG_ASSERT( _VR_OSK_LOCKMODE_RW == mode
-					 || (_VR_OSK_LOCKMODE_RO == mode && (_VR_OSK_LOCKFLAG_READERWRITER & lock->orig_flags)) );
-
-	switch ( lock->type )
-	{
-	case _VR_OSK_INTERNAL_LOCKTYPE_SPIN:
-		spin_lock(&lock->obj.spinlock);
-		break;
-	case _VR_OSK_INTERNAL_LOCKTYPE_SPIN_IRQ:
-		{
-			unsigned long tmp_flags;
-			spin_lock_irqsave(&lock->obj.spinlock, tmp_flags);
-			lock->flags = tmp_flags;
-		}
-		break;
-
-	case _VR_OSK_INTERNAL_LOCKTYPE_MUTEX:
-		if (mutex_lock_interruptible(&lock->obj.mutex))
-		{
-			VR_PRINT_ERROR(("Can not lock mutex\n"));
-			err = _VR_OSK_ERR_RESTARTSYSCALL;
-		}
-		break;
-
-	case _VR_OSK_INTERNAL_LOCKTYPE_MUTEX_NONINT:
-		mutex_lock(&lock->obj.mutex);
-		break;
-
-	case _VR_OSK_INTERNAL_LOCKTYPE_MUTEX_NONINT_RW:
-		if (mode == _VR_OSK_LOCKMODE_RO)
-        {
-            down_read(&lock->obj.rw_sema);
-        }
-        else
-        {
-            down_write(&lock->obj.rw_sema);
-        }
-		break;
-
-	default:
-		/* Reaching here indicates a programming error, so you will not get here
-		 * on non-DEBUG builds */
-		VR_DEBUG_PRINT_ERROR( ("Invalid internal lock type: %.8X", lock->type ) );
-		break;
-	}
-
-#ifdef DEBUG
-	/* This thread is now the owner of this lock */
-	if (_VR_OSK_ERR_OK == err)
-	{
-		if (mode == _VR_OSK_LOCKMODE_RW)
-		{
-			/*VR_DEBUG_ASSERT(0 == lock->owner);*/
-			if (0 != lock->owner)
-			{
-				printk(KERN_ERR "%d: ERROR: Lock %p already has owner %d\n", _vr_osk_get_tid(), lock, lock->owner);
-				dump_stack();
-			}
-			lock->owner = _vr_osk_get_tid();
-			lock->mode = mode;
-			++lock->nOwners;
-		}
-		else /* mode == _VR_OSK_LOCKMODE_RO */
-		{
-			lock->owner |= _vr_osk_get_tid();
-			lock->mode = mode;
-			++lock->nOwners;
+#ifdef LOCK_ORDER_CHECKING
+	if (!(checker->orig_flags & _VR_OSK_LOCKFLAG_UNORDERED)) {
+		if (!add_lock_to_log_and_check(checker, _vr_osk_get_tid())) {
+			printk(KERN_ERR "%d: ERROR lock %p taken while holding a lock of a higher order.\n",
+			       _vr_osk_get_tid(), checker);
+			dump_stack();
 		}
 	}
 #endif
-
-    return err;
 }
 
-void _vr_osk_lock_signal( _vr_osk_lock_t *lock, _vr_osk_lock_mode_t mode )
+void _vr_osk_locks_debug_remove(struct _vr_osk_lock_debug_s *checker)
 {
-	/* Parameter validation */
-	VR_DEBUG_ASSERT_POINTER( lock );
 
-	VR_DEBUG_ASSERT( _VR_OSK_LOCKMODE_RW == mode
-					 || _VR_OSK_LOCKMODE_RO == mode );
-
-	/* Only allow RO locks when the initial object was a Reader/Writer lock
-	 * Since information is lost on the internal locktype, we use the original
-	 * information, which is only stored when built for DEBUG */
-	VR_DEBUG_ASSERT( _VR_OSK_LOCKMODE_RW == mode
-					 || (_VR_OSK_LOCKMODE_RO == mode && (_VR_OSK_LOCKFLAG_READERWRITER & lock->orig_flags)) );
-
-#ifdef DEBUG
-	/* make sure the thread releasing the lock actually was the owner */
-	if (mode == _VR_OSK_LOCKMODE_RW)
-	{
-		/*VR_DEBUG_ASSERT(_vr_osk_get_tid() == lock->owner);*/
-		if (_vr_osk_get_tid() != lock->owner)
-		{
-			printk(KERN_ERR "%d: ERROR: Lock %p owner was %d\n", _vr_osk_get_tid(), lock, lock->owner);
-			dump_stack();
-		}
-		/* This lock now has no owner */
-		lock->owner = 0;
-		--lock->nOwners;
+#ifdef LOCK_ORDER_CHECKING
+	if (!(checker->orig_flags & _VR_OSK_LOCKFLAG_UNORDERED)) {
+		remove_lock_from_log(checker, _vr_osk_get_tid());
 	}
-	else /* mode == _VR_OSK_LOCKMODE_RO */
-	{
-		if ((_vr_osk_get_tid() & lock->owner) != _vr_osk_get_tid())
-		{
-			printk(KERN_ERR "%d: ERROR: Not an owner of %p lock.\n", _vr_osk_get_tid(), lock);
-			dump_stack();
-		}
+#endif
+	checker->owner = 0;
+}
 
-		/* if this is the last thread holding this lock in R/O mode, set owner
-		 * back to 0 */
-		if (0 == --lock->nOwners)
-		{
-			lock->owner = 0;
-		}
+
+#ifdef LOCK_ORDER_CHECKING
+/* Lock order checking
+ * -------------------
+ *
+ * To assure that lock ordering scheme defined by _vr_osk_lock_order_t is strictly adhered to, the
+ * following function will, together with a linked list and some extra members in _vr_osk_lock_debug_s,
+ * make sure that a lock that is taken has a higher order than the current highest-order lock a
+ * thread holds.
+ *
+ * This is done in the following manner:
+ * - A linked list keeps track of locks held by a thread.
+ * - A `next' pointer is added to each lock. This is used to chain the locks together.
+ * - When taking a lock, the `add_lock_to_log_and_check' makes sure that taking
+ *   the given lock is legal. It will follow the linked list  to find the last
+ *   lock taken by this thread. If the last lock's order was lower than the
+ *   lock that is to be taken, it appends the new lock to the list and returns
+ *   true, if not, it return false. This return value is assert()'ed on in
+ *   _vr_osk_lock_wait().
+ */
+
+static struct _vr_osk_lock_debug_s *lock_lookup_list;
+
+static void dump_lock_tracking_list(void)
+{
+	struct _vr_osk_lock_debug_s *l;
+	u32 n = 1;
+
+	/* print list for debugging purposes */
+	l = lock_lookup_list;
+
+	while (NULL != l) {
+		printk(" [lock: %p, tid_owner: %d, order: %d] ->", l, l->owner, l->order);
+		l = l->next;
+		VR_DEBUG_ASSERT(n++ < 100);
 	}
-#endif /* DEBUG */
+	printk(" NULL\n");
+}
 
-	switch ( lock->type )
-	{
-	case _VR_OSK_INTERNAL_LOCKTYPE_SPIN:
-		spin_unlock(&lock->obj.spinlock);
-		break;
-	case _VR_OSK_INTERNAL_LOCKTYPE_SPIN_IRQ:
-		spin_unlock_irqrestore(&lock->obj.spinlock, lock->flags);
-		break;
+static int tracking_list_length(void)
+{
+	struct _vr_osk_lock_debug_s *l;
+	u32 n = 0;
+	l = lock_lookup_list;
 
-	case _VR_OSK_INTERNAL_LOCKTYPE_MUTEX:
-		/* FALLTHROUGH */
-	case _VR_OSK_INTERNAL_LOCKTYPE_MUTEX_NONINT:
-		mutex_unlock(&lock->obj.mutex);
-		break;
+	while (NULL != l) {
+		l = l->next;
+		n++;
+		VR_DEBUG_ASSERT(n < 100);
+	}
+	return n;
+}
 
-	case _VR_OSK_INTERNAL_LOCKTYPE_MUTEX_NONINT_RW:
-		if (mode == _VR_OSK_LOCKMODE_RO)
-        {
-            up_read(&lock->obj.rw_sema);
-        }
-        else
-        {
-            up_write(&lock->obj.rw_sema);
-        }
-		break;
+static vr_bool add_lock_to_log_and_check(struct _vr_osk_lock_debug_s *lock, uint32_t tid)
+{
+	vr_bool ret = VR_FALSE;
+	_vr_osk_lock_order_t highest_order_for_tid = _VR_OSK_LOCK_ORDER_FIRST;
+	struct _vr_osk_lock_debug_s *highest_order_lock = (struct _vr_osk_lock_debug_s *)0xbeefbabe;
+	struct _vr_osk_lock_debug_s *l;
+	unsigned long local_lock_flag;
+	u32 len;
 
+	spin_lock_irqsave(&lock_tracking_lock, local_lock_flag);
+	len = tracking_list_length();
+
+	l  = lock_lookup_list;
+	if (NULL == l) { /* This is the first lock taken by this thread -- record and return true */
+		lock_lookup_list = lock;
+		spin_unlock_irqrestore(&lock_tracking_lock, local_lock_flag);
+		return VR_TRUE;
+	} else {
+		/* Traverse the locks taken and find the lock of the highest order.
+		 * Since several threads may hold locks, each lock's owner must be
+		 * checked so that locks not owned by this thread can be ignored. */
+		for(;;) {
+			VR_DEBUG_ASSERT_POINTER( l );
+			if (tid == l->owner && l->order >= highest_order_for_tid) {
+				highest_order_for_tid = l->order;
+				highest_order_lock = l;
+			}
+
+			if (NULL != l->next) {
+				l = l->next;
+			} else {
+				break;
+			}
+		}
+
+		l->next = lock;
+		l->next = NULL;
+	}
+
+	/* We have now found the highest order lock currently held by this thread and can see if it is
+	 * legal to take the requested lock. */
+	ret = highest_order_for_tid < lock->order;
+
+	if (!ret) {
+		printk(KERN_ERR "Took lock of order %d (%s) while holding lock of order %d (%s)\n",
+		       lock->order, lock_order_to_string(lock->order),
+		       highest_order_for_tid, lock_order_to_string(highest_order_for_tid));
+		dump_lock_tracking_list();
+	}
+
+	if (len+1 != tracking_list_length()) {
+		printk(KERN_ERR "************ lock: %p\n", lock);
+		printk(KERN_ERR "************ before: %d *** after: %d ****\n", len, tracking_list_length());
+		dump_lock_tracking_list();
+		VR_DEBUG_ASSERT_POINTER(NULL);
+	}
+
+	spin_unlock_irqrestore(&lock_tracking_lock, local_lock_flag);
+	return ret;
+}
+
+static void remove_lock_from_log(struct _vr_osk_lock_debug_s *lock, uint32_t tid)
+{
+	struct _vr_osk_lock_debug_s *curr;
+	struct _vr_osk_lock_debug_s *prev = NULL;
+	unsigned long local_lock_flag;
+	u32 len;
+	u32 n = 0;
+
+	spin_lock_irqsave(&lock_tracking_lock, local_lock_flag);
+	len = tracking_list_length();
+	curr = lock_lookup_list;
+
+	if (NULL == curr) {
+		printk(KERN_ERR "Error: Lock tracking list was empty on call to remove_lock_from_log\n");
+		dump_lock_tracking_list();
+	}
+
+	VR_DEBUG_ASSERT_POINTER(curr);
+
+
+	while (lock != curr) {
+		prev = curr;
+
+		VR_DEBUG_ASSERT_POINTER(curr);
+		curr = curr->next;
+		VR_DEBUG_ASSERT(n++ < 100);
+	}
+
+	if (NULL == prev) {
+		lock_lookup_list = curr->next;
+	} else {
+		VR_DEBUG_ASSERT_POINTER(curr);
+		VR_DEBUG_ASSERT_POINTER(prev);
+		prev->next = curr->next;
+	}
+
+	lock->next = NULL;
+
+	if (len-1 != tracking_list_length()) {
+		printk(KERN_ERR "************ lock: %p\n", lock);
+		printk(KERN_ERR "************ before: %d *** after: %d ****\n", len, tracking_list_length());
+		dump_lock_tracking_list();
+		VR_DEBUG_ASSERT_POINTER(NULL);
+	}
+
+	spin_unlock_irqrestore(&lock_tracking_lock, local_lock_flag);
+}
+
+static const char * const lock_order_to_string(_vr_osk_lock_order_t order)
+{
+	switch (order) {
+	case _VR_OSK_LOCK_ORDER_SESSIONS:
+		return "_VR_OSK_LOCK_ORDER_SESSIONS";
+		break;
+	case _VR_OSK_LOCK_ORDER_MEM_SESSION:
+		return "_VR_OSK_LOCK_ORDER_MEM_SESSION";
+		break;
+	case _VR_OSK_LOCK_ORDER_MEM_INFO:
+		return "_VR_OSK_LOCK_ORDER_MEM_INFO";
+		break;
+	case _VR_OSK_LOCK_ORDER_MEM_PT_CACHE:
+		return "_VR_OSK_LOCK_ORDER_MEM_PT_CACHE";
+		break;
+	case _VR_OSK_LOCK_ORDER_DESCRIPTOR_MAP:
+		return "_VR_OSK_LOCK_ORDER_DESCRIPTOR_MAP";
+		break;
+	case _VR_OSK_LOCK_ORDER_GROUP_VIRTUAL:
+		return "_VR_OSK_LOCK_ORDER_GROUP_VIRTUAL";
+		break;
+	case _VR_OSK_LOCK_ORDER_GROUP:
+		return "_VR_OSK_LOCK_ORDER_GROUP";
+		break;
+	case _VR_OSK_LOCK_ORDER_SCHEDULER:
+		return "_VR_OSK_LOCK_ORDER_SCHEDULER";
+		break;
+	case _VR_OSK_LOCK_ORDER_PM_CORE_STATE:
+		return "_VR_OSK_LOCK_ORDER_PM_CORE_STATE";
+		break;
+	case _VR_OSK_LOCK_ORDER_L2_COMMAND:
+		return "_VR_OSK_LOCK_ORDER_L2_COMMAND";
+		break;
+	case _VR_OSK_LOCK_ORDER_PROFILING:
+		return "_VR_OSK_LOCK_ORDER_PROFILING";
+		break;
+	case _VR_OSK_LOCK_ORDER_L2_COUNTER:
+		return "_VR_OSK_LOCK_ORDER_L2_COUNTER";
+		break;
+	case _VR_OSK_LOCK_ORDER_UTILIZATION:
+		return "_VR_OSK_LOCK_ORDER_UTILIZATION";
+		break;
+	case _VR_OSK_LOCK_ORDER_PM_EXECUTE:
+		return "_VR_OSK_LOCK_ORDER_PM_EXECUTE";
+		break;
+	case _VR_OSK_LOCK_ORDER_SESSION_PENDING_JOBS:
+		return "_VR_OSK_LOCK_ORDER_SESSION_PENDING_JOBS";
+		break;
 	default:
-		/* Reaching here indicates a programming error, so you will not get here
-		 * on non-DEBUG builds */
-		VR_DEBUG_PRINT_ERROR( ("Invalid internal lock type: %.8X", lock->type ) );
-		break;
+		return "";
 	}
 }
-
-void _vr_osk_lock_term( _vr_osk_lock_t *lock )
-{
-	/* Parameter validation  */
-	VR_DEBUG_ASSERT_POINTER( lock );
-
-	/* Linux requires no explicit termination of spinlocks, semaphores, or rw_semaphores */
-    kfree(lock);
-}
+#endif /* LOCK_ORDER_CHECKING */
+#endif /* DEBUG */

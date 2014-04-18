@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2008-2012 ARM Limited
+ * (C) COPYRIGHT 2008-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -26,15 +26,13 @@
  * It also contains a wait queue of exclusive waiters blocked in the ioctl
  * When a new notification is posted a single thread is resumed.
  */
-struct _vr_osk_notification_queue_t_struct
-{
+struct _vr_osk_notification_queue_t_struct {
 	spinlock_t mutex; /**< Mutex protecting the list */
 	wait_queue_head_t receive_queue; /**< Threads waiting for new entries to the queue */
 	struct list_head head; /**< List of notifications waiting to be picked up */
 };
 
-typedef struct _vr_osk_notification_wrapper_t_struct
-{
+typedef struct _vr_osk_notification_wrapper_t_struct {
 	struct list_head list;           /**< Internal linked list variable */
 	_vr_osk_notification_t data;   /**< Notification data */
 } _vr_osk_notification_wrapper_t;
@@ -59,9 +57,8 @@ _vr_osk_notification_t *_vr_osk_notification_create( u32 type, u32 size )
 	_vr_osk_notification_wrapper_t *notification;
 
 	notification = (_vr_osk_notification_wrapper_t *)kmalloc( sizeof(_vr_osk_notification_wrapper_t) + size,
-	                                                            GFP_KERNEL | __GFP_HIGH | __GFP_REPEAT);
-	if (NULL == notification)
-	{
+	               GFP_KERNEL | __GFP_HIGH | __GFP_REPEAT);
+	if (NULL == notification) {
 		VR_DEBUG_PRINT(1, ("Failed to create a notification object\n"));
 		return NULL;
 	}
@@ -69,12 +66,9 @@ _vr_osk_notification_t *_vr_osk_notification_create( u32 type, u32 size )
 	/* Init the list */
 	INIT_LIST_HEAD(&notification->list);
 
-	if (0 != size)
-	{
+	if (0 != size) {
 		notification->data.result_buffer = ((u8*)notification) + sizeof(_vr_osk_notification_wrapper_t);
-	}
-	else
-	{
+	} else {
 		notification->data.result_buffer = NULL;
 	}
 
@@ -99,12 +93,16 @@ void _vr_osk_notification_delete( _vr_osk_notification_t *object )
 
 void _vr_osk_notification_queue_term( _vr_osk_notification_queue_t *queue )
 {
+	_vr_osk_notification_t *result;
 	VR_DEBUG_ASSERT_POINTER( queue );
+
+	while (_VR_OSK_ERR_OK == _vr_osk_notification_queue_dequeue(queue, &result)) {
+		_vr_osk_notification_delete( result );
+	}
 
 	/* not much to do, just free the memory */
 	kfree(queue);
 }
-
 void _vr_osk_notification_queue_send( _vr_osk_notification_queue_t *queue, _vr_osk_notification_t *object )
 {
 #if defined(VR_UPPER_HALF_SCHEDULING)
@@ -150,8 +148,7 @@ _vr_osk_errcode_t _vr_osk_notification_queue_dequeue( _vr_osk_notification_queue
 	spin_lock(&queue->mutex);
 #endif
 
-	if (!list_empty(&queue->head))
-	{
+	if (!list_empty(&queue->head)) {
 		wrapper_object = list_entry(queue->head.next, _vr_osk_notification_wrapper_t, list);
 		*result = &(wrapper_object->data);
 		list_del_init(&wrapper_object->list);
@@ -169,7 +166,7 @@ _vr_osk_errcode_t _vr_osk_notification_queue_dequeue( _vr_osk_notification_queue
 
 _vr_osk_errcode_t _vr_osk_notification_queue_receive( _vr_osk_notification_queue_t *queue, _vr_osk_notification_t **result )
 {
-    /* check input */
+	/* check input */
 	VR_DEBUG_ASSERT_POINTER( queue );
 	VR_DEBUG_ASSERT_POINTER( result );
 
@@ -177,8 +174,7 @@ _vr_osk_errcode_t _vr_osk_notification_queue_receive( _vr_osk_notification_queue
 	*result = NULL;
 
 	if (wait_event_interruptible(queue->receive_queue,
-	                             _VR_OSK_ERR_OK == _vr_osk_notification_queue_dequeue(queue, result)))
-	{
+	                             _VR_OSK_ERR_OK == _vr_osk_notification_queue_dequeue(queue, result))) {
 		return _VR_OSK_ERR_RESTARTSYSCALL;
 	}
 

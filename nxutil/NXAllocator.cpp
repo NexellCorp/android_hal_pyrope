@@ -2,7 +2,9 @@
 
 #include <sys/mman.h>
 #include <linux/videodev2.h>
+#include <utils/Log.h>
 
+#include <nexell_format.h>
 #include "NXAllocator.h"
 
 static bool allocPlane(int ionFD, size_t size, int &outFD, unsigned long &outVirt, unsigned long &outPhys)
@@ -43,20 +45,27 @@ bool allocateBuffer(struct nxp_vid_buffer *buf, int bufSize, int width, int heig
 {
     int planeNum;
     size_t ySize, cSize;
+    unsigned long yStride = ALIGN(width, 16);
     unsigned long cStride;
 
     switch (format) {
     case PIXFORMAT_YUV422_PACKED:
         planeNum = 1;
-        ySize = width * height * 2;
+        ySize = ALIGN(width, 16) * ALIGN(height,16) * 2;
         cSize = 0;
         cStride = 0;
         break;
     case PIXFORMAT_YUV420_PLANAR:
         planeNum = 3;
+#if 1
+        ySize = yStride * ALIGN(height, 16);
+        cStride = ALIGN(yStride >> 1, 16);
+        cSize = cStride * ALIGN(height >> 1, 16);
+#else
         ySize = width * height;
         cSize = ySize >> 2;
         cStride = width >> 1;
+#endif
         break;
     case PIXFORMAT_YUV422_PLANAR:
         planeNum = 3;
@@ -127,7 +136,7 @@ bool allocateBuffer(struct nxp_vid_buffer *buf, int bufSize, int width, int heig
         }
     }
 
-    dumpBuffer(buf, bufSize);
+    //dumpBuffer(buf, bufSize);
 out:
     close(ionFD);
     return ret;

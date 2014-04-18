@@ -1,6 +1,3 @@
-# 
-# Copyright (C) 2010 ARM Limited. All rights reserved.
-# 
 # Copyright (C) 2008 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,43 +15,22 @@
 
 LOCAL_PATH := $(call my-dir)
 
-# HAL module implemenation, not prelinked and stored in
+# HAL module implemenation stored in
 # hw/<OVERLAY_HARDWARE_MODULE_ID>.<ro.product.board>.so
 include $(CLEAR_VARS)
-LOCAL_PRELINK_MODULE := false
+
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
+LOCAL_SHARED_LIBRARIES := liblog libcutils libion libutils libion-nexell
 
+LOCAL_C_INCLUDES := system/core/include $(LOCAL_PATH)/../include
 
+LOCAL_SRC_FILES := 	\
+	gralloc.cpp 	\
+	framebuffer_device.cpp \
+	mapper.cpp
+	
 LOCAL_MODULE := gralloc.${TARGET_BOARD_PLATFORM}
-#LOCAL_MODULE_TAGS := optional
+LOCAL_CFLAGS:= -DLOG_TAG=\"gralloc\"
+LOCAL_MODULE_TAGS := optional
 
-# Mali-200/300/400MP DDK
-MALI_DDK_PATH := hardware/nexell/pyrope/ogl_4330
-#SHARED_MEM_LIBS := libUMP
-#SHARED_MEM_LIBS := libion libhardware libUMP
-SHARED_MEM_LIBS := libion libhardware
-# for pyrope
-SHARED_MEM_LIBS += libion-nexell
-#LOCAL_SHARED_LIBRARIES := liblog libcutils libMali libGLESv1_CM $(SHARED_MEM_LIBS)
-LOCAL_SHARED_LIBRARIES := liblog libcutils libGLESv1_CM $(SHARED_MEM_LIBS)
-# for debugging
-# LOCAL_SHARED_LIBRARIES += libutils
-
-#LOCAL_C_INCLUDES := system/core/include/ $(MALI_DDK_PATH)/include 
-LOCAL_C_INCLUDES := system/core/include/ 
-
-# for gralloc_priv.h
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../include
-
-# Include the UMP header files
-#LOCAL_C_INCLUDES += $(MALI_DDK_PATH)/src/ump/include
-
-LOCAL_CFLAGS := -DLOG_TAG=\"gralloc\" -DGRALLOC_32_BITS -DSTANDARD_LINUX_SCREEN
-
-LOCAL_SRC_FILES := \
-	gralloc_module.cpp \
-	alloc_device.cpp \
-	framebuffer_device.cpp
-
-#LOCAL_CFLAGS+= -DMALI_VSYNC_EVENT_REPORT_ENABLE
 include $(BUILD_SHARED_LIBRARY)

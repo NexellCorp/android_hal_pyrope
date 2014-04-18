@@ -31,6 +31,7 @@ private:
     bool mStarted;
 
     private_handle_t *mMirrorHandleArray[MAX_MIRROR_HANDLE_COUNT];
+    private_handle_t *mHandle;
 };
 
 }; // namespace

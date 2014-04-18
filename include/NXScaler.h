@@ -24,4 +24,8 @@ int nxScalerRun(const struct nxp_vid_buffer *srcBuf, private_handle_t const *dst
 int nxScalerRun(private_handle_t const *srcHandle, private_handle_t const *dstHandle, const struct scale_ctx *ctx);
 int nxScalerRun(private_handle_t const *srcHandle, const struct nxp_vid_buffer *dstBuf, const struct scale_ctx *ctx);
 
+int getPhysForHandle(private_handle_t const *handle, unsigned long *phys);
+int getVirtForHandle(private_handle_t const *handle, unsigned long *virt);
+void releaseVirtForHandle(private_handle_t const *handle, unsigned long virt);
+
 #endif

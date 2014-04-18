@@ -10,6 +10,8 @@
 
 #include <utils/Log.h>
 
+#include <nexell_format.h>
+
 #include "csc.h"
 #include <NXCsc.h>
 
@@ -82,42 +84,27 @@ bool nxCsc(private_handle_t const *srcHandle,
         switch (dstHandle->format) {
         case HAL_PIXEL_FORMAT_YCrCb_420_SP: // NV21
             {
-                char *srcY = (char *)mmap(NULL, srcHandle->sizes[0], PROT_READ | PROT_WRITE, MAP_SHARED, srcHandle->share_fds[0], 0);
+                char *srcY = (char *)mmap(NULL, srcHandle->size, PROT_READ | PROT_WRITE, MAP_SHARED, srcHandle->share_fd, 0);
                 if (MAP_FAILED == srcY) {
                     ALOGE("mmap failed for srcY");
                     return false;
                 }
-                char *srcCb = (char *)mmap(NULL, srcHandle->sizes[1], PROT_READ | PROT_WRITE, MAP_SHARED, srcHandle->share_fds[1], 0);
-                if (MAP_FAILED == srcCb) {
-                    ALOGE("mmap failed for srcCb");
-                    munmap(srcY, srcHandle->sizes[0]);
-                    return false;
-                }
-                char *srcCr = (char *)mmap(NULL, srcHandle->sizes[2], PROT_READ | PROT_WRITE, MAP_SHARED, srcHandle->share_fds[2], 0);
-                if (MAP_FAILED == srcCr) {
-                    ALOGE("mmap failed for srcCr");
-                    munmap(srcCb, srcHandle->sizes[1]);
-                    munmap(srcY, srcHandle->sizes[0]);
-                    return false;
-                }
+                char *srcCb = srcY + (srcHandle->stride * ALIGN(srcHandle->height, 16));
+                char *srcCr = srcCb + (ALIGN(srcHandle->stride >> 1, 16) * ALIGN(srcHandle->height >> 1, 16));
                 char *dstY = (char *)mmap(NULL, dstHandle->size, PROT_READ | PROT_WRITE, MAP_SHARED, dstHandle->share_fd, 0);
                 if (MAP_FAILED == dstY) {
                     ALOGE("mmap failed for dstY");
-                    munmap(srcCr, srcHandle->sizes[2]);
-                    munmap(srcCb, srcHandle->sizes[1]);
-                    munmap(srcY, srcHandle->sizes[0]);
+                    munmap(srcY, srcHandle->size);
                     return false;
                 }
-                char *dstCrCb = dstY + (width * height);
+                char *dstCrCb = dstY + (dstHandle->stride * ALIGN(dstHandle->height, 16));
                 cscYV12ToNV21(srcY, srcCb, srcCr,
                         dstY, dstCrCb,
                         width, width,
                         width, height);
 
                 munmap(dstY, dstHandle->size);
-                munmap(srcCr, srcHandle->sizes[2]);
-                munmap(srcCb, srcHandle->sizes[1]);
-                munmap(srcY, srcHandle->sizes[0]);
+                munmap(srcY, srcHandle->size);
             }
             return true;
         }

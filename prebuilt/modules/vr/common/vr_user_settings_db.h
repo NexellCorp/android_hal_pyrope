@@ -1,7 +1,7 @@
 /**
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2012 ARM Limited
+ * (C) COPYRIGHT 2012-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -12,13 +12,12 @@
 #define __VR_USER_SETTINGS_DB_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include "vr_uk_types.h"
 
-/** @brief Set VR user setting in DB
+/** @brief Set Vr user setting in DB
  *
  * Update the DB with a new value for \a setting. If the value is different from theprevious set value running sessions will be notified of the change.
  *
@@ -27,7 +26,7 @@ extern "C"
  */
 void vr_set_user_setting(_vr_uk_user_setting_t setting, u32 value);
 
-/** @brief Get current VR user setting value from DB
+/** @brief Get current Vr user setting value from DB
  *
  * @param setting the setting to extract
  * @return the value of the selected setting

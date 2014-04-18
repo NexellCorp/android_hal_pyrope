@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2010-2012 ARM Limited
+ * (C) COPYRIGHT 2010-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -15,6 +15,7 @@
 
 #include "vr_linux_trace.h"
 #include "vr_profiling_events.h"
+#include "vr_profiling_gator_api.h"
 
 #define VR_PROFILING_MAX_BUFFER_ENTRIES 1048576
 
@@ -129,7 +130,7 @@ vr_bool _vr_osk_profiling_have_recording(void);
 
 #else /* defined(CONFIG_VR400_PROFILING)  && defined(CONFIG_TRACEPOINTS) */
 
- /* Dummy add_event, for when profiling is disabled. */
+/* Dummy add_event, for when profiling is disabled. */
 
 #define _vr_osk_profiling_add_event(event_id, data0, data1, data2, data3, data4)
 

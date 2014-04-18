@@ -74,10 +74,13 @@ LCDUseGLAndVideoImpl::~LCDUseGLAndVideoImpl()
 
 void LCDUseGLAndVideoImpl::init()
 {
+    ALOGD("%s", __func__);
     mRGBRenderer = new LCDRGBRenderer(mRgbID);
     if (!mRGBRenderer)
         ALOGE("FATAL: can't create RGBRenderer");
 
+    // psw0523 fix for new gralloc
+    //mVideoRenderer = new HWCCommonRenderer(mVideoID, 4);
     mVideoRenderer = new HWCCommonRenderer(mVideoID, 4);
     if (!mVideoRenderer)
         ALOGE("FATAL: can't create VideoRenderer");
@@ -92,7 +95,9 @@ int LCDUseGLAndVideoImpl::configOverlay(struct hwc_layer_1 &layer)
     ret = v4l2_set_format(mVideoID,
             layer.sourceCrop.right - layer.sourceCrop.left,
             layer.sourceCrop.bottom - layer.sourceCrop.top,
-            V4L2_PIX_FMT_YUV420M);
+            // psw0523 fix for new gralloc
+            //V4L2_PIX_FMT_YUV420M);
+            V4L2_PIX_FMT_YUV420);
     if (ret < 0) {
         ALOGE("failed to v4l2_set_format()");
         return ret;
@@ -181,6 +186,24 @@ int LCDUseGLAndVideoImpl::set(hwc_display_contents_1_t *contents, void *unused)
 {
     mRGBHandle = NULL;
     mVideoHandle = NULL;
+
+#if 0
+    mOverlayLayerIndex = -1;
+    for (size_t i = 0; i < contents->numHwLayers; i++) {
+        hwc_layer_1_t &layer = contents->hwLayers[i];
+
+        if (layer.compositionType == HWC_FRAMEBUFFER_TARGET)
+            continue;
+
+        if (layer.compositionType == HWC_BACKGROUND)
+            continue;
+
+        if (mOverlayLayerIndex == -1 && canOverlay(layer)) {
+            mOverlayLayerIndex = i;
+            break;
+        }
+    }
+#endif
 
     ALOGV("set: rgb %d, overlay %d", mRGBLayerIndex, mOverlayLayerIndex);
     if (mOverlayLayerIndex >= 0) {

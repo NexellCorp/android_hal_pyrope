@@ -31,6 +31,14 @@ PreviewThread::PreviewThread(nxp_v4l2_id id,
     :NXStreamThread(id, width, height, zoomController, streamManager)
 {
     init(id);
+    UseZoom = ZoomController->useZoom();
+    if (UseZoom) {
+        PlaneNum = 3;
+        Format = V4L2_PIX_FMT_YUV420M;
+    } else {
+        PlaneNum = 1;
+        Format = V4L2_PIX_FMT_YUV420;
+    }
 }
 
 PreviewThread::~PreviewThread()
@@ -60,9 +68,6 @@ status_t PreviewThread::readyToRun()
 {
     ALOGD("preview readyToRun entered: wxd(%dx%d)", Width, Height);
 
-    uint32_t cpuVersion = getNXCpuVersion();
-    ALOGD("CPU Version: %u", cpuVersion);
-
     NXStream *stream = getActiveStream();
     if (!stream) {
         ALOGE("No ActiveStream!!!");
@@ -84,20 +89,14 @@ status_t PreviewThread::readyToRun()
         return NO_INIT;
     }
 
-    int ret = 0;
-    if (cpuVersion)
-        ret = v4l2_set_format(Id, Width, Height, PIXINDEX2PIXFORMAT(PixelIndex));
-    else
-        ret = v4l2_set_format(Id, Width, Height, V4L2_PIX_FMT_YUV444); // this is for urbetter 601 camera
+    int ret = v4l2_set_format(Id, Width, Height, Format);
     if (ret < 0) {
         ALOGE("failed to v4l2_set_format for %d", Id);
         return NO_INIT;
     }
 
-    if (cpuVersion)
+    if (UseZoom)
         ZoomController->setFormat(PIXINDEX2PIXCODE(PixelIndex), PIXINDEX2PIXCODE(PixelIndex));
-    else
-        ZoomController->setFormat(PIXINDEX2PIXCODE(YUV444_PLANAR), PIXINDEX2PIXCODE(PixelIndex));
 
     ret = v4l2_set_crop(Id, 0, 0, Width, Height);
     if (ret < 0) {
@@ -119,12 +118,9 @@ status_t PreviewThread::readyToRun()
         }
     }
 
-    if (ZoomController->useZoom()) {
+    if (UseZoom) {
         uint32_t zoomFormat;
-        if (cpuVersion)
-            zoomFormat = PIXINDEX2PIXFORMAT(PixelIndex);
-        else
-            zoomFormat = PIXINDEX2PIXFORMAT(YUV444_PLANAR);
+        zoomFormat = PIXINDEX2PIXFORMAT(PixelIndex);
 
         if (false == ZoomController->allocBuffer(MAX_PREVIEW_ZOOM_BUFFER, Width, Height, zoomFormat)) {
             ALOGE("failed to allocate preview zoom buffer");
@@ -135,9 +131,9 @@ status_t PreviewThread::readyToRun()
             ALOGE("failed to v4l2_reqbuf for preview");
             return NO_INIT;
         }
-        int planeNum = ZoomController->getBuffer(0)->plane_num;
+        PlaneNum = ZoomController->getBuffer(0)->plane_num;
         for (int i = 0; i < ZoomController->getBufferCount(); i++) {
-            ret = v4l2_qbuf(Id, planeNum, i, ZoomController->getBuffer(i), -1, NULL);
+            ret = v4l2_qbuf(Id, PlaneNum, i, ZoomController->getBuffer(i), -1, NULL);
             if (ret < 0) {
                 ALOGE("failed to v4l2_qbuf for preview %d", i);
                 return NO_INIT;
@@ -155,7 +151,7 @@ status_t PreviewThread::readyToRun()
         for (size_t i = 0; i < queuedSize; i++) {
             const buffer_handle_t *b = stream->getQueuedBuffer(queuedSize - i - 1);
             ALOGV("HW Q %p", b);
-            ret = v4l2_qbuf(Id, 3, i, reinterpret_cast<private_handle_t const *>(*b), -1, NULL);
+            ret = v4l2_qbuf(Id, PlaneNum, i, reinterpret_cast<private_handle_t const *>(*b), -1, NULL);
             if (ret < 0) {
                 ALOGE("failed to v4l2_qbuf for ID %d, index %d", Id, i);
                 return NO_INIT;
@@ -191,7 +187,7 @@ bool PreviewThread::threadLoop()
         ERROR_EXIT();
     }
 
-    ret = v4l2_dqbuf(Id, 3, &dqIdx, NULL);
+    ret = v4l2_dqbuf(Id, PlaneNum, &dqIdx, NULL);
     if (ret < 0) {
         ALOGE("failed to v4l2_dqbuf for preview");
         ERROR_EXIT();
@@ -203,7 +199,7 @@ bool PreviewThread::threadLoop()
         ALOGV("Preview Skip Frame: %d", InitialSkipCount);
         stream->cancelBuffer();
     } else {
-        if (ZoomController->useZoom()) {
+        if (UseZoom) {
             struct nxp_vid_buffer *srcBuf = ZoomController->getBuffer(dqIdx);
             private_handle_t const *dstHandle = stream->getNextBuffer();
             if (!dstHandle) {
@@ -234,11 +230,10 @@ bool PreviewThread::threadLoop()
     }
     ALOGV("End dequeueBuffer()");
 
-    if (ZoomController->useZoom()) {
-        ret = v4l2_qbuf(Id, 3, dqIdx, ZoomController->getBuffer(dqIdx), -1, NULL);
-    } else {
-        ret = v4l2_qbuf(Id, 3, dqIdx, reinterpret_cast<private_handle_t const *>(*buf), -1, NULL);
-    }
+    if (UseZoom)
+        ret = v4l2_qbuf(Id, PlaneNum, dqIdx, ZoomController->getBuffer(dqIdx), -1, NULL);
+    else
+        ret = v4l2_qbuf(Id, PlaneNum, dqIdx, reinterpret_cast<private_handle_t const *>(*buf), -1, NULL);
     if (ret) {
         ALOGE("failed to v4l2_qbuf()");
         ERROR_EXIT();

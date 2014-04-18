@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2008-2012 ARM Limited
+ * (C) COPYRIGHT 2008-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -16,53 +16,42 @@
 #include "vr_session.h"
 #include "vr_ukk_wrappers.h"
 
-int mem_init_wrapper(struct vr_session_data *session_data, _vr_uk_init_mem_s __user *uargs)
+int mem_write_safe_wrapper(struct vr_session_data *session_data, _vr_uk_mem_write_safe_s __user * uargs)
 {
-    _vr_uk_init_mem_s kargs;
-    _vr_osk_errcode_t err;
+	_vr_uk_mem_write_safe_s kargs;
+	_vr_osk_errcode_t err;
 
-    VR_CHECK_NON_NULL(uargs, -EINVAL);
+	VR_CHECK_NON_NULL(uargs, -EINVAL);
+	VR_CHECK_NON_NULL(session_data, -EINVAL);
 
-    kargs.ctx = session_data;
-    err = _vr_ukk_init_mem(&kargs);
-    if (_VR_OSK_ERR_OK != err)
-    {
-        return map_errcode(err);
-    }
-
-    if (0 != put_user(kargs.vr_address_base, &uargs->vr_address_base)) goto mem_init_rollback;
-    if (0 != put_user(kargs.memory_size, &uargs->memory_size)) goto mem_init_rollback;
-
-    return 0;
-
-mem_init_rollback:
-	{
-		_vr_uk_term_mem_s kargs;
-		kargs.ctx = session_data;
-		err = _vr_ukk_term_mem(&kargs);
-		if (_VR_OSK_ERR_OK != err)
-		{
-			VR_DEBUG_PRINT(4, ("reverting _vr_ukk_init_mem, as a result of failing put_user(), failed\n"));
-		}
+	if (0 != copy_from_user(&kargs, uargs, sizeof(_vr_uk_mem_write_safe_s))) {
+		return -EFAULT;
 	}
-    return -EFAULT;
-}
 
-int mem_term_wrapper(struct vr_session_data *session_data, _vr_uk_term_mem_s __user *uargs)
-{
-    _vr_uk_term_mem_s kargs;
-    _vr_osk_errcode_t err;
+	kargs.ctx = session_data;
 
-    VR_CHECK_NON_NULL(uargs, -EINVAL);
+	/* Check if we can access the buffers */
+	if (!access_ok(VERIFY_WRITE, kargs.dest, kargs.size)
+	    || !access_ok(VERIFY_READ, kargs.src, kargs.size)) {
+		return -EINVAL;
+	}
 
-    kargs.ctx = session_data;
-    err = _vr_ukk_term_mem(&kargs);
-    if (_VR_OSK_ERR_OK != err)
-    {
-        return map_errcode(err);
-    }
+	/* Check if size wraps */
+	if ((kargs.size + kargs.dest) <= kargs.dest
+	    || (kargs.size + kargs.src) <= kargs.src) {
+		return -EINVAL;
+	}
 
-    return 0;
+	err = _vr_ukk_mem_write_safe(&kargs);
+	if (_VR_OSK_ERR_OK != err) {
+		return map_errcode(err);
+	}
+
+	if (0 != put_user(kargs.size, &uargs->size)) {
+		return -EFAULT;
+	}
+
+	return 0;
 }
 
 int mem_map_ext_wrapper(struct vr_session_data *session_data, _vr_uk_map_external_mem_s __user * argument)
@@ -72,36 +61,32 @@ int mem_map_ext_wrapper(struct vr_session_data *session_data, _vr_uk_map_externa
 
 	/* validate input */
 	/* the session_data pointer was validated by caller */
-    VR_CHECK_NON_NULL( argument, -EINVAL);
+	VR_CHECK_NON_NULL( argument, -EINVAL);
 
 	/* get call arguments from user space. copy_from_user returns how many bytes which where NOT copied */
-	if ( 0 != copy_from_user(&uk_args, (void __user *)argument, sizeof(_vr_uk_map_external_mem_s)) )
-	{
+	if ( 0 != copy_from_user(&uk_args, (void __user *)argument, sizeof(_vr_uk_map_external_mem_s)) ) {
 		return -EFAULT;
 	}
 
-    uk_args.ctx = session_data;
+	uk_args.ctx = session_data;
 	err_code = _vr_ukk_map_external_mem( &uk_args );
 
-    if (0 != put_user(uk_args.cookie, &argument->cookie))
-    {
-        if (_VR_OSK_ERR_OK == err_code)
-        {
-            /* Rollback */
-           	_vr_uk_unmap_external_mem_s uk_args_unmap;
+	if (0 != put_user(uk_args.cookie, &argument->cookie)) {
+		if (_VR_OSK_ERR_OK == err_code) {
+			/* Rollback */
+			_vr_uk_unmap_external_mem_s uk_args_unmap;
 
-            uk_args_unmap.ctx = session_data;
-            uk_args_unmap.cookie = uk_args.cookie;
-            err_code = _vr_ukk_unmap_external_mem( &uk_args_unmap );
-            if (_VR_OSK_ERR_OK != err_code)
-            {
-                VR_DEBUG_PRINT(4, ("reverting _vr_ukk_unmap_external_mem, as a result of failing put_user(), failed\n"));
-            }
-        }
-        return -EFAULT;
-    }
+			uk_args_unmap.ctx = session_data;
+			uk_args_unmap.cookie = uk_args.cookie;
+			err_code = _vr_ukk_unmap_external_mem( &uk_args_unmap );
+			if (_VR_OSK_ERR_OK != err_code) {
+				VR_DEBUG_PRINT(4, ("reverting _vr_ukk_unmap_external_mem, as a result of failing put_user(), failed\n"));
+			}
+		}
+		return -EFAULT;
+	}
 
-    /* Return the error that _vr_ukk_free_big_block produced */
+	/* Return the error that _vr_ukk_free_big_block produced */
 	return map_errcode(err_code);
 }
 
@@ -112,15 +97,14 @@ int mem_unmap_ext_wrapper(struct vr_session_data *session_data, _vr_uk_unmap_ext
 
 	/* validate input */
 	/* the session_data pointer was validated by caller */
-    VR_CHECK_NON_NULL( argument, -EINVAL);
+	VR_CHECK_NON_NULL( argument, -EINVAL);
 
 	/* get call arguments from user space. copy_from_user returns how many bytes which where NOT copied */
-	if ( 0 != copy_from_user(&uk_args, (void __user *)argument, sizeof(_vr_uk_unmap_external_mem_s)) )
-	{
+	if ( 0 != copy_from_user(&uk_args, (void __user *)argument, sizeof(_vr_uk_unmap_external_mem_s)) ) {
 		return -EFAULT;
 	}
 
-    uk_args.ctx = session_data;
+	uk_args.ctx = session_data;
 	err_code = _vr_ukk_unmap_external_mem( &uk_args );
 
 	/* Return the error that _vr_ukk_free_big_block produced */
@@ -135,15 +119,14 @@ int mem_release_ump_wrapper(struct vr_session_data *session_data, _vr_uk_release
 
 	/* validate input */
 	/* the session_data pointer was validated by caller */
-    VR_CHECK_NON_NULL( argument, -EINVAL);
+	VR_CHECK_NON_NULL( argument, -EINVAL);
 
 	/* get call arguments from user space. copy_from_user returns how many bytes which where NOT copied */
-	if ( 0 != copy_from_user(&uk_args, (void __user *)argument, sizeof(_vr_uk_release_ump_mem_s)) )
-	{
+	if ( 0 != copy_from_user(&uk_args, (void __user *)argument, sizeof(_vr_uk_release_ump_mem_s)) ) {
 		return -EFAULT;
 	}
 
-    uk_args.ctx = session_data;
+	uk_args.ctx = session_data;
 	err_code = _vr_ukk_release_ump_mem( &uk_args );
 
 	/* Return the error that _vr_ukk_free_big_block produced */
@@ -157,103 +140,98 @@ int mem_attach_ump_wrapper(struct vr_session_data *session_data, _vr_uk_attach_u
 
 	/* validate input */
 	/* the session_data pointer was validated by caller */
-    VR_CHECK_NON_NULL( argument, -EINVAL);
+	VR_CHECK_NON_NULL( argument, -EINVAL);
 
 	/* get call arguments from user space. copy_from_user returns how many bytes which where NOT copied */
-	if ( 0 != copy_from_user(&uk_args, (void __user *)argument, sizeof(_vr_uk_attach_ump_mem_s)) )
-	{
+	if ( 0 != copy_from_user(&uk_args, (void __user *)argument, sizeof(_vr_uk_attach_ump_mem_s)) ) {
 		return -EFAULT;
 	}
 
-    uk_args.ctx = session_data;
+	uk_args.ctx = session_data;
 	err_code = _vr_ukk_attach_ump_mem( &uk_args );
 
-    if (0 != put_user(uk_args.cookie, &argument->cookie))
-    {
-        if (_VR_OSK_ERR_OK == err_code)
-        {
-            /* Rollback */
-           	_vr_uk_release_ump_mem_s uk_args_unmap;
+	if (0 != put_user(uk_args.cookie, &argument->cookie)) {
+		if (_VR_OSK_ERR_OK == err_code) {
+			/* Rollback */
+			_vr_uk_release_ump_mem_s uk_args_unmap;
 
-            uk_args_unmap.ctx = session_data;
-            uk_args_unmap.cookie = uk_args.cookie;
-            err_code = _vr_ukk_release_ump_mem( &uk_args_unmap );
-            if (_VR_OSK_ERR_OK != err_code)
-            {
-                VR_DEBUG_PRINT(4, ("reverting _vr_ukk_attach_mem, as a result of failing put_user(), failed\n"));
-            }
-        }
-        return -EFAULT;
-    }
+			uk_args_unmap.ctx = session_data;
+			uk_args_unmap.cookie = uk_args.cookie;
+			err_code = _vr_ukk_release_ump_mem( &uk_args_unmap );
+			if (_VR_OSK_ERR_OK != err_code) {
+				VR_DEBUG_PRINT(4, ("reverting _vr_ukk_attach_mem, as a result of failing put_user(), failed\n"));
+			}
+		}
+		return -EFAULT;
+	}
 
-    /* Return the error that _vr_ukk_map_external_ump_mem produced */
+	/* Return the error that _vr_ukk_map_external_ump_mem produced */
 	return map_errcode(err_code);
 }
 #endif /* CONFIG_VR400_UMP */
 
 int mem_query_mmu_page_table_dump_size_wrapper(struct vr_session_data *session_data, _vr_uk_query_mmu_page_table_dump_size_s __user * uargs)
 {
-    _vr_uk_query_mmu_page_table_dump_size_s kargs;
-    _vr_osk_errcode_t err;
+	_vr_uk_query_mmu_page_table_dump_size_s kargs;
+	_vr_osk_errcode_t err;
 
-    VR_CHECK_NON_NULL(uargs, -EINVAL);
-    VR_CHECK_NON_NULL(session_data, -EINVAL);
+	VR_CHECK_NON_NULL(uargs, -EINVAL);
+	VR_CHECK_NON_NULL(session_data, -EINVAL);
 
-    kargs.ctx = session_data;
+	kargs.ctx = session_data;
 
-    err = _vr_ukk_query_mmu_page_table_dump_size(&kargs);
-    if (_VR_OSK_ERR_OK != err) return map_errcode(err);
+	err = _vr_ukk_query_mmu_page_table_dump_size(&kargs);
+	if (_VR_OSK_ERR_OK != err) return map_errcode(err);
 
-    if (0 != put_user(kargs.size, &uargs->size)) return -EFAULT;
+	if (0 != put_user(kargs.size, &uargs->size)) return -EFAULT;
 
-    return 0;
+	return 0;
 }
 
 int mem_dump_mmu_page_table_wrapper(struct vr_session_data *session_data, _vr_uk_dump_mmu_page_table_s __user * uargs)
 {
-    _vr_uk_dump_mmu_page_table_s kargs;
-    _vr_osk_errcode_t err;
-    void *buffer;
-    int rc = -EFAULT;
+	_vr_uk_dump_mmu_page_table_s kargs;
+	_vr_osk_errcode_t err;
+	void *buffer;
+	int rc = -EFAULT;
 
 	/* validate input */
-    VR_CHECK_NON_NULL(uargs, -EINVAL);
+	VR_CHECK_NON_NULL(uargs, -EINVAL);
 	/* the session_data pointer was validated by caller */
 
-    kargs.buffer = NULL;
+	kargs.buffer = NULL;
 
-    /* get location of user buffer */
+	/* get location of user buffer */
 	if (0 != get_user(buffer, &uargs->buffer)) goto err_exit;
 	/* get size of mmu page table info buffer from user space */
 	if ( 0 != get_user(kargs.size, &uargs->size) ) goto err_exit;
-    /* verify we can access the whole of the user buffer */
-    if (!access_ok(VERIFY_WRITE, buffer, kargs.size)) goto err_exit;
+	/* verify we can access the whole of the user buffer */
+	if (!access_ok(VERIFY_WRITE, buffer, kargs.size)) goto err_exit;
 
-    /* allocate temporary buffer (kernel side) to store mmu page table info */
-    kargs.buffer = _vr_osk_valloc(kargs.size);
-    if (NULL == kargs.buffer)
-    {
-        rc = -ENOMEM;
-        goto err_exit;
-    }
+	/* allocate temporary buffer (kernel side) to store mmu page table info */
+	VR_CHECK(kargs.size > 0, -ENOMEM);
+	kargs.buffer = _vr_osk_valloc(kargs.size);
+	if (NULL == kargs.buffer) {
+		rc = -ENOMEM;
+		goto err_exit;
+	}
 
-    kargs.ctx = session_data;
-    err = _vr_ukk_dump_mmu_page_table(&kargs);
-    if (_VR_OSK_ERR_OK != err)
-    {
-        rc = map_errcode(err);
-        goto err_exit;
-    }
+	kargs.ctx = session_data;
+	err = _vr_ukk_dump_mmu_page_table(&kargs);
+	if (_VR_OSK_ERR_OK != err) {
+		rc = map_errcode(err);
+		goto err_exit;
+	}
 
-    /* copy mmu page table info back to user space and update pointers */
+	/* copy mmu page table info back to user space and update pointers */
 	if (0 != copy_to_user(uargs->buffer, kargs.buffer, kargs.size) ) goto err_exit;
-    if (0 != put_user((kargs.register_writes - (u32 *)kargs.buffer) + (u32 *)uargs->buffer, &uargs->register_writes)) goto err_exit;
-    if (0 != put_user((kargs.page_table_dump - (u32 *)kargs.buffer) + (u32 *)uargs->buffer, &uargs->page_table_dump)) goto err_exit;
-    if (0 != put_user(kargs.register_writes_size, &uargs->register_writes_size)) goto err_exit;
-    if (0 != put_user(kargs.page_table_dump_size, &uargs->page_table_dump_size)) goto err_exit;
-    rc = 0;
+	if (0 != put_user((kargs.register_writes - (u32 *)kargs.buffer) + (u32 *)uargs->buffer, &uargs->register_writes)) goto err_exit;
+	if (0 != put_user((kargs.page_table_dump - (u32 *)kargs.buffer) + (u32 *)uargs->buffer, &uargs->page_table_dump)) goto err_exit;
+	if (0 != put_user(kargs.register_writes_size, &uargs->register_writes_size)) goto err_exit;
+	if (0 != put_user(kargs.page_table_dump_size, &uargs->page_table_dump_size)) goto err_exit;
+	rc = 0;
 
 err_exit:
-    if (kargs.buffer) _vr_osk_vfree(kargs.buffer);
-    return rc;
+	if (kargs.buffer) _vr_osk_vfree(kargs.buffer);
+	return rc;
 }
