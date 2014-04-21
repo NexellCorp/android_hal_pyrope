@@ -1,6 +1,0 @@
-#!/bin/sh
-
-echo "S21random : link /dev/random to /dev/urandom ..."
-rm -f /dev/random
-ln -s /dev/urandom /dev/random
-
