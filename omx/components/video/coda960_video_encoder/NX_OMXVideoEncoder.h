@@ -76,6 +76,7 @@ typedef struct tNX_VIDENC_COMP_TYPE{
 	uint32_t					encKeyInterval;		//	GOP
 	uint32_t					encFrameRate;
 	uint32_t					encBitRate;
+	uint32_t					encIntraRefreshMbs;
 
 	OMX_BUFFERHEADERTYPE		*pPrevInputBuffer;
 

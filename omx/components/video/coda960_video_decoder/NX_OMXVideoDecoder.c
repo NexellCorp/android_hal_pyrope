@@ -1184,7 +1184,7 @@ static void NX_VidDec_CommandProc( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_COMM
 	OMX_COMPONENTTYPE *pStdComp = pDecComp->hComp;
 	OMX_U32 nData1 = 0, nData2 = 0;
 
-	DbgMsg("%s() : In( Cmd = %d )\n", __FUNCTION__, Cmd );
+	TRACE("%s() : In( Cmd = %d )\n", __FUNCTION__, Cmd );
 
 	switch( Cmd )
 	{

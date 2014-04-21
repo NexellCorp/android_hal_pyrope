@@ -513,6 +513,28 @@ static OMX_ERRORTYPE NX_VidEncSetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE 
 			}
 			break;
 		}
+		case OMX_IndexParamVideoIntraRefresh:
+		{
+			OMX_VIDEO_PARAM_INTRAREFRESHTYPE *pIRF = (OMX_VIDEO_PARAM_INTRAREFRESHTYPE *)ComponentParamStruct;
+			if( pIRF->eRefreshMode == OMX_VIDEO_IntraRefreshCyclic )
+			{
+				pEncComp->encIntraRefreshMbs = pIRF->nCirMBs;
+			}
+			else if( pIRF->eRefreshMode == OMX_VIDEO_IntraRefreshAdaptive )
+			{
+				NX_ErrMsg("Unsupported Encoder Setting( IntraRefreshMode(OMX_VIDEO_IntraRefreshAdaptive)!!!");
+				return OMX_ErrorUnsupportedSetting;
+			}
+			else if( pIRF->eRefreshMode == OMX_VIDEO_IntraRefreshBoth )
+			{
+				NX_ErrMsg("Unsupported Encoder Setting( IntraRefreshMode(OMX_VIDEO_IntraRefreshBoth))!!!");
+				return OMX_ErrorUnsupportedSetting;
+			}
+			else
+			{
+				return OMX_ErrorBadParameter;
+			}
+		}
 		case OMX_IndexConfigVideoFramerate:
 		{
 			OMX_CONFIG_FRAMERATETYPE *pFrameRate = (OMX_CONFIG_FRAMERATETYPE *)ComponentParamStruct;
