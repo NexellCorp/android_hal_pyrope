@@ -1596,26 +1596,26 @@ int InitializeCodaVpu(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, unsigned char *buf, i
 				pDecComp->vidFrameBuf[i].imgHeight = pDecComp->height;
 
                 int ion_fd = ion_open();
+                if( ion_fd<0 )
+                {
+					ALOGE("%s: failed to ion_open", __func__);
+					return ion_fd;
+                }
                 ret = ion_get_phys(ion_fd, handle->share_fd, (long unsigned int *)&pDecComp->vidFrameBuf[i].luPhyAddr);
                 if (ret != 0) {
-                     ALOGE("%s: failed to ion_get_phys", __func__);
-                     return ret;
+					ALOGE("%s: failed to ion_get_phys", __func__);
+					close( ion_fd );
+					return ret;
                 }
-				pDecComp->vidFrameBuf[i].cbPhyAddr = pDecComp->vidFrameBuf[i].luPhyAddr + (handle->stride * ALIGN(handle->height, 16));
-				pDecComp->vidFrameBuf[i].crPhyAddr =
-                    pDecComp->vidFrameBuf[i].cbPhyAddr + (ALIGN(handle->stride >> 1, 16) * ALIGN(handle->height >> 1, 16));
-
+				pDecComp->vidFrameBuf[i].cbPhyAddr = pDecComp->vidFrameBuf[i].luPhyAddr + handle->stride * handle->height;
+				pDecComp->vidFrameBuf[i].crPhyAddr = pDecComp->vidFrameBuf[i].cbPhyAddr + (handle->stride>>1) * (handle->height>>1);
 				pDecComp->vidFrameBuf[i].luStride = handle->stride;
-				pDecComp->vidFrameBuf[i].cbStride = pDecComp->vidFrameBuf[i].crStride = ALIGN(handle->stride >> 1, 16);
+				pDecComp->vidFrameBuf[i].cbStride = pDecComp->vidFrameBuf[i].crStride = handle->stride >> 1;
                 close(ion_fd);
 
-				//{
-				//	OMX_S32 strideY, strideUV;
-				//	strideY  = pDecComp->vidFrameBuf[i].luStride;
-				//	strideUV = pDecComp->vidFrameBuf[i].cbStride;
-				//	DbgMsg("===== Image Stride %ld, %ld\n", strideY, strideUV );
-				//}
-				TRACE("===== Physical Address = 0x%08x, 0x%08x, 0x%08x\n", handle->phys , handle->phys1 , handle->phys2 );
+				DbgMsg("===== Physical Address(0x%08x, 0x%08x, 0x%08x), Stride(%d)\n",
+						pDecComp->vidFrameBuf[i].luPhyAddr, pDecComp->vidFrameBuf[i].crPhyAddr, pDecComp->vidFrameBuf[i].cbPhyAddr,
+						handle->stride );
 				pDecComp->hVidFrameBuf[i] = &pDecComp->vidFrameBuf[i];
 			}
 			seqIn.numBuffers = pDecComp->outUsableBuffers;

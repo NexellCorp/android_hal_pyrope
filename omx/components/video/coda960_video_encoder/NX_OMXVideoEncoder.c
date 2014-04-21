@@ -1293,7 +1293,6 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 	if( pEncComp->inputFormat.eColorFormat == OMX_COLOR_FormatAndroidOpaque )
 	{
 		memset( &inputMem, 0, sizeof(inputMem) );
-		inputMem.memoryMap = 0;		//	Linear
         // psw0523 fix for new gralloc
 #if 0
 		inputMem.fourCC    = FOURCC_NV12;
@@ -1313,19 +1312,26 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 			hPrivate->phys, hPrivate->phys1,
 			hPrivate->base, hPrivate->base1 );
 #else
-        int ion_fd = ion_open();
+		int ion_fd = ion_open();
+		if( ion_fd<0 )
+		{
+			ALOGE("%s: failed to ion_open", __func__);
+			return ion_fd;
+		}
+		int ret = ion_get_phys(ion_fd, hPrivate->share_fd, (long unsigned int *)&inputMem.luPhyAddr);
+		if (ret != 0) {
+			ALOGE("%s: failed to ion_get_phys", __func__);
+			close(ion_fd);
+			return ret;
+		}
+		inputMem.memoryMap = 0;		//	Linear
 		inputMem.fourCC    = FOURCC_NV12;
 		inputMem.imgWidth  = pEncComp->encWidth;
 		inputMem.imgHeight = pEncComp->encHeight;
-        int ret = ion_get_phys(ion_fd, hPrivate->share_fd, (long unsigned int *)&inputMem.luPhyAddr);
-        if (ret != 0) {
-             ALOGE("%s: failed to ion_get_phys", __func__);
-             return ret;
-        }
-		inputMem.cbPhyAddr = inputMem.luPhyAddr + (hPrivate->stride * ALIGN(hPrivate->height, 16));
-		inputMem.luStride = hPrivate->stride;
-		inputMem.cbStride = hPrivate->stride;
-        close(ion_fd);
+		inputMem.cbPhyAddr = inputMem.luPhyAddr + hPrivate->stride * hPrivate->height;
+		inputMem.luStride  = hPrivate->stride;
+		inputMem.cbStride  = hPrivate->stride;
+		close(ion_fd);
 #endif
 	}
 	else
@@ -1350,20 +1356,26 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 			hPrivate->phys, hPrivate->phys1, hPrivate->phys2,
 			hPrivate->base, hPrivate->base1, hPrivate->base2 );
 #else
-        int ion_fd = ion_open();
+		int ion_fd = ion_open();
+		if( ion_fd<0 )
+		{
+			ALOGE("%s: failed to ion_open", __func__);
+			return ion_fd;
+		}
 		inputMem.memoryMap = 0;		//	Linear
 		inputMem.fourCC    = FOURCC_YV12;
 		inputMem.imgWidth  = pEncComp->encWidth;
 		inputMem.imgHeight = pEncComp->encHeight;
-        int ret = ion_get_phys(ion_fd, hPrivate->share_fd, (long unsigned int *)&inputMem.luPhyAddr);
-        if (ret != 0) {
-             ALOGE("%s: failed to ion_get_phys", __func__);
-             return ret;
-        }
-		inputMem.cbPhyAddr = inputMem.luPhyAddr + (hPrivate->stride * ALIGN(hPrivate->height, 16));
-		inputMem.crPhyAddr = inputMem.cbPhyAddr + (ALIGN(hPrivate->stride >> 1, 16) * ALIGN(hPrivate->height >> 1, 16));
+		int ret = ion_get_phys(ion_fd, hPrivate->share_fd, (long unsigned int *)&inputMem.luPhyAddr);
+		if (ret != 0) {
+			ALOGE("%s: failed to ion_get_phys", __func__);
+			close( ion_fd );
+			return ret;
+		}
+		inputMem.cbPhyAddr = inputMem.luPhyAddr + (hPrivate->stride * hPrivate->height);
+		inputMem.crPhyAddr = inputMem.cbPhyAddr + ((hPrivate->stride >> 1) * (hPrivate->height >> 1));
 		inputMem.luStride = hPrivate->stride;
-		inputMem.cbStride = inputMem.crStride = ALIGN(hPrivate->stride >> 1, 16);
+		inputMem.cbStride = inputMem.crStride = hPrivate->stride >> 1;
         close(ion_fd);
 #endif
 	}
