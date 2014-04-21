@@ -1,4 +1,0 @@
-#!/bin/sh
-export SDL_MOUSEDRV=TSLIB
-export SDL_MOUSEDEV=$TSLIB_TSDEVICE
-
