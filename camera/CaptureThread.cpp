@@ -27,6 +27,7 @@
 #include <libnxjpeg.h>
 #endif
 
+#include <NXScaler.h>
 #include <NXAllocator.h>
 
 #include "Constants.h"
@@ -244,6 +245,7 @@ struct ycbcr_planar {
 
 void CaptureThread::dumpCaptureBuffer()
 {
+#if 0
     ALOGD("DUMP CAPTURE BUFFER");
     ALOGD("=============================================");
     if (PixelIndex == YUV422_PACKED) {
@@ -281,6 +283,7 @@ void CaptureThread::dumpCaptureBuffer()
         }
     }
     ALOGD("=============================================");
+#endif
 }
 
 bool CaptureThread::allocCaptureBuffer(int width, int height)
@@ -351,23 +354,46 @@ bool CaptureThread::capture(unsigned int srcYPhys, unsigned int srcCBPhys, unsig
     jpegBlob->jpeg_size = jpegSize + dstOffset;
     jpegBlob->jpeg_blob_id = CAMERA2_JPEG_BLOB_ID;
 
-    ALOGD("capture: jpegSize(%d), totalSize(%d)", jpegSize, jpegBlob->jpeg_size);
-    ALOGD("capture success!!!");
+    ALOGD("capture success: jpegSize(%d), totalSize(%d)", jpegSize, jpegBlob->jpeg_size);
     return true;
 }
 
 bool CaptureThread::capture(struct nxp_vid_buffer *srcBuf, private_handle_t const *dstHandle, int width, int height, uint32_t dstOffset)
 {
-    return capture((unsigned int)srcBuf->phys[0], (unsigned int)srcBuf->phys[1], (unsigned int)srcBuf->phys[2],
+    unsigned long dstVirt;
+    int ret = getVirtForHandle(dstHandle, &dstVirt);
+    if (ret) {
+        ALOGE("%s: failed to getVirtForHandle %p", __func__, dstHandle);
+        return false;
+    }
+    bool captured = capture((unsigned int)srcBuf->phys[0], (unsigned int)srcBuf->phys[1], (unsigned int)srcBuf->phys[2],
             (unsigned int)srcBuf->virt[0], (unsigned int)srcBuf->virt[1], (unsigned int)srcBuf->virt[2],
-            (void *)dstHandle->base, dstHandle->size, width, height, dstOffset);
+            //(void *)dstHandle->base, dstHandle->size, width, height, dstOffset);
+            (void *)dstVirt, dstHandle->size, width, height, dstOffset);
+    releaseVirtForHandle(dstHandle, dstVirt);
+    return captured;
 }
 
 bool CaptureThread::capture(private_handle_t const *srcHandle, private_handle_t const *dstHandle, int width, int height, uint32_t dstOffset)
 {
-    return capture(srcHandle->phys, srcHandle->phys1, srcHandle->phys2,
-            srcHandle->base, srcHandle->base1, srcHandle->base2,
-            (void *)dstHandle->base, dstHandle->size, width, height, dstOffset);
+    unsigned long dstVirt;
+    int ret = getVirtForHandle(dstHandle, &dstVirt);
+    if (ret) {
+        ALOGE("%s: failed to getVirtForHandle %p", __func__, dstHandle);
+        return false;
+    }
+    unsigned long phys[3];
+    ret = getPhysForHandle(srcHandle, phys);
+    if (ret) {
+        ALOGE("%s: failed to getVirtForHandle %p", __func__, dstHandle);
+        return false;
+    }
+    bool captured = capture(phys[0], phys[1], phys[2],
+            //srcHandle->base, srcHandle->base1, srcHandle->base2,
+            0, 0, 0,
+            (void *)dstVirt, dstHandle->size, width, height, dstOffset);
+    releaseVirtForHandle(dstHandle, dstVirt);
+    return captured;
 }
 
 bool CaptureThread::threadLoop()

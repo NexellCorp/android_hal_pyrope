@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2008-2012 ARM Limited
+ * (C) COPYRIGHT 2008-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -21,9 +21,9 @@
 
 void _vr_osk_dbgmsg( const char *fmt, ... )
 {
-    va_list args;
-    va_start(args, fmt);
-    vprintk(fmt, args);
+	va_list args;
+	va_start(args, fmt);
+	vprintk(fmt, args);
 	va_end(args);
 }
 
@@ -60,5 +60,13 @@ u32 _vr_osk_get_pid(void)
 u32 _vr_osk_get_tid(void)
 {
 	/* pid is actually identifying the thread on Linux */
-	return (u32)current->pid;
+	u32 tid = current->pid;
+
+	/* If the pid is 0 the core was idle.  Instead of returning 0 we return a special number
+	 * identifying which core we are on. */
+	if (0 == tid) {
+		tid = -(1 + raw_smp_processor_id());
+	}
+
+	return tid;
 }

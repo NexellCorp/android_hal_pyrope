@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2007-2010, 2012 ARM Limited
+ * (C) COPYRIGHT 2007-2010, 2012-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -15,9 +15,9 @@
 
 /* Make sure debug is defined when it should be */
 #ifndef DEBUG
-	#if defined(_DEBUG)
-		#define DEBUG
-	#endif
+#if defined(_DEBUG)
+#define DEBUG
+#endif
 #endif
 
 /* The file include several useful macros for error checking, debugging and printing.
@@ -38,15 +38,15 @@
  * [5:6] Is messages with low priority, used during extensive debugging.
  */
 
- /**
- *  Fundamental error macro. Reports an error code. This is abstracted to allow us to
- *  easily switch to a different error reporting method if we want, and also to allow
- *  us to search for error returns easily.
- *
- *  Note no closing semicolon - this is supplied in typical usage:
- *
- *  VR_ERROR(VR_ERROR_OUT_OF_MEMORY);
- */
+/**
+*  Fundamental error macro. Reports an error code. This is abstracted to allow us to
+*  easily switch to a different error reporting method if we want, and also to allow
+*  us to search for error returns easily.
+*
+*  Note no closing semicolon - this is supplied in typical usage:
+*
+*  VR_ERROR(VR_ERROR_OUT_OF_MEMORY);
+*/
 #define VR_ERROR(error_code) return (error_code)
 
 /**
@@ -108,14 +108,14 @@
 #define VR_PRINTF(args) _vr_osk_dbgmsg args;
 
 #define VR_PRINT_ERROR(args) do{ \
-	VR_PRINTF(("VR: ERR: %s\n" ,__FILE__)); \
+	VR_PRINTF(("Vr: ERR: %s\n" ,__FILE__)); \
 	VR_PRINTF(("           %s()%4d\n           ", __FUNCTION__, __LINE__)) ; \
 	VR_PRINTF(args); \
 	VR_PRINTF(("\n")); \
 	} while(0)
 
 #define VR_PRINT(args) do{ \
-	VR_PRINTF(("VR: ")); \
+	VR_PRINTF(("Vr: ")); \
 	VR_PRINTF(args); \
 	} while (0)
 
@@ -127,18 +127,18 @@ extern int vr_debug_level;
 #define VR_DEBUG_CODE(code) code
 #define VR_DEBUG_PRINT(level, args)  do { \
 	if((level) <=  vr_debug_level)\
-        {VR_PRINTF(("VR<" #level ">: ")); VR_PRINTF(args); } \
+        {VR_PRINTF(("Vr<" #level ">: ")); VR_PRINTF(args); } \
 	} while (0)
 
 #define VR_DEBUG_PRINT_ERROR(args) VR_PRINT_ERROR(args)
 
 #define VR_DEBUG_PRINT_IF(level,condition,args)  \
 	if((condition)&&((level) <=  vr_debug_level))\
-        {VR_PRINTF(("VR<" #level ">: ")); VR_PRINTF(args); }
+        {VR_PRINTF(("Vr<" #level ">: ")); VR_PRINTF(args); }
 
 #define VR_DEBUG_PRINT_ELSE(level, args)\
 	else if((level) <=  vr_debug_level)\
-    { VR_PRINTF(("VR<" #level ">: ")); VR_PRINTF(args); }
+    { VR_PRINTF(("Vr<" #level ">: ")); VR_PRINTF(args); }
 
 /**
  * @note these variants of DEBUG ASSERTS will cause a debugger breakpoint

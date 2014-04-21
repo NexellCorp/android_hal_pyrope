@@ -45,9 +45,11 @@ LCDRGBRenderer::~LCDRGBRenderer()
         close(mFBFd);
 }
 
+#define NXPFB_SET_FB_FD _IOW('N', 102, __u32)
 int LCDRGBRenderer::render()
 {
     if (mHandle) {
+#if 0
         if (mFBFd < 0) {
             mFBFd = open("/dev/graphics/fb0", O_RDWR);
             if (mFBFd < 0) {
@@ -80,7 +82,16 @@ int LCDRGBRenderer::render()
             ALOGE("can't render not framebuffer type handle");
             return -EINVAL;
         }
-
+#else
+        if (mFBFd < 0) {
+            mFBFd = open("/dev/graphics/fb0", O_RDWR);
+            if (mFBFd < 0) {
+                ALOGE("failed to open framebuffer");
+                return -EINVAL;
+            }
+        }
+        ioctl(mFBFd, NXPFB_SET_FB_FD, &mHandle->share_fd);
+#endif
         mHandle = NULL;
     }
 

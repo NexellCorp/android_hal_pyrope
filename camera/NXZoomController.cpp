@@ -8,6 +8,8 @@
 #include <linux/ion.h>
 #include <linux/nxp_ion.h>
 
+#include <utils/Log.h>
+
 #include <ion/ion.h>
 #include <ion-private.h>
 

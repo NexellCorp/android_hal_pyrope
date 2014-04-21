@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2008-2012 ARM Limited
+ * (C) COPYRIGHT 2008-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -20,8 +20,7 @@
 #include "vr_uk_types.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /**
@@ -186,7 +185,7 @@ extern "C"
  *
  * @{ */
 
-/** @brief Begin a new VR Device Driver session
+/** @brief Begin a new Vr Device Driver session
  *
  * This is used to obtain a per-process context handle for all future U/K calls.
  *
@@ -195,9 +194,9 @@ extern "C"
  */
 _vr_osk_errcode_t _vr_ukk_open( void **context );
 
-/** @brief End a VR Device Driver session
+/** @brief End a Vr Device Driver session
  *
- * This should be called when the process no longer requires use of the VR Device Driver.
+ * This should be called when the process no longer requires use of the Vr Device Driver.
  *
  * The context handle must not be used after it has been closed.
  *
@@ -244,101 +243,79 @@ _vr_osk_errcode_t _vr_ukk_get_api_version( _vr_uk_get_api_version_s *args );
 /** @brief Get the user space settings applicable for calling process.
  *
  * @param args see _vr_uk_get_user_settings_s in "vr_utgard_uk_types.h"
+ * @return _VR_OSK_ERR_OK on success, otherwise a suitable _vr_osk_errcode_t on failure.
  */
 _vr_osk_errcode_t _vr_ukk_get_user_settings(_vr_uk_get_user_settings_s *args);
 
 /** @brief Get a user space setting applicable for calling process.
  *
  * @param args see _vr_uk_get_user_setting_s in "vr_utgard_uk_types.h"
+ * @return _VR_OSK_ERR_OK on success, otherwise a suitable _vr_osk_errcode_t on failure.
  */
 _vr_osk_errcode_t _vr_ukk_get_user_setting(_vr_uk_get_user_setting_s *args);
+
+/* @brief Grant or deny high priority scheduling for this session.
+ *
+ * @param args see _vr_uk_request_high_priority_s in "vr_utgard_uk_types.h"
+ * @return _VR_OSK_ERR_OK on success, otherwise a suitable _vr_osk_errcode_t on failure.
+ */
+_vr_osk_errcode_t _vr_ukk_request_high_priority(_vr_uk_request_high_priority_s *args);
 
 /** @} */ /* end group _vr_uk_core */
 
 
 /** @addtogroup _vr_uk_memory U/K Memory
  *
- * The memory functions provide functionality with and without a VR-MMU present.
+ * The memory functions provide functionality with and without a Vr-MMU present.
  *
- * For VR-MMU based systems, the following functionality is provided:
+ * For Vr-MMU based systems, the following functionality is provided:
  * - Initialize and terminate VR virtual address space
  * - Allocate/deallocate physical memory to a VR virtual address range and map into/unmap from the
  * current process address space
  * - Map/unmap external physical memory into the VR virtual address range
  *
- * For VR-nonMMU based systems:
+ * For Vr-nonMMU based systems:
  * - Allocate/deallocate VR memory
  *
  * @{ */
 
-/**
- * @brief Initialize the VR-MMU Memory system
+/** @brief Map Vr Memory into the current user process
  *
- * For VR-MMU builds of the drivers, this function must be called before any
- * other functions in the \ref _vr_uk_memory group are called.
+ * Maps Vr memory into the current user process in a generic way.
  *
- * @note This function is for VR-MMU builds \b only. It should not be called
- * when the drivers are built without VR-MMU support.
+ * This function is to be used for Vr-MMU mode. The function is available in both Vr-MMU and Vr-nonMMU modes,
+ * but should not be called by a user process in Vr-nonMMU mode.
  *
- * @param args see \ref _vr_uk_init_mem_s in vr_utgard_uk_types.h
- * @return _VR_OSK_ERR_OK on success, otherwise a suitable
- * _vr_osk_errcode_t on failure.
- */
-_vr_osk_errcode_t _vr_ukk_init_mem( _vr_uk_init_mem_s *args );
-
-/**
- * @brief Terminate the MMU Memory system
- *
- * For VR-MMU builds of the drivers, this function must be called when
- * functions in the \ref _vr_uk_memory group will no longer be called. This
- * function must be called before the application terminates.
- *
- * @note This function is for VR-MMU builds \b only. It should not be called
- * when the drivers are built without VR-MMU support.
- *
- * @param args see \ref _vr_uk_term_mem_s in vr_utgard_uk_types.h
- * @return _VR_OSK_ERR_OK on success, otherwise a suitable
- * _vr_osk_errcode_t on failure.
- */
-_vr_osk_errcode_t _vr_ukk_term_mem( _vr_uk_term_mem_s *args );
-
-/** @brief Map VR Memory into the current user process
- *
- * Maps VR memory into the current user process in a generic way.
- *
- * This function is to be used for VR-MMU mode. The function is available in both VR-MMU and VR-nonMMU modes,
- * but should not be called by a user process in VR-nonMMU mode.
- *
- * The implementation and operation of _vr_ukk_mem_mmap() is dependant on whether the driver is built for VR-MMU
- * or VR-nonMMU:
+ * The implementation and operation of _vr_ukk_mem_mmap() is dependant on whether the driver is built for Vr-MMU
+ * or Vr-nonMMU:
  * - In the nonMMU case, _vr_ukk_mem_mmap() requires a physical address to be specified. For this reason, an OS U/K
  * implementation should not allow this to be called from user-space. In any case, nonMMU implementations are
- * inherently insecure, and so the overall impact is minimal. VR-MMU mode should be used if security is desired.
+ * inherently insecure, and so the overall impact is minimal. Vr-MMU mode should be used if security is desired.
  * - In the MMU case, _vr_ukk_mem_mmap() the _vr_uk_mem_mmap_s::phys_addr
- * member is used for the \em VR-virtual address desired for the mapping. The
+ * member is used for the \em Vr-virtual address desired for the mapping. The
  * implementation of _vr_ukk_mem_mmap() will allocate both the CPU-virtual
  * and CPU-physical addresses, and can cope with mapping a contiguous virtual
  * address range to a sequence of non-contiguous physical pages. In this case,
  * the CPU-physical addresses are not communicated back to the user-side, as
- * they are unnecsessary; the \em VR-virtual address range must be used for
- * programming VR structures.
+ * they are unnecsessary; the \em Vr-virtual address range must be used for
+ * programming Vr structures.
  *
  * In the second (MMU) case, _vr_ukk_mem_mmap() handles management of
  * CPU-virtual and CPU-physical ranges, but the \em caller must manage the
- * \em VR-virtual address range from the user-side.
+ * \em Vr-virtual address range from the user-side.
  *
- * @note VR-virtual address ranges are entirely separate between processes.
+ * @note Vr-virtual address ranges are entirely separate between processes.
  * It is not possible for a process to accidentally corrupt another process'
- * \em VR-virtual address space.
+ * \em Vr-virtual address space.
  *
  * @param args see _vr_uk_mem_mmap_s in "vr_utgard_uk_types.h"
  * @return _VR_OSK_ERR_OK on success, otherwise a suitable _vr_osk_errcode_t on failure.
  */
 _vr_osk_errcode_t _vr_ukk_mem_mmap( _vr_uk_mem_mmap_s *args );
 
-/** @brief Unmap VR Memory from the current user process
+/** @brief Unmap Vr Memory from the current user process
  *
- * Unmaps VR memory from the current user process in a generic way. This only operates on VR memory supplied
+ * Unmaps Vr memory from the current user process in a generic way. This only operates on Vr memory supplied
  * from _vr_ukk_mem_mmap().
  *
  * @param args see _vr_uk_mem_munmap_s in "vr_utgard_uk_types.h"
@@ -357,25 +334,31 @@ _vr_osk_errcode_t _vr_ukk_query_mmu_page_table_dump_size( _vr_uk_query_mmu_page_
  */
 _vr_osk_errcode_t _vr_ukk_dump_mmu_page_table( _vr_uk_dump_mmu_page_table_s * args );
 
-/** @brief Map a physically contiguous range of memory into VR
+/** @brief Write user data to specified Vr memory without causing segfaults.
+ * @param args see _vr_uk_mem_write_safe_s in vr_utgard_uk_types.h
+ * @return _VR_OSK_ERR_OK on success, otherwise a suitable _vr_osk_errcode_t on failure.
+ */
+_vr_osk_errcode_t _vr_ukk_mem_write_safe( _vr_uk_mem_write_safe_s *args );
+
+/** @brief Map a physically contiguous range of memory into Vr
  * @param args see _vr_uk_map_external_mem_s in vr_utgard_uk_types.h
  * @return _VR_OSK_ERR_OK on success, otherwise a suitable _vr_osk_errcode_t on failure.
  */
 _vr_osk_errcode_t _vr_ukk_map_external_mem( _vr_uk_map_external_mem_s *args );
 
-/** @brief Unmap a physically contiguous range of memory from VR
+/** @brief Unmap a physically contiguous range of memory from Vr
  * @param args see _vr_uk_unmap_external_mem_s in vr_utgard_uk_types.h
  * @return _VR_OSK_ERR_OK on success, otherwise a suitable _vr_osk_errcode_t on failure.
  */
 _vr_osk_errcode_t _vr_ukk_unmap_external_mem( _vr_uk_unmap_external_mem_s *args );
 
 #if defined(CONFIG_VR400_UMP)
-/** @brief Map UMP memory into VR
+/** @brief Map UMP memory into Vr
  * @param args see _vr_uk_attach_ump_mem_s in vr_utgard_uk_types.h
  * @return _VR_OSK_ERR_OK on success, otherwise a suitable _vr_osk_errcode_t on failure.
  */
 _vr_osk_errcode_t _vr_ukk_attach_ump_mem( _vr_uk_attach_ump_mem_s *args );
-/** @brief Unmap UMP memory from VR
+/** @brief Unmap UMP memory from Vr
  * @param args see _vr_uk_release_ump_mem_s in vr_utgard_uk_types.h
  * @return _VR_OSK_ERR_OK on success, otherwise a suitable _vr_osk_errcode_t on failure.
  */
@@ -449,11 +432,22 @@ _vr_osk_errcode_t _vr_ukk_va_to_vr_pa( _vr_uk_va_to_vr_pa_s * args );
  *
  * Job completion can be awaited with _vr_ukk_wait_for_notification().
  *
- * @oaram ctx user-kernel context (vr_session)
+ * @param ctx user-kernel context (vr_session)
  * @param uargs see _vr_uk_pp_start_job_s in "vr_utgard_uk_types.h". Use _vr_osk_copy_from_user to retrieve data!
  * @return _VR_OSK_ERR_OK on success, otherwise a suitable _vr_osk_errcode_t on failure.
  */
-_vr_osk_errcode_t _vr_ukk_pp_start_job( void *ctx, _vr_uk_pp_start_job_s *uargs, int *fence );
+_vr_osk_errcode_t _vr_ukk_pp_start_job( void *ctx, _vr_uk_pp_start_job_s *uargs );
+
+/**
+ * @brief Issue a request to start new jobs on both Vertex Processor and Fragment Processor.
+ *
+ * @note Will call into @ref _vr_ukk_pp_start_job and @ref _vr_ukk_gp_start_job.
+ *
+ * @param ctx user-kernel context (vr_session)
+ * @param uargs see _vr_uk_pp_and_gp_start_job_s in "vr_utgard_uk_types.h". Use _vr_osk_copy_from_user to retrieve data!
+ * @return _VR_OSK_ERR_OK on success, otherwise a suitable _vr_osk_errcode_t on failure.
+ */
+_vr_osk_errcode_t _vr_ukk_pp_and_gp_start_job( void *ctx, _vr_uk_pp_and_gp_start_job_s *uargs );
 
 /** @brief Returns the number of Fragment Processors in the system
  *
@@ -503,7 +497,7 @@ void _vr_ukk_pp_job_disable_wb(_vr_uk_pp_disable_wb_s *args);
  *
  * Job completion can be awaited with _vr_ukk_wait_for_notification().
  *
- * @oaram ctx user-kernel context (vr_session)
+ * @param ctx user-kernel context (vr_session)
  * @param uargs see _vr_uk_gp_start_job_s in "vr_utgard_uk_types.h". Use _vr_osk_copy_from_user to retrieve data!
  * @return _VR_OSK_ERR_OK on success, otherwise a suitable _vr_osk_errcode_t on failure.
  */

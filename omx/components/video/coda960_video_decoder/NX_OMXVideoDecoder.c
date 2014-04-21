@@ -10,6 +10,9 @@
 
 #include <stdbool.h>
 #include <ion/ion.h>
+// psw0523 add for gralloc new
+#include <ion-private.h>
+#include <nexell_format.h>
 
 #include "NX_OMXVideoDecoder.h"
 #include "DecodeFrame.h"
@@ -149,7 +152,7 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent)
 	pDecComp->compName = strdup("OMX.NX.VIDEO_DECODER");
 	pDecComp->compRole = strdup("video_decoder");			//	Default Component Role
 
-	//	Buffer 
+	//	Buffer
 	pthread_mutex_init( &pDecComp->hBufMutex, NULL );
 	pDecComp->hBufAllocSem = NX_CreateSem(0, 16);
 
@@ -252,7 +255,7 @@ static OMX_ERRORTYPE NX_VidDec_GetConfig(OMX_HANDLETYPE hComp, OMX_INDEXTYPE nCo
 		case OMX_IndexConfigCommonOutputCrop:
 		{
 			OMX_CONFIG_RECTTYPE *pRect = (OMX_CONFIG_RECTTYPE *)pComponentConfigStructure;
-		    if ((pRect->nPortIndex != 0) && (pRect->nPortIndex != 1)) 
+		    if ((pRect->nPortIndex != 0) && (pRect->nPortIndex != 1))
 			{
 		        return OMX_ErrorBadPortIndex;
 		    }
@@ -1194,7 +1197,7 @@ static void NX_VidDec_CommandProc( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_COMM
 		case OMX_CommandStateSet:    // Change the component state
 		{
 			if( pDecComp->eCurState == nParam1 ){
-				//	
+				//
 				eEvent = OMX_EventError;
 				nData1 = OMX_ErrorSameState;
 				break;
@@ -1334,7 +1337,7 @@ static void NX_VidDec_CommandThread( void *arg )
 //
 
 //
-//	NOTE : 
+//	NOTE :
 //		1. EOS 가 들어왔을 경우 Input Buffer는 처리하지 않기로 함.
 //
 static int NX_VidDec_Transform(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, NX_QUEUE *pOutQueue)
@@ -1346,9 +1349,9 @@ static int NX_VidDec_Transform(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pI
 //
 //	Buffer control semaphore is synchronize state of component and state of buffer thread.
 //
-//	Transition Action 
+//	Transition Action
 //	1. OMX_StateLoaded   --> OMX_StateIdle      ;
-//		==> Buffer management thread를 생성, initialize buf change sem & buf control sem, 
+//		==> Buffer management thread를 생성, initialize buf change sem & buf control sem,
 //			thread state set to NX_THREAD_CMD_PAUSE
 //	2. OMX_StateIdle     --> OMX_StateExecuting ;
 //		==> Set state to NX_THREAD_CMD_RUN and post control semaphore
@@ -1591,15 +1594,27 @@ int InitializeCodaVpu(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, unsigned char *buf, i
 				pDecComp->vidFrameBuf[i].fourCC    = FOURCC_YV12;
 				pDecComp->vidFrameBuf[i].imgWidth  = pDecComp->width;
 				pDecComp->vidFrameBuf[i].imgHeight = pDecComp->height;
-				pDecComp->vidFrameBuf[i].luPhyAddr = handle->phys ;		//	Luminance
-				pDecComp->vidFrameBuf[i].luVirAddr = handle->base ;
-				pDecComp->vidFrameBuf[i].luStride  = ((pDecComp->width+31)>>5)<<5;
-				pDecComp->vidFrameBuf[i].cbPhyAddr = handle->phys1;		//	Cb
-				pDecComp->vidFrameBuf[i].cbVirAddr = handle->base1;
-				pDecComp->vidFrameBuf[i].cbStride  = pDecComp->vidFrameBuf[i].luStride/2;
-				pDecComp->vidFrameBuf[i].crPhyAddr = handle->phys2;		//	Cr
-				pDecComp->vidFrameBuf[i].crVirAddr = handle->base2;
-				pDecComp->vidFrameBuf[i].crStride  = pDecComp->vidFrameBuf[i].luStride/2;
+
+                int ion_fd = ion_open();
+                ret = ion_get_phys(ion_fd, handle->share_fd, (long unsigned int *)&pDecComp->vidFrameBuf[i].luPhyAddr);
+                if (ret != 0) {
+                     ALOGE("%s: failed to ion_get_phys", __func__);
+                     return ret;
+                }
+				pDecComp->vidFrameBuf[i].cbPhyAddr = pDecComp->vidFrameBuf[i].luPhyAddr + (handle->stride * ALIGN(handle->height, 16));
+				pDecComp->vidFrameBuf[i].crPhyAddr =
+                    pDecComp->vidFrameBuf[i].cbPhyAddr + (ALIGN(handle->stride >> 1, 16) * ALIGN(handle->height >> 1, 16));
+
+				pDecComp->vidFrameBuf[i].luStride = handle->stride;
+				pDecComp->vidFrameBuf[i].cbStride = pDecComp->vidFrameBuf[i].crStride = ALIGN(handle->stride >> 1, 16);
+                close(ion_fd);
+
+				//{
+				//	OMX_S32 strideY, strideUV;
+				//	strideY  = pDecComp->vidFrameBuf[i].luStride;
+				//	strideUV = pDecComp->vidFrameBuf[i].cbStride;
+				//	DbgMsg("===== Image Stride %ld, %ld\n", strideY, strideUV );
+				//}
 				TRACE("===== Physical Address = 0x%08x, 0x%08x, 0x%08x\n", handle->phys , handle->phys1 , handle->phys2 );
 				pDecComp->hVidFrameBuf[i] = &pDecComp->vidFrameBuf[i];
 			}

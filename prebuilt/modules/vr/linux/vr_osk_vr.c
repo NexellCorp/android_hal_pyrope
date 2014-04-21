@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2008-2012 ARM Limited
+ * (C) COPYRIGHT 2008-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -10,7 +10,7 @@
 
 /**
  * @file vr_osk_vr.c
- * Implementation of the OS abstraction layer which is specific for the VR kernel device driver
+ * Implementation of the OS abstraction layer which is specific for the Vr kernel device driver
  */
 #include <linux/kernel.h>
 #include <asm/uaccess.h>
@@ -20,37 +20,29 @@
 #include "vr_osk_vr.h"
 #include "vr_kernel_common.h" /* VR_xxx macros */
 #include "vr_osk.h"           /* kernel side OS functions */
-#include "vr_uk_types.h"
 #include "vr_kernel_linux.h"
 
 _vr_osk_errcode_t _vr_osk_resource_find(u32 addr, _vr_osk_resource_t *res)
 {
 	int i;
 
-	if (NULL == vr_platform_device)
-	{
+	if (NULL == vr_platform_device) {
 		/* Not connected to a device */
 		return _VR_OSK_ERR_ITEM_NOT_FOUND;
 	}
 
-	for (i = 0; i < vr_platform_device->num_resources; i++)
-	{
+	for (i = 0; i < vr_platform_device->num_resources; i++) {
 		if (IORESOURCE_MEM == resource_type(&(vr_platform_device->resource[i])) &&
-		    vr_platform_device->resource[i].start == addr)
-		{
-			if (NULL != res)
-			{
+		    vr_platform_device->resource[i].start == addr) {
+			if (NULL != res) {
 				res->base = addr;
 				res->description = vr_platform_device->resource[i].name;
 
 				/* Any (optional) IRQ resource belonging to this resource will follow */
 				if ((i + 1) < vr_platform_device->num_resources &&
-				    IORESOURCE_IRQ == resource_type(&(vr_platform_device->resource[i+1])))
-				{
+				    IORESOURCE_IRQ == resource_type(&(vr_platform_device->resource[i+1]))) {
 					res->irq = vr_platform_device->resource[i+1].start;
-				}
-				else
-				{
+				} else {
 					res->irq = -1;
 				}
 			}
@@ -66,14 +58,11 @@ u32 _vr_osk_resource_base_address(void)
 	u32 lowest_addr = 0xFFFFFFFF;
 	u32 ret = 0;
 
-	if (NULL != vr_platform_device)
-	{
+	if (NULL != vr_platform_device) {
 		int i;
-		for (i = 0; i < vr_platform_device->num_resources; i++)
-		{
+		for (i = 0; i < vr_platform_device->num_resources; i++) {
 			if (vr_platform_device->resource[i].flags & IORESOURCE_MEM &&
-			    vr_platform_device->resource[i].start < lowest_addr)
-			{
+			    vr_platform_device->resource[i].start < lowest_addr) {
 				lowest_addr = vr_platform_device->resource[i].start;
 				ret = lowest_addr;
 			}
@@ -83,6 +72,7 @@ u32 _vr_osk_resource_base_address(void)
 	return ret;
 }
 
+/* NEXELL_FEATURE_PORTING */
 /* nexell add */	
 #include <linux/fb.h> 
 
@@ -90,14 +80,12 @@ _vr_osk_errcode_t _vr_osk_device_data_get(struct _vr_osk_device_data *data)
 {
 	VR_DEBUG_ASSERT_POINTER(data);
 
-	if (NULL != vr_platform_device)
-	{
+	if (NULL != vr_platform_device) {
 		struct vr_gpu_device_data* os_data = NULL;
 
 		os_data = (struct vr_gpu_device_data*)vr_platform_device->dev.platform_data;
-		if (NULL != os_data)
-		{
-			/* Copy data from OS dependant struct to VR neutral struct (identical!) */
+		if (NULL != os_data) {
+			/* Copy data from OS dependant struct to Vr neutral struct (identical!) */
 			data->dedicated_mem_start = os_data->dedicated_mem_start;
 			data->dedicated_mem_size = os_data->dedicated_mem_size;
 			data->shared_mem_size = os_data->shared_mem_size;
@@ -105,7 +93,8 @@ _vr_osk_errcode_t _vr_osk_device_data_get(struct _vr_osk_device_data *data)
 			data->fb_start = os_data->fb_start;
 			data->fb_size = os_data->fb_size;
 			#else /* nexell add */	
-			{
+			{				
+				/* NEXELL_FEATURE_PORTING */
 				unsigned long temp_fb_start[2] = {0,};
 				unsigned long temp_fb_size[2] = {0,};
 				unsigned char is_fb_used[2] = {0,};
@@ -161,11 +150,41 @@ _vr_osk_errcode_t _vr_osk_device_data_get(struct _vr_osk_device_data *data)
 				}	
 			}
 			#endif
+			data->max_job_runtime = os_data->max_job_runtime;
 			data->utilization_interval = os_data->utilization_interval;
-			data->utilization_handler = os_data->utilization_handler;
+			data->utilization_callback = os_data->utilization_callback;
+			data->pmu_switch_delay = os_data->pmu_switch_delay;
+			data->set_freq_callback = os_data->set_freq_callback;
+
+			memcpy(data->pmu_domain_config, os_data->pmu_domain_config, sizeof(os_data->pmu_domain_config));
 			return _VR_OSK_ERR_OK;
 		}
 	}
 
 	return _VR_OSK_ERR_ITEM_NOT_FOUND;
+}
+
+vr_bool _vr_osk_shared_interrupts(void)
+{
+	u32 irqs[128];
+	u32 i, j, irq, num_irqs_found = 0;
+
+	VR_DEBUG_ASSERT_POINTER(vr_platform_device);
+	VR_DEBUG_ASSERT(128 >= vr_platform_device->num_resources);
+
+	for (i = 0; i < vr_platform_device->num_resources; i++) {
+		if (IORESOURCE_IRQ & vr_platform_device->resource[i].flags) {
+			irq = vr_platform_device->resource[i].start;
+
+			for (j = 0; j < num_irqs_found; ++j) {
+				if (irq == irqs[j]) {
+					return VR_TRUE;
+				}
+			}
+
+			irqs[num_irqs_found++] = irq;
+		}
+	}
+
+	return VR_FALSE;
 }

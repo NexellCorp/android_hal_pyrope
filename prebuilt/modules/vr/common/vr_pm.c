@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2011-2012 ARM Limited
+ * (C) COPYRIGHT 2011-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -16,6 +16,8 @@
 #include "vr_scheduler.h"
 #include "vr_kernel_utilization.h"
 #include "vr_group.h"
+#include "vr_pm_domain.h"
+#include "vr_pmu.h"
 
 static vr_bool vr_power_on = VR_FALSE;
 
@@ -27,32 +29,8 @@ _vr_osk_errcode_t vr_pm_initialize(void)
 
 void vr_pm_terminate(void)
 {
+	vr_pm_domain_terminate();
 	_vr_osk_pm_dev_disable();
-}
-
-void vr_pm_core_event(enum vr_core_event core_event)
-{
-	VR_DEBUG_ASSERT(VR_CORE_EVENT_GP_START == core_event ||
-	                  VR_CORE_EVENT_PP_START == core_event ||
-	                  VR_CORE_EVENT_GP_STOP  == core_event ||
-	                  VR_CORE_EVENT_PP_STOP  == core_event);
-
-	if (VR_CORE_EVENT_GP_START == core_event || VR_CORE_EVENT_PP_START == core_event)
-	{
-		_vr_osk_pm_dev_ref_add();
-		if (vr_utilization_enabled())
-		{
-			vr_utilization_core_start(_vr_osk_time_get_ns());
-		}
-	}
-	else
-	{
-		_vr_osk_pm_dev_ref_dec();
-		if (vr_utilization_enabled())
-		{
-			vr_utilization_core_end(_vr_osk_time_get_ns());
-		}
-	}
 }
 
 /* Reset GPU after power up */
@@ -67,40 +45,78 @@ static void vr_pm_reset_gpu(void)
 
 void vr_pm_os_suspend(void)
 {
-	VR_DEBUG_PRINT(3, ("VR PM: OS suspend\n"));
+	VR_DEBUG_PRINT(3, ("Vr PM: OS suspend\n"));
 	vr_gp_scheduler_suspend();
 	vr_pp_scheduler_suspend();
-	vr_group_power_off();
+	vr_utilization_suspend();
+	vr_group_power_off(VR_TRUE);
 	vr_power_on = VR_FALSE;
 }
 
 void vr_pm_os_resume(void)
 {
-	VR_DEBUG_PRINT(3, ("VR PM: OS resume\n"));
-	if (VR_TRUE != vr_power_on)
-	{
+	struct vr_pmu_core *pmu = vr_pmu_get_global_pmu_core();
+	vr_bool do_reset = VR_FALSE;
+
+	VR_DEBUG_PRINT(3, ("Vr PM: OS resume\n"));
+
+	if (VR_TRUE != vr_power_on) {
+		do_reset = VR_TRUE;
+	}
+
+	if (NULL != pmu) {
+		vr_pmu_reset(pmu);
+	}
+
+	vr_power_on = VR_TRUE;
+	_vr_osk_write_mem_barrier();
+
+	if (do_reset) {
 		vr_pm_reset_gpu();
 		vr_group_power_on();
 	}
+
 	vr_gp_scheduler_resume();
 	vr_pp_scheduler_resume();
-	vr_power_on = VR_TRUE;
 }
 
 void vr_pm_runtime_suspend(void)
 {
-	VR_DEBUG_PRINT(3, ("VR PM: Runtime suspend\n"));
-	vr_group_power_off();
+	VR_DEBUG_PRINT(3, ("Vr PM: Runtime suspend\n"));
+	vr_group_power_off(VR_TRUE);
 	vr_power_on = VR_FALSE;
 }
 
 void vr_pm_runtime_resume(void)
 {
-	VR_DEBUG_PRINT(3, ("VR PM: Runtime resume\n"));
-	if (VR_TRUE != vr_power_on)
-	{
+	struct vr_pmu_core *pmu = vr_pmu_get_global_pmu_core();
+	vr_bool do_reset = VR_FALSE;
+
+	VR_DEBUG_PRINT(3, ("Vr PM: Runtime resume\n"));
+
+	if (VR_TRUE != vr_power_on) {
+		do_reset = VR_TRUE;
+	}
+
+	if (NULL != pmu) {
+		vr_pmu_reset(pmu);
+	}
+
+	vr_power_on = VR_TRUE;
+	_vr_osk_write_mem_barrier();
+
+	if (do_reset) {
 		vr_pm_reset_gpu();
 		vr_group_power_on();
 	}
+}
+
+void vr_pm_set_power_is_on(void)
+{
 	vr_power_on = VR_TRUE;
+}
+
+vr_bool vr_pm_is_power_on(void)
+{
+	return vr_power_on;
 }

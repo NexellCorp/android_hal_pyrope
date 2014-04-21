@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2007-2010, 2012 ARM Limited
+ * (C) COPYRIGHT 2007-2010, 2012-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -52,15 +52,14 @@ typedef enum {
  * Commands to geometry processor.
  *  @see VRGP2_CTRL_REG_CMD
  */
-typedef enum
-{
+typedef enum {
 	VRGP2_REG_VAL_CMD_START_VS			= (1<< 0),
 	VRGP2_REG_VAL_CMD_START_PLBU			= (1<< 1),
 	VRGP2_REG_VAL_CMD_UPDATE_PLBU_ALLOC	= (1<< 4),
 	VRGP2_REG_VAL_CMD_RESET				= (1<< 5),
 	VRGP2_REG_VAL_CMD_FORCE_HANG			= (1<< 6),
 	VRGP2_REG_VAL_CMD_STOP_BUS 			= (1<< 9),
-	VR400GP_REG_VAL_CMD_SOFT_RESET		= (1<<10), /* only valid for VR-300 and later */
+	VR400GP_REG_VAL_CMD_SOFT_RESET		= (1<<10), /* only valid for Vr-300 and later */
 } mgp_contr_reg_val_cmd;
 
 
@@ -90,7 +89,7 @@ typedef enum
 #define VR400GP_REG_VAL_IRQ_SEMAPHORE_OVERFLOW  (1 << 21)
 #define VR400GP_REG_VAL_IRQ_PTR_ARRAY_OUT_OF_BOUNDS  (1 << 22)
 
-/* Mask defining all IRQs in VR GP */
+/* Mask defining all IRQs in Vr GP */
 #define VRGP2_REG_VAL_IRQ_MASK_ALL \
 	(\
 		VRGP2_REG_VAL_IRQ_VS_END_CMD_LST      | \
@@ -113,7 +112,7 @@ typedef enum
 		VR400GP_REG_VAL_IRQ_SEMAPHORE_OVERFLOW  | \
 		VR400GP_REG_VAL_IRQ_PTR_ARRAY_OUT_OF_BOUNDS)
 
-/* Mask defining the IRQs in VR GP which we use */
+/* Mask defining the IRQs in Vr GP which we use */
 #define VRGP2_REG_VAL_IRQ_MASK_USED \
 	(\
 		VRGP2_REG_VAL_IRQ_VS_END_CMD_LST      | \
@@ -129,11 +128,7 @@ typedef enum
 		VR400GP_REG_VAL_IRQ_SEMAPHORE_OVERFLOW  | \
 		VR400GP_REG_VAL_IRQ_PTR_ARRAY_OUT_OF_BOUNDS)
 
-#if 1 /* added by nexell */
-#define VRGP2_REG_VAL_IRQ_MASK_USED_TEMP (VRGP2_REG_VAL_IRQ_MASK_USED & (~VRGP2_REG_VAL_IRQ_AXI_BUS_ERROR))
-#endif
-
-/* Mask defining non IRQs on VRGP2*/
+/* Mask defining non IRQs on VrGP2*/
 #define VRGP2_REG_VAL_IRQ_MASK_NONE 0
 
 /** }@ defgroup VRGP2_IRQ*/

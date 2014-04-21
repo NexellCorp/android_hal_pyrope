@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2007-2010, 2012 ARM Limited
+ * (C) COPYRIGHT 2007-2010, 2012-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -14,8 +14,7 @@
 /**
  *  Enum for management register addresses.
  */
-enum vr200_mgmt_reg
-{
+enum vr200_mgmt_reg {
 	VR200_REG_ADDR_MGMT_VERSION                              = 0x1000,
 	VR200_REG_ADDR_MGMT_CURRENT_REND_LIST_ADDR               = 0x1004,
 	VR200_REG_ADDR_MGMT_STATUS                               = 0x1008,
@@ -38,6 +37,9 @@ enum vr200_mgmt_reg
 	VR200_REG_ADDR_MGMT_PERF_CNT_1_SRC                       = 0x10a4,
 	VR200_REG_ADDR_MGMT_PERF_CNT_1_VALUE                     = 0x10ac,
 
+	VR200_REG_ADDR_MGMT_PERFMON_CONTR                        = 0x10b0,
+	VR200_REG_ADDR_MGMT_PERFMON_BASE                         = 0x10b4,
+
 	VR200_REG_SIZEOF_REGISTER_BANK                           = 0x10f0
 
 };
@@ -49,7 +51,7 @@ enum vr200_mgmt_ctrl_mgmt {
 	VR200_REG_VAL_CTRL_MGMT_FLUSH_CACHES     = (1<<3),
 	VR200_REG_VAL_CTRL_MGMT_FORCE_RESET      = (1<<5),
 	VR200_REG_VAL_CTRL_MGMT_START_RENDERING  = (1<<6),
-	VR400PP_REG_VAL_CTRL_MGMT_SOFT_RESET     = (1<<7), /* Only valid for VR-300 and later */
+	VR400PP_REG_VAL_CTRL_MGMT_SOFT_RESET     = (1<<7), /* Only valid for Vr-300 and later */
 };
 
 enum vr200_mgmt_irq {
@@ -99,8 +101,7 @@ enum vr200_mgmt_status {
 	VR200_REG_VAL_STATUS_BUS_STOPPED          = (1<<4),
 };
 
-enum vr200_render_unit
-{
+enum vr200_render_unit {
 	VR200_REG_ADDR_FRAME = 0x0000,
 	VR200_REG_ADDR_RSW   = 0x0004,
 	VR200_REG_ADDR_STACK = 0x0030,
@@ -109,16 +110,17 @@ enum vr200_render_unit
 };
 
 enum vr200_wb_unit {
-    VR200_REG_ADDR_WB0 = 0x0100,
-    VR200_REG_ADDR_WB1 = 0x0200,
-    VR200_REG_ADDR_WB2 = 0x0300
+	VR200_REG_ADDR_WB0 = 0x0100,
+	VR200_REG_ADDR_WB1 = 0x0200,
+	VR200_REG_ADDR_WB2 = 0x0300
 };
 
 enum vr200_wb_unit_regs {
 	VR200_REG_ADDR_WB_SOURCE_SELECT = 0x0000,
+	VR200_REG_ADDR_WB_SOURCE_ADDR   = 0x0004,
 };
 
-/* This should be in the top 16 bit of the version register of VR PP */
+/* This should be in the top 16 bit of the version register of Vr PP */
 #define VR200_PP_PRODUCT_ID 0xC807
 #define VR300_PP_PRODUCT_ID 0xCE07
 #define VR400_PP_PRODUCT_ID 0xCD07

@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2007-2012 ARM Limited
+ * (C) COPYRIGHT 2007-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -42,14 +42,12 @@ typedef enum vr_mmu_register {
  * Multiple interrupts can be pending, so multiple bits
  * can be set at once.
  */
-typedef enum vr_mmu_interrupt
-{
+typedef enum vr_mmu_interrupt {
 	VR_MMU_INTERRUPT_PAGE_FAULT = 0x01, /**< A page fault occured */
 	VR_MMU_INTERRUPT_READ_BUS_ERROR = 0x02 /**< A bus read error occured */
 } vr_mmu_interrupt;
 
-typedef enum vr_mmu_status_bits
-{
+typedef enum vr_mmu_status_bits {
 	VR_MMU_STATUS_BIT_PAGING_ENABLED      = 1 << 0,
 	VR_MMU_STATUS_BIT_PAGE_FAULT_ACTIVE   = 1 << 1,
 	VR_MMU_STATUS_BIT_STALL_ACTIVE        = 1 << 2,
@@ -64,8 +62,7 @@ typedef enum vr_mmu_status_bits
  * Used to track a MMU unit in the system.
  * Contains information about the mapping of the registers
  */
-struct vr_mmu_core
-{
+struct vr_mmu_core {
 	struct vr_hw_core hw_core; /**< Common for all HW cores */
 	_vr_osk_irq_t *irq;        /**< IRQ handler */
 };
@@ -82,22 +79,9 @@ vr_bool vr_mmu_zap_tlb(struct vr_mmu_core *mmu);
 void vr_mmu_zap_tlb_without_stall(struct vr_mmu_core *mmu);
 void vr_mmu_invalidate_page(struct vr_mmu_core *mmu, u32 vr_address);
 
-vr_bool vr_mmu_activate_page_directory(struct vr_mmu_core* mmu, struct vr_page_directory *pagedir);
+void vr_mmu_activate_page_directory(struct vr_mmu_core* mmu, struct vr_page_directory *pagedir);
 void vr_mmu_activate_empty_page_directory(struct vr_mmu_core* mmu);
 void vr_mmu_activate_fault_flush_page_directory(struct vr_mmu_core* mmu);
-
-/**
- * Issues the enable stall command to the MMU and waits for HW to complete the request
- * @param mmu The MMU to enable paging for
- * @return VR_TRUE if HW stall was successfully engaged, otherwise VR_FALSE (req timed out)
- */
-vr_bool vr_mmu_enable_stall(struct vr_mmu_core *mmu);
-
-/**
- * Issues the disable stall command to the MMU and waits for HW to complete the request
- * @param mmu The MMU to enable paging for
- */
-void vr_mmu_disable_stall(struct vr_mmu_core *mmu);
 
 void vr_mmu_page_fault_done(struct vr_mmu_core *mmu);
 

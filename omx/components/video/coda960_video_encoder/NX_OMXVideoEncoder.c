@@ -17,6 +17,10 @@
 
 #include <gralloc_priv.h>
 
+// psw0523 add for new gralloc
+#include <ion-private.h>
+#include <nexell_format.h>
+
 #define	DEBUG_BUFFER	1
 #define	TRACE_ON		1
 
@@ -353,7 +357,7 @@ static OMX_ERRORTYPE NX_VidEncGetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE 
 						return OMX_ErrorNoMore;
 				}
 				pVideoFormat->nIndex = nIndex;
-			} 
+			}
 			else	//	Output Format
 			{
 				if( nIndex > 0 )
@@ -1290,6 +1294,8 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 	{
 		memset( &inputMem, 0, sizeof(inputMem) );
 		inputMem.memoryMap = 0;		//	Linear
+        // psw0523 fix for new gralloc
+#if 0
 		inputMem.fourCC    = FOURCC_NV12;
 		inputMem.imgWidth  = pEncComp->encWidth;
 		inputMem.imgHeight = pEncComp->encHeight;
@@ -1306,9 +1312,26 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 			hPrivate->share_fd, hPrivate->share_fds[0], hPrivate->share_fds[1],
 			hPrivate->phys, hPrivate->phys1,
 			hPrivate->base, hPrivate->base1 );
+#else
+        int ion_fd = ion_open();
+		inputMem.fourCC    = FOURCC_NV12;
+		inputMem.imgWidth  = pEncComp->encWidth;
+		inputMem.imgHeight = pEncComp->encHeight;
+        int ret = ion_get_phys(ion_fd, hPrivate->share_fd, (long unsigned int *)&inputMem.luPhyAddr);
+        if (ret != 0) {
+             ALOGE("%s: failed to ion_get_phys", __func__);
+             return ret;
+        }
+		inputMem.cbPhyAddr = inputMem.luPhyAddr + (hPrivate->stride * ALIGN(hPrivate->height, 16));
+		inputMem.luStride = hPrivate->stride;
+		inputMem.cbStride = hPrivate->stride;
+        close(ion_fd);
+#endif
 	}
 	else
 	{
+        // psw0523 fix for new gralloc
+#if 0
 		inputMem.memoryMap = 0;		//	Linear
 		inputMem.fourCC    = FOURCC_YV12;
 		inputMem.imgWidth  = pEncComp->encWidth;
@@ -1326,6 +1349,23 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 			hPrivate->share_fd, hPrivate->share_fds[0], hPrivate->share_fds[1], hPrivate->share_fds[2],
 			hPrivate->phys, hPrivate->phys1, hPrivate->phys2,
 			hPrivate->base, hPrivate->base1, hPrivate->base2 );
+#else
+        int ion_fd = ion_open();
+		inputMem.memoryMap = 0;		//	Linear
+		inputMem.fourCC    = FOURCC_YV12;
+		inputMem.imgWidth  = pEncComp->encWidth;
+		inputMem.imgHeight = pEncComp->encHeight;
+        int ret = ion_get_phys(ion_fd, hPrivate->share_fd, (long unsigned int *)&inputMem.luPhyAddr);
+        if (ret != 0) {
+             ALOGE("%s: failed to ion_get_phys", __func__);
+             return ret;
+        }
+		inputMem.cbPhyAddr = inputMem.luPhyAddr + (hPrivate->stride * ALIGN(hPrivate->height, 16));
+		inputMem.crPhyAddr = inputMem.cbPhyAddr + (ALIGN(hPrivate->stride >> 1, 16) * ALIGN(hPrivate->height >> 1, 16));
+		inputMem.luStride = hPrivate->stride;
+		inputMem.cbStride = inputMem.crStride = ALIGN(hPrivate->stride >> 1, 16);
+        close(ion_fd);
+#endif
 	}
 
 	NX_PopQueue( pOutQueue, (void**)&pOutBuf );

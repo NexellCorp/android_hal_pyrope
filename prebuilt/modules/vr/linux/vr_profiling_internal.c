@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2010-2012 ARM Limited
+ * (C) COPYRIGHT 2010-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -17,31 +17,29 @@
 #include "vr_user_settings_db.h"
 #include "vr_profiling_internal.h"
 
-typedef struct vr_profiling_entry
-{
+typedef struct vr_profiling_entry {
 	u64 timestamp;
 	u32 event_id;
 	u32 data[5];
 } vr_profiling_entry;
 
-
-typedef enum vr_profiling_state
-{
+typedef enum vr_profiling_state {
 	VR_PROFILING_STATE_UNINITIALIZED,
 	VR_PROFILING_STATE_IDLE,
 	VR_PROFILING_STATE_RUNNING,
 	VR_PROFILING_STATE_RETURN,
 } vr_profiling_state;
 
-static _vr_osk_lock_t *lock = NULL;
+static _vr_osk_mutex_t *lock = NULL;
 static vr_profiling_state prof_state = VR_PROFILING_STATE_UNINITIALIZED;
 static vr_profiling_entry* profile_entries = NULL;
 static _vr_osk_atomic_t profile_insert_index;
 static u32 profile_mask = 0;
+
 static inline void add_event(u32 event_id, u32 data0, u32 data1, u32 data2, u32 data3, u32 data4);
 
 void probe_vr_timeline_event(void *data, TP_PROTO(unsigned int event_id, unsigned int d0, unsigned int d1, unsigned
-			int d2, unsigned int d3, unsigned int d4))
+                               int d2, unsigned int d3, unsigned int d4))
 {
 	add_event(event_id, d0, d1, d2, d3, d4);
 }
@@ -52,21 +50,18 @@ _vr_osk_errcode_t _vr_internal_profiling_init(vr_bool auto_start)
 	profile_mask = 0;
 	_vr_osk_atomic_init(&profile_insert_index, 0);
 
-	lock = _vr_osk_lock_init(_VR_OSK_LOCKFLAG_ORDERED | _VR_OSK_LOCKFLAG_NONINTERRUPTABLE, 0, _VR_OSK_LOCK_ORDER_PROFILING);
-	if (NULL == lock)
-	{
+	lock = _vr_osk_mutex_init(_VR_OSK_LOCKFLAG_ORDERED, _VR_OSK_LOCK_ORDER_PROFILING);
+	if (NULL == lock) {
 		return _VR_OSK_ERR_FAULT;
 	}
 
 	prof_state = VR_PROFILING_STATE_IDLE;
 
-	if (VR_TRUE == auto_start)
-	{
+	if (VR_TRUE == auto_start) {
 		u32 limit = VR_PROFILING_MAX_BUFFER_ENTRIES; /* Use maximum buffer size */
 
 		vr_set_user_setting(_VR_UK_USER_SETTING_SW_EVENTS_ENABLE, VR_TRUE);
-		if (_VR_OSK_ERR_OK != _vr_internal_profiling_start(&limit))
-		{
+		if (_VR_OSK_ERR_OK != _vr_internal_profiling_start(&limit)) {
 			return _VR_OSK_ERR_FAULT;
 		}
 	}
@@ -83,15 +78,13 @@ void _vr_internal_profiling_term(void)
 
 	prof_state = VR_PROFILING_STATE_UNINITIALIZED;
 
-	if (NULL != profile_entries)
-	{
+	if (NULL != profile_entries) {
 		_vr_osk_vfree(profile_entries);
 		profile_entries = NULL;
 	}
 
-	if (NULL != lock)
-	{
-		_vr_osk_lock_term(lock);
+	if (NULL != lock) {
+		_vr_osk_mutex_term(lock);
 		lock = NULL;
 	}
 }
@@ -101,30 +94,26 @@ _vr_osk_errcode_t _vr_internal_profiling_start(u32 * limit)
 	_vr_osk_errcode_t ret;
 	vr_profiling_entry *new_profile_entries;
 
-	_vr_osk_lock_wait(lock, _VR_OSK_LOCKMODE_RW);
+	_vr_osk_mutex_wait(lock);
 
-	if (VR_PROFILING_STATE_RUNNING == prof_state)
-	{
-		_vr_osk_lock_signal(lock, _VR_OSK_LOCKMODE_RW);
+	if (VR_PROFILING_STATE_RUNNING == prof_state) {
+		_vr_osk_mutex_signal(lock);
 		return _VR_OSK_ERR_BUSY;
 	}
 
 	new_profile_entries = _vr_osk_valloc(*limit * sizeof(vr_profiling_entry));
 
-	if (NULL == new_profile_entries)
-	{
+	if (NULL == new_profile_entries) {
 		_vr_osk_vfree(new_profile_entries);
 		return _VR_OSK_ERR_NOMEM;
 	}
 
-	if (VR_PROFILING_MAX_BUFFER_ENTRIES < *limit)
-	{
+	if (VR_PROFILING_MAX_BUFFER_ENTRIES < *limit) {
 		*limit = VR_PROFILING_MAX_BUFFER_ENTRIES;
 	}
 
 	profile_mask = 1;
-	while (profile_mask <= *limit)
-	{
+	while (profile_mask <= *limit) {
 		profile_mask <<= 1;
 	}
 	profile_mask >>= 1;
@@ -133,9 +122,8 @@ _vr_osk_errcode_t _vr_internal_profiling_start(u32 * limit)
 
 	profile_mask--; /* turns the power of two into a mask of one less */
 
-	if (VR_PROFILING_STATE_IDLE != prof_state)
-	{
-		_vr_osk_lock_signal(lock, _VR_OSK_LOCKMODE_RW);
+	if (VR_PROFILING_STATE_IDLE != prof_state) {
+		_vr_osk_mutex_signal(lock);
 		_vr_osk_vfree(new_profile_entries);
 		return _VR_OSK_ERR_INVALID_ARGS; /* invalid to call this function in this state */
 	}
@@ -144,19 +132,16 @@ _vr_osk_errcode_t _vr_internal_profiling_start(u32 * limit)
 
 	ret = _vr_timestamp_reset();
 
-	if (_VR_OSK_ERR_OK == ret)
-	{
+	if (_VR_OSK_ERR_OK == ret) {
 		prof_state = VR_PROFILING_STATE_RUNNING;
-	}
-	else
-	{
+	} else {
 		_vr_osk_vfree(profile_entries);
 		profile_entries = NULL;
 	}
 
 	register_trace_vr_timeline_event(probe_vr_timeline_event, NULL);
 
-	_vr_osk_lock_signal(lock, _VR_OSK_LOCKMODE_RW);
+	_vr_osk_mutex_signal(lock);
 	return ret;
 }
 
@@ -175,19 +160,17 @@ static inline void add_event(u32 event_id, u32 data0, u32 data1, u32 data2, u32 
 	/* If event is "leave API function", add current memory usage to the event
 	 * as data point 4.  This is used in timeline profiling to indicate how
 	 * much memory was used when leaving a function. */
-	if (event_id == (VR_PROFILING_EVENT_TYPE_SINGLE|VR_PROFILING_EVENT_CHANNEL_SOFTWARE|VR_PROFILING_EVENT_REASON_SINGLE_SW_LEAVE_API_FUNC))
-	{
+	if (event_id == (VR_PROFILING_EVENT_TYPE_SINGLE|VR_PROFILING_EVENT_CHANNEL_SOFTWARE|VR_PROFILING_EVENT_REASON_SINGLE_SW_LEAVE_API_FUNC)) {
 		profile_entries[cur_index].data[4] = _vr_ukk_report_memory_usage();
 	}
 }
 
 _vr_osk_errcode_t _vr_internal_profiling_stop(u32 * count)
 {
-	_vr_osk_lock_wait(lock, _VR_OSK_LOCKMODE_RW);
+	_vr_osk_mutex_wait(lock);
 
-	if (VR_PROFILING_STATE_RUNNING != prof_state)
-	{
-		_vr_osk_lock_signal(lock, _VR_OSK_LOCKMODE_RW);
+	if (VR_PROFILING_STATE_RUNNING != prof_state) {
+		_vr_osk_mutex_signal(lock);
 		return _VR_OSK_ERR_INVALID_ARGS; /* invalid to call this function in this state */
 	}
 
@@ -196,7 +179,7 @@ _vr_osk_errcode_t _vr_internal_profiling_stop(u32 * count)
 
 	unregister_trace_vr_timeline_event(probe_vr_timeline_event, NULL);
 
-	_vr_osk_lock_signal(lock, _VR_OSK_LOCKMODE_RW);
+	_vr_osk_mutex_signal(lock);
 
 	tracepoint_synchronize_unregister();
 
@@ -210,13 +193,12 @@ u32 _vr_internal_profiling_get_count(void)
 {
 	u32 retval = 0;
 
-	_vr_osk_lock_wait(lock, _VR_OSK_LOCKMODE_RW);
-	if (VR_PROFILING_STATE_RETURN == prof_state)
-	{
+	_vr_osk_mutex_wait(lock);
+	if (VR_PROFILING_STATE_RETURN == prof_state) {
 		retval = _vr_osk_atomic_read(&profile_insert_index);
 		if (retval > profile_mask) retval = profile_mask;
 	}
-	_vr_osk_lock_signal(lock, _VR_OSK_LOCKMODE_RW);
+	_vr_osk_mutex_signal(lock);
 
 	return retval;
 }
@@ -225,25 +207,21 @@ _vr_osk_errcode_t _vr_internal_profiling_get_event(u32 index, u64* timestamp, u3
 {
 	u32 raw_index = _vr_osk_atomic_read(&profile_insert_index);
 
-	_vr_osk_lock_wait(lock, _VR_OSK_LOCKMODE_RW);
+	_vr_osk_mutex_wait(lock);
 
-	if (index < profile_mask)
-	{
-		if ((raw_index & ~profile_mask) != 0)
-		{
+	if (index < profile_mask) {
+		if ((raw_index & ~profile_mask) != 0) {
 			index += raw_index;
 			index &= profile_mask;
 		}
 
-		if (prof_state != VR_PROFILING_STATE_RETURN)
-		{
-			_vr_osk_lock_signal(lock, _VR_OSK_LOCKMODE_RW);
+		if (prof_state != VR_PROFILING_STATE_RETURN) {
+			_vr_osk_mutex_signal(lock);
 			return _VR_OSK_ERR_INVALID_ARGS; /* invalid to call this function in this state */
 		}
 
-		if(index >= raw_index)
-		{
-			_vr_osk_lock_signal(lock, _VR_OSK_LOCKMODE_RW);
+		if(index >= raw_index) {
+			_vr_osk_mutex_signal(lock);
 			return _VR_OSK_ERR_FAULT;
 		}
 
@@ -254,24 +232,21 @@ _vr_osk_errcode_t _vr_internal_profiling_get_event(u32 index, u64* timestamp, u3
 		data[2] = profile_entries[index].data[2];
 		data[3] = profile_entries[index].data[3];
 		data[4] = profile_entries[index].data[4];
-	}
-	else
-	{
-		_vr_osk_lock_signal(lock, _VR_OSK_LOCKMODE_RW);
+	} else {
+		_vr_osk_mutex_signal(lock);
 		return _VR_OSK_ERR_FAULT;
 	}
 
-	_vr_osk_lock_signal(lock, _VR_OSK_LOCKMODE_RW);
+	_vr_osk_mutex_signal(lock);
 	return _VR_OSK_ERR_OK;
 }
 
 _vr_osk_errcode_t _vr_internal_profiling_clear(void)
 {
-	_vr_osk_lock_wait(lock, _VR_OSK_LOCKMODE_RW);
+	_vr_osk_mutex_wait(lock);
 
-	if (VR_PROFILING_STATE_RETURN != prof_state)
-	{
-		_vr_osk_lock_signal(lock, _VR_OSK_LOCKMODE_RW);
+	if (VR_PROFILING_STATE_RETURN != prof_state) {
+		_vr_osk_mutex_signal(lock);
 		return _VR_OSK_ERR_INVALID_ARGS; /* invalid to call this function in this state */
 	}
 
@@ -279,13 +254,12 @@ _vr_osk_errcode_t _vr_internal_profiling_clear(void)
 	profile_mask = 0;
 	_vr_osk_atomic_init(&profile_insert_index, 0);
 
-	if (NULL != profile_entries)
-	{
+	if (NULL != profile_entries) {
 		_vr_osk_vfree(profile_entries);
 		profile_entries = NULL;
 	}
 
-	_vr_osk_lock_signal(lock, _VR_OSK_LOCKMODE_RW);
+	_vr_osk_mutex_signal(lock);
 	return _VR_OSK_ERR_OK;
 }
 

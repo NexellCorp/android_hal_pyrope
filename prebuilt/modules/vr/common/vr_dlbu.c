@@ -1,7 +1,7 @@
 /*
  * This confidential and proprietary software may be used only as
  * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2012 ARM Limited
+ * (C) COPYRIGHT 2012-2013 ARM Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
@@ -62,8 +62,7 @@ typedef enum vr_dlbu_register {
 	                                                     0 enable PP0 for load balancing */
 } vr_dlbu_register;
 
-typedef enum
-{
+typedef enum {
 	PP0ENABLE = 0,
 	PP1ENABLE,
 	PP2ENABLE,
@@ -74,8 +73,7 @@ typedef enum
 	PP7ENABLE
 } vr_dlbu_pp_enable;
 
-struct vr_dlbu_core
-{
+struct vr_dlbu_core {
 	struct vr_hw_core     hw_core;           /**< Common for all HW cores */
 	u32                     pp_cores_mask;     /**< This is a mask for the PP cores whose operation will be controlled by LBU
 	                                              see VR_DLBU_REGISTER_PP_ENABLE_MASK register */
@@ -84,10 +82,9 @@ struct vr_dlbu_core
 _vr_osk_errcode_t vr_dlbu_initialize(void)
 {
 
-	VR_DEBUG_PRINT(2, ("VR DLBU: Initializing\n"));
+	VR_DEBUG_PRINT(2, ("Vr DLBU: Initializing\n"));
 
-	if (_VR_OSK_ERR_OK == vr_mmu_get_table_page(&vr_dlbu_phys_addr, &vr_dlbu_cpu_addr))
-	{
+	if (_VR_OSK_ERR_OK == vr_mmu_get_table_page(&vr_dlbu_phys_addr, &vr_dlbu_cpu_addr)) {
 		VR_SUCCESS;
 	}
 
@@ -96,25 +93,22 @@ _vr_osk_errcode_t vr_dlbu_initialize(void)
 
 void vr_dlbu_terminate(void)
 {
-	VR_DEBUG_PRINT(3, ("VR DLBU: terminating\n"));
+	VR_DEBUG_PRINT(3, ("Vr DLBU: terminating\n"));
 
-	vr_mmu_release_table_page(vr_dlbu_phys_addr);
+	vr_mmu_release_table_page(vr_dlbu_phys_addr, vr_dlbu_cpu_addr);
 }
 
 struct vr_dlbu_core *vr_dlbu_create(const _vr_osk_resource_t * resource)
 {
 	struct vr_dlbu_core *core = NULL;
 
-	VR_DEBUG_PRINT(2, ("VR DLBU: Creating VR dynamic load balancing unit: %s\n", resource->description));
+	VR_DEBUG_PRINT(2, ("Vr DLBU: Creating Vr dynamic load balancing unit: %s\n", resource->description));
 
 	core = _vr_osk_malloc(sizeof(struct vr_dlbu_core));
-	if (NULL != core)
-	{
-		if (_VR_OSK_ERR_OK == vr_hw_core_create(&core->hw_core, resource, VR_DLBU_SIZE))
-		{
+	if (NULL != core) {
+		if (_VR_OSK_ERR_OK == vr_hw_core_create(&core->hw_core, resource, VR_DLBU_SIZE)) {
 			core->pp_cores_mask = 0;
-			if (_VR_OSK_ERR_OK == vr_dlbu_reset(core))
-			{
+			if (_VR_OSK_ERR_OK == vr_dlbu_reset(core)) {
 				return core;
 			}
 			VR_PRINT_ERROR(("Failed to reset DLBU %s\n", core->hw_core.description));
@@ -122,10 +116,8 @@ struct vr_dlbu_core *vr_dlbu_create(const _vr_osk_resource_t * resource)
 		}
 
 		_vr_osk_free(core);
-	}
-	else
-	{
-		VR_PRINT_ERROR(("VR DLBU: Failed to allocate memory for DLBU core\n"));
+	} else {
+		VR_PRINT_ERROR(("Vr DLBU: Failed to allocate memory for DLBU core\n"));
 	}
 
 	return NULL;
@@ -146,7 +138,7 @@ _vr_osk_errcode_t vr_dlbu_reset(struct vr_dlbu_core *dlbu)
 	_vr_osk_errcode_t err = _VR_OSK_ERR_FAULT;
 	VR_DEBUG_ASSERT_POINTER(dlbu);
 
-	VR_DEBUG_PRINT(4, ("VR DLBU: vr_dlbu_reset: %s\n", dlbu->hw_core.description));
+	VR_DEBUG_PRINT(4, ("Vr DLBU: vr_dlbu_reset: %s\n", dlbu->hw_core.description));
 
 	dlbu_registers[0] = vr_dlbu_phys_addr | 1; /* bit 0 enables the whole core */
 	dlbu_registers[1] = VR_DLBU_VIRT_ADDR;
@@ -164,39 +156,42 @@ _vr_osk_errcode_t vr_dlbu_reset(struct vr_dlbu_core *dlbu)
 	return err;
 }
 
+void vr_dlbu_update_mask(struct vr_dlbu_core *dlbu)
+{
+	VR_DEBUG_ASSERT_POINTER(dlbu);
+
+	vr_hw_core_register_write(&dlbu->hw_core, VR_DLBU_REGISTER_PP_ENABLE_MASK, dlbu->pp_cores_mask);
+}
+
 void vr_dlbu_add_group(struct vr_dlbu_core *dlbu, struct vr_group *group)
 {
 	struct vr_pp_core *pp_core;
-	u32 core_id;
+	u32 bcast_id;
 
 	VR_DEBUG_ASSERT_POINTER( dlbu );
 	VR_DEBUG_ASSERT_POINTER( group );
 
 	pp_core = vr_group_get_pp_core(group);
-	core_id = vr_pp_core_get_id(pp_core);
+	bcast_id = vr_pp_core_get_bcast_id(pp_core);
 
-	dlbu->pp_cores_mask |= (0x1 << core_id);
-	VR_DEBUG_PRINT(3, ("VR DLBU: Adding core[%d] New mask= 0x%02x\n",core_id , dlbu->pp_cores_mask));
-
-	vr_hw_core_register_write(&dlbu->hw_core, VR_DLBU_REGISTER_PP_ENABLE_MASK, dlbu->pp_cores_mask);
+	dlbu->pp_cores_mask |= bcast_id;
+	VR_DEBUG_PRINT(3, ("Vr DLBU: Adding core[%d] New mask= 0x%02x\n", bcast_id , dlbu->pp_cores_mask));
 }
 
 /* Remove a group from the DLBU */
 void vr_dlbu_remove_group(struct vr_dlbu_core *dlbu, struct vr_group *group)
 {
 	struct vr_pp_core *pp_core;
-	u32 core_id;
+	u32 bcast_id;
 
 	VR_DEBUG_ASSERT_POINTER( dlbu );
 	VR_DEBUG_ASSERT_POINTER( group );
 
 	pp_core = vr_group_get_pp_core(group);
-	core_id = vr_pp_core_get_id(pp_core);
+	bcast_id = vr_pp_core_get_bcast_id(pp_core);
 
-	dlbu->pp_cores_mask &= ~(0x1 << core_id);
-		VR_DEBUG_PRINT(3, ("VR DLBU: Removing core[%d] New mask= 0x%02x\n", core_id, dlbu->pp_cores_mask));
-
-	vr_hw_core_register_write(&dlbu->hw_core, VR_DLBU_REGISTER_PP_ENABLE_MASK, dlbu->pp_cores_mask);
+	dlbu->pp_cores_mask &= ~bcast_id;
+	VR_DEBUG_PRINT(3, ("Vr DLBU: Removing core[%d] New mask= 0x%02x\n", bcast_id, dlbu->pp_cores_mask));
 }
 
 /* Configure the DLBU for \a job. This needs to be done before the job is started on the groups in the DLBU. */
@@ -205,7 +200,7 @@ void vr_dlbu_config_job(struct vr_dlbu_core *dlbu, struct vr_pp_job *job)
 	u32 *registers;
 	VR_DEBUG_ASSERT(job);
 	registers = vr_pp_job_get_dlbu_registers(job);
-	VR_DEBUG_PRINT(4, ("VR DLBU: Starting job\n"));
+	VR_DEBUG_PRINT(4, ("Vr DLBU: Starting job\n"));
 
 	/* Writing 4 registers:
 	 * DLBU registers except the first two (written once at DLBU initialisation / reset) and the PP_ENABLE_MASK register */
