@@ -162,8 +162,8 @@ static int gralloc_alloc_framework_yuv(int ionfd, int w, int h, int format, int 
 
     switch (format) {
     case HAL_PIXEL_FORMAT_YV12:
-        //size = (stride * vstride) + (ALIGN(stride >> 1, 16) * vstride);
-        size = (stride * vstride) + (ALIGN(stride >> 1, 16) * ALIGN(h >> 1, 16)) * 2;
+        //size = (stride * vstride) + (ALIGN(stride >> 1, 16) * ALIGN(h >> 1, 16)) * 2;
+        size = (stride * vstride) + (((stride >> 1) * (h >> 1)) * 2);
         break;
     case HAL_PIXEL_FORMAT_YCrCb_420_SP:
         //size = (stride * vstride * 3) >> 1; // y size * 1.5
