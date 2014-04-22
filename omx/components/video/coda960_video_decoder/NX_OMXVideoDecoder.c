@@ -1584,18 +1584,13 @@ int InitializeCodaVpu(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, unsigned char *buf, i
 
 		if( pDecComp->bUseNativeBuffer == OMX_TRUE )
 		{
-			struct private_handle_t const *handle;
 			DbgMsg("Native Buffer Mode : pDecComp->outUsableBuffers=%ld, ExtraSize = %ld, MAX_DEC_FRAME_BUFFERS = %d\n", pDecComp->outUsableBuffers, pDecComp->codecSpecificDataSize, MAX_DEC_FRAME_BUFFERS );
 			//	Translate Gralloc Memory Buffer Type To Nexell Video Memory Type
 			for( i=0 ; i<pDecComp->outUsableBuffers ; i++ )
 			{
-				handle = (struct private_handle_t const *)pDecComp->pOutputBuffers[i]->pBuffer;
-				pDecComp->vidFrameBuf[i].memoryMap = 0;		//	Linear
-				pDecComp->vidFrameBuf[i].fourCC    = FOURCC_YV12;
-				pDecComp->vidFrameBuf[i].imgWidth  = pDecComp->width;
-				pDecComp->vidFrameBuf[i].imgHeight = pDecComp->height;
-
                 int ion_fd = ion_open();
+				struct private_handle_t const *handle = (struct private_handle_t const *)pDecComp->pOutputBuffers[i]->pBuffer;
+                int vstride = ALIGN(handle->height, 16);
                 if( ion_fd<0 )
                 {
 					ALOGE("%s: failed to ion_open", __func__);
@@ -1607,15 +1602,17 @@ int InitializeCodaVpu(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, unsigned char *buf, i
 					close( ion_fd );
 					return ret;
                 }
-				pDecComp->vidFrameBuf[i].cbPhyAddr = pDecComp->vidFrameBuf[i].luPhyAddr + handle->stride * handle->height;
-				pDecComp->vidFrameBuf[i].crPhyAddr = pDecComp->vidFrameBuf[i].cbPhyAddr + (handle->stride>>1) * (handle->height>>1);
-				pDecComp->vidFrameBuf[i].luStride = handle->stride;
-				pDecComp->vidFrameBuf[i].cbStride = pDecComp->vidFrameBuf[i].crStride = handle->stride >> 1;
                 close(ion_fd);
-
-				DbgMsg("===== Physical Address(0x%08x, 0x%08x, 0x%08x), Stride(%d)\n",
-						pDecComp->vidFrameBuf[i].luPhyAddr, pDecComp->vidFrameBuf[i].crPhyAddr, pDecComp->vidFrameBuf[i].cbPhyAddr,
-						handle->stride );
+				pDecComp->vidFrameBuf[i].memoryMap = 0;		//	Linear
+				pDecComp->vidFrameBuf[i].fourCC    = FOURCC_YV12;
+				pDecComp->vidFrameBuf[i].imgWidth  = pDecComp->width;
+				pDecComp->vidFrameBuf[i].imgHeight = pDecComp->height;
+				pDecComp->vidFrameBuf[i].cbPhyAddr = pDecComp->vidFrameBuf[i].luPhyAddr + handle->stride * vstride;
+				pDecComp->vidFrameBuf[i].crPhyAddr = pDecComp->vidFrameBuf[i].cbPhyAddr + ALIGN(handle->stride>>1,16) * ALIGN(vstride>>1,16);
+				pDecComp->vidFrameBuf[i].luStride  = handle->stride;
+				pDecComp->vidFrameBuf[i].cbStride  = pDecComp->vidFrameBuf[i].crStride = handle->stride >> 1;
+				DbgMsg("===== Physical Address(0x%08x,0x%08x,0x%08x), H Stride(%d), V Stride(%d)\n",
+						pDecComp->vidFrameBuf[i].luPhyAddr, pDecComp->vidFrameBuf[i].cbPhyAddr, pDecComp->vidFrameBuf[i].crPhyAddr, handle->stride, vstride );
 				pDecComp->hVidFrameBuf[i] = &pDecComp->vidFrameBuf[i];
 			}
 			seqIn.numBuffers = pDecComp->outUsableBuffers;

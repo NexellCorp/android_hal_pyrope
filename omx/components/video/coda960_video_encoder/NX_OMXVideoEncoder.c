@@ -181,9 +181,9 @@ OMX_ERRORTYPE NX_VidEncComponentInit (OMX_HANDLETYPE hComponent)
 	pPort = pEncComp->pInputPort;
 	NX_OMXSetVersion( &pPort->stdPortDef.nVersion );
 	NX_InitOMXPort( &pPort->stdPortDef, VIDDEC_INPORT_INDEX, OMX_DirInput, OMX_TRUE, OMX_PortDomainVideo );
-	pPort->stdPortDef.nBufferCountActual = VIDDEC_INPORT_MIN_BUF_CNT;
-	pPort->stdPortDef.nBufferCountMin    = VIDDEC_INPORT_MIN_BUF_CNT;
-	pPort->stdPortDef.nBufferSize        = VIDDEC_INPORT_MIN_BUF_SIZE;
+	pPort->stdPortDef.nBufferCountActual = VIDENC_INPORT_MIN_BUF_CNT;
+	pPort->stdPortDef.nBufferCountMin    = VIDENC_INPORT_MIN_BUF_CNT;
+	pPort->stdPortDef.nBufferSize        = VIDENC_INPORT_MIN_BUF_SIZE;
 
 	//	Output port configuration
 	pEncComp->pOutputPort = (NX_BASEPORTTYPE *)pEncComp->pPort[VIDDEC_OUTPORT_INDEX];
@@ -192,9 +192,9 @@ OMX_ERRORTYPE NX_VidEncComponentInit (OMX_HANDLETYPE hComponent)
 	pPort = pEncComp->pOutputPort;
 	NX_OMXSetVersion( &pPort->stdPortDef.nVersion );
 	NX_InitOMXPort( &pPort->stdPortDef, VIDDEC_OUTPORT_INDEX, OMX_DirOutput, OMX_TRUE, OMX_PortDomainVideo );
-	pPort->stdPortDef.nBufferCountActual = VIDDEC_OUTPORT_MIN_BUF_CNT;
-	pPort->stdPortDef.nBufferCountMin    = VIDDEC_OUTPORT_MIN_BUF_CNT;
-	pPort->stdPortDef.nBufferSize        = VIDDEC_OUTPORT_MIN_BUF_SIZE;
+	pPort->stdPortDef.nBufferCountActual = VIDENC_OUTPORT_MIN_BUF_CNT;
+	pPort->stdPortDef.nBufferCountMin    = VIDENC_OUTPORT_MIN_BUF_CNT;
+	pPort->stdPortDef.nBufferSize        = VIDENC_OUTPORT_MIN_BUF_SIZE;
 	//					End Port configurations
 	///////////////////////////////////////////////////////////////////
 
@@ -469,10 +469,20 @@ static OMX_ERRORTYPE NX_VidEncSetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE 
 			TRACE("%s(): Set new role : in role = %s, comp role = %s\n", __FUNCTION__, (OMX_STRING)pInRole->cRole, pEncComp->compRole );
 			break;
 		}
-
+		case OMX_IndexEnableAndroidNativeBuffers:
+		{
+			struct EnableAndroidNativeBuffersParams *pEnNativeBuf = (struct EnableAndroidNativeBuffersParams *)ComponentParamStruct;
+			if( pEnNativeBuf->nPortIndex != 1 )
+				return OMX_ErrorBadPortIndex;
+			pEncComp->bUseNativeBuffer = pEnNativeBuf->enable;
+			DbgMsg("Native buffer flag is %s!!", (pEncComp->bUseNativeBuffer==OMX_TRUE)?"Enabled":"Disabled");
+			break;
+		}
 		case OMX_IndexParamVideoPortFormat:
 		{
 			OMX_VIDEO_PARAM_PORTFORMATTYPE *pVideoFormat = (OMX_VIDEO_PARAM_PORTFORMATTYPE *)ComponentParamStruct;
+			//int32_t h_stride = pEncComp->encWidth;
+			//int32_t v_stride = pEncComp->encHeight;
 			if( pVideoFormat->nPortIndex == 0 )
 			{
 				memcpy( &pEncComp->inputFormat, pVideoFormat, sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE) );
@@ -481,6 +491,7 @@ static OMX_ERRORTYPE NX_VidEncSetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE 
 			{
 				memcpy( &pEncComp->outputFormat, pVideoFormat, sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE) );
 			}
+			//pEncComp->pOutputPort->stdPortDef.nBufferSize        = h_stride*v_stride + ALIGN(v_stride>>1,16) * ALIGN(h_stride>>1,16) * 2;
 			break;
 		}
 
@@ -1356,26 +1367,28 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 			hPrivate->phys, hPrivate->phys1, hPrivate->phys2,
 			hPrivate->base, hPrivate->base1, hPrivate->base2 );
 #else
+		int vStride = ALIGN(hPrivate->height, 16);
 		int ion_fd = ion_open();
 		if( ion_fd<0 )
 		{
 			ALOGE("%s: failed to ion_open", __func__);
 			return ion_fd;
 		}
-		inputMem.memoryMap = 0;		//	Linear
-		inputMem.fourCC    = FOURCC_YV12;
-		inputMem.imgWidth  = pEncComp->encWidth;
-		inputMem.imgHeight = pEncComp->encHeight;
 		int ret = ion_get_phys(ion_fd, hPrivate->share_fd, (long unsigned int *)&inputMem.luPhyAddr);
 		if (ret != 0) {
 			ALOGE("%s: failed to ion_get_phys", __func__);
 			close( ion_fd );
 			return ret;
 		}
+		
+		inputMem.memoryMap = 0;		//	Linear
+		inputMem.fourCC    = FOURCC_YV12;
+		inputMem.imgWidth  = pEncComp->encWidth;
+		inputMem.imgHeight = pEncComp->encHeight;
 		inputMem.cbPhyAddr = inputMem.luPhyAddr + (hPrivate->stride * hPrivate->height);
-		inputMem.crPhyAddr = inputMem.cbPhyAddr + ((hPrivate->stride >> 1) * (hPrivate->height >> 1));
-		inputMem.luStride = hPrivate->stride;
-		inputMem.cbStride = inputMem.crStride = hPrivate->stride >> 1;
+		inputMem.crPhyAddr = inputMem.cbPhyAddr + ALIGN(hPrivate->stride >> 1, 16) * ALIGN(vStride >> 1, 16);
+		inputMem.luStride  = hPrivate->stride;
+		inputMem.cbStride  = inputMem.crStride = hPrivate->stride >> 1;
         close(ion_fd);
 #endif
 	}

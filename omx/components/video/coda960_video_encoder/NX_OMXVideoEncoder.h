@@ -27,11 +27,11 @@ OMX_ERRORTYPE NX_VidDecComponentInit (OMX_HANDLETYPE hComponent);
 
 #define	NX_OMX_MAX_BUF			128
 
-#define	VIDDEC_INPORT_MIN_BUF_CNT	5
-#define	VIDDEC_INPORT_MIN_BUF_SIZE	(4*1024)
+#define	VIDENC_INPORT_MIN_BUF_CNT	6
+#define	VIDENC_INPORT_MIN_BUF_SIZE	(4*1024)
 
-#define	VIDDEC_OUTPORT_MIN_BUF_CNT	8
-#define	VIDDEC_OUTPORT_MIN_BUF_SIZE	(2*1024*1024)
+#define	VIDENC_OUTPORT_MIN_BUF_CNT	8
+#define	VIDENC_OUTPORT_MIN_BUF_SIZE	(2*1024*1024)
 
 #define	VIDENC_DEF_FRAMERATE		(30)
 #define	VIDENC_DEF_BITRATE			(3*1024*1024)
@@ -69,6 +69,9 @@ typedef struct tNX_VIDENC_COMP_TYPE{
 	OMX_BOOL					bSendCodecSpecificInfo;
 	OMX_VIDEO_PARAM_MPEG4TYPE	omxMp4EncParam;
 	OMX_VIDEO_PARAM_AVCTYPE		omxAVCEncParam;
+
+	//	Android Native Buffer Flasg
+	OMX_BOOL					bUseNativeBuffer;
 
 	//	Encoder parameters
 	uint32_t					encWidth;
