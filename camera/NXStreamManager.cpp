@@ -22,12 +22,12 @@ uint32_t NXStreamManager::whatStreamAllocate(int format)
 
     switch (format) {
     case CAMERA2_HAL_PIXEL_FORMAT_OPAQUE:
-    case HAL_PIXEL_FORMAT_YV12:
         if (!getStreamThread(STREAM_ID_PREVIEW))
             streamId = STREAM_ID_PREVIEW;
         else
             streamId = STREAM_ID_RECORD;
         break;
+    case HAL_PIXEL_FORMAT_YV12:
     case HAL_PIXEL_FORMAT_YCrCb_420_SP:
         streamId = STREAM_ID_CALLBACK;
         break;
