@@ -187,7 +187,7 @@ status_t NXStreamThread::stop(bool waitExit, bool streamOff)
 
     ALOGD("<=== stop %s, streamId %d, state %d, waitExit %d", ThreadName, ActiveStreamId, getState(), waitExit);
 
-    int timeOut = 3;
+    int timeOut = 5;
     if (waitExit) {
         setState(STATE_WAIT_EXIT);
         while (getState() != STATE_EXIT && timeOut > 0) {

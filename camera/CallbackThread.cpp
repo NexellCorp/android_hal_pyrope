@@ -63,8 +63,9 @@ status_t CallbackThread::readyToRun()
     }
 
     // check format
-    if (stream->getFormat() != HAL_PIXEL_FORMAT_YCrCb_420_SP) {
-        ALOGE("Not NV21 format!!!");
+    if ((stream->getFormat() != HAL_PIXEL_FORMAT_YCrCb_420_SP) &&
+        (stream->getFormat() != HAL_PIXEL_FORMAT_YV12)) {
+        ALOGE("Not NV21 format or YV12 format!!!: 0x%x", stream->getFormat());
         return BAD_TYPE;
     }
 
