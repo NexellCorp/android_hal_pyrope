@@ -46,6 +46,7 @@ bool allocateBuffer(struct nxp_vid_buffer *buf, int bufSize, int width, int heig
     int planeNum;
     size_t ySize, cSize;
     unsigned long yStride = ALIGN(width, 16);
+    unsigned long vStride = ALIGN(height, 16);
     unsigned long cStride;
 
     switch (format) {
@@ -57,10 +58,10 @@ bool allocateBuffer(struct nxp_vid_buffer *buf, int bufSize, int width, int heig
         break;
     case PIXFORMAT_YUV420_PLANAR:
         planeNum = 3;
-#if 1
-        ySize = yStride * ALIGN(height, 16);
+#if 0
+        ySize = yStride * vStride;
         cStride = ALIGN(yStride >> 1, 16);
-        cSize = cStride * ALIGN(height >> 1, 16);
+        cSize = cStride * ALIGN(vStride >> 1, 16);
 #else
         ySize = width * height;
         cSize = ySize >> 2;
