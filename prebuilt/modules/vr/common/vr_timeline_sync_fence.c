@@ -1,11 +1,11 @@
 /*
  * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2013 ARM Limited
+ * authorised by a licensing agreement from NEXELL Limited
+ * (C) COPYRIGHT 2013 NEXELL Limited
  * ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorised
  * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ * by a licensing agreement from NEXELL Limited.
  */
 
 #include "vr_timeline_sync_fence.h"
@@ -89,12 +89,22 @@ s32 vr_timeline_sync_fence_create(struct vr_timeline_system *system, struct vr_t
 		VR_DEBUG_ASSERT_POINTER(timeline);
 
 		sync_fence = vr_timeline_sync_fence_create_and_add_tracker(timeline, fence->points[i]);
-		if (NULL == sync_fence) goto error;
+		if (NULL == sync_fence)
+		{
+			/* temp test */
+			printk("[MALI] error(%d)\n", __LINE__);
+			goto error;
+		}
 
 		if (NULL != sync_fence_acc) {
 			/* Merge sync fences. */
 			sync_fence_acc = vr_sync_fence_merge(sync_fence_acc, sync_fence);
-			if (NULL == sync_fence_acc) goto error;
+			if (NULL == sync_fence_acc)
+			{
+				/* temp test */
+				printk("[MALI] error(%d)\n", __LINE__);
+				goto error;
+			}
 		} else {
 			/* This was the first sync fence created. */
 			sync_fence_acc = sync_fence;
@@ -105,11 +115,21 @@ s32 vr_timeline_sync_fence_create(struct vr_timeline_system *system, struct vr_t
 		struct sync_fence *sync_fence;
 
 		sync_fence = sync_fence_fdget(fence->sync_fd);
-		if (NULL == sync_fence) goto error;
+		if (NULL == sync_fence)
+		{
+			/* temp test */
+			printk("[MALI] error(%d)\n", __LINE__);
+			goto error;
+		}
 
 		if (NULL != sync_fence_acc) {
 			sync_fence_acc = vr_sync_fence_merge(sync_fence_acc, sync_fence);
-			if (NULL == sync_fence_acc) goto error;
+			if (NULL == sync_fence_acc)
+			{
+				/* temp test */
+				printk("[MALI] error(%d)\n", __LINE__);
+				goto error;
+			}
 		} else {
 			sync_fence_acc = sync_fence;
 		}
@@ -121,7 +141,12 @@ s32 vr_timeline_sync_fence_create(struct vr_timeline_system *system, struct vr_t
 		/* There was nothing to wait on, so return an already signaled fence. */
 
 		sync_fence_acc = vr_sync_timeline_create_signaled_fence(system->signaled_sync_tl);
-		if (NULL == sync_fence_acc) goto error;
+		if (NULL == sync_fence_acc)
+		{
+			/* temp test */
+			printk("[MALI] error(%d)\n", __LINE__);
+			goto error;
+		}
 	}
 
 	/* Return file descriptor for the accumulated sync fence. */
