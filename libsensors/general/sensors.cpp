@@ -252,7 +252,8 @@ static const struct sensor_t sSensorSupportList[] = {
           1, SENSORS_GYROSCOPE_HANDLE,
           SENSOR_TYPE_GYROSCOPE, 
           (4000.0f*(float)M_PI/180.0f),         // -2000dps ~ +2000dps
-          ((1.0f / 16.4f) * ((float)M_PI / 180.0f)),    // 1/16.4 dps/LSB
+//          ((1.0f / 16.4f) * ((float)M_PI / 180.0f)),    // 1/16.4 dps/LSB
+          ((4.0f / 16.4f) * ((float)M_PI / 180.0f)),    // 1/16.4 dps/LSB
           6.1f, 10, 0, 0,
           { (void*)"bmg160" }    // reserved[0] --> input device name
         },
