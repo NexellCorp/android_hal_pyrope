@@ -44,3 +44,14 @@ int cscYV12ToNV21(char *srcY, char *srcCb, char *srcCr,
 
     return 0;
 }
+
+extern "C" {
+extern void csc_ARGB8888_to_YUV420SP_NEON(unsigned char *dstY, unsigned char *dstCbCr, unsigned char *src, unsigned int width, unsigned int height);
+}
+
+int cscARGBToNV21(char *src, char *dstY, char *dstCbCr, uint32_t srcWidth, uint32_t srcHeight)
+{
+    csc_ARGB8888_to_YUV420SP_NEON((unsigned char *)dstY, (unsigned char *)dstCbCr, (unsigned char *)src, srcWidth, srcHeight);
+    return 0;
+}
+
