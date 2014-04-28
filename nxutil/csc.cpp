@@ -46,12 +46,20 @@ int cscYV12ToNV21(char *srcY, char *srcCb, char *srcCr,
 }
 
 extern "C" {
-extern void csc_ARGB8888_to_YUV420SP_NEON(unsigned char *dstY, unsigned char *dstCbCr, unsigned char *src, unsigned int width, unsigned int height);
+extern void csc_ARGB8888_to_NV12_NEON(unsigned char *dstY, unsigned char *dstCbCr, unsigned char *src, unsigned int width, unsigned int height);
+extern void csc_ARGB8888_to_NV21_NEON(unsigned char *dstY, unsigned char *dstCbCr, unsigned char *src, unsigned int width, unsigned int height);
 }
 
-int cscARGBToNV21(char *src, char *dstY, char *dstCbCr, uint32_t srcWidth, uint32_t srcHeight)
+int cscARGBToNV21(char *src, char *dstY, char *dstCbCr, uint32_t srcWidth, uint32_t srcHeight, uint32_t cbFirst)
 {
-    csc_ARGB8888_to_YUV420SP_NEON((unsigned char *)dstY, (unsigned char *)dstCbCr, (unsigned char *)src, srcWidth, srcHeight);
+    if( cbFirst )
+    {
+        csc_ARGB8888_to_NV12_NEON((unsigned char *)dstY, (unsigned char *)dstCbCr, (unsigned char *)src, srcWidth, srcHeight);
+    }
+    else
+    {
+        csc_ARGB8888_to_NV21_NEON((unsigned char *)dstY, (unsigned char *)dstCbCr, (unsigned char *)src, srcWidth, srcHeight);
+    }
     return 0;
 }
 

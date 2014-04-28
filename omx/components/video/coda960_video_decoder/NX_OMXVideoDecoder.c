@@ -16,7 +16,7 @@
 
 #include "NX_OMXVideoDecoder.h"
 #include "DecodeFrame.h"
-
+#include "CodecProfileLevel.h"
 
 //	Default Recomanded Functions for Implementation Components
 static OMX_ERRORTYPE NX_VidDec_GetConfig(OMX_HANDLETYPE hComp, OMX_INDEXTYPE nConfigIndex, OMX_PTR pComponentConfigStructure);
@@ -321,6 +321,43 @@ static OMX_ERRORTYPE NX_VidDec_GetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 			if( pPortDef->nPortIndex == 1 )
 			{
 				pPortDef->format.video.eColorFormat = HAL_PIXEL_FORMAT_YV12;
+			}
+			break;
+		}
+		case OMX_IndexParamVideoProfileLevelQuerySupported:
+		{
+			OMX_VIDEO_PARAM_PROFILELEVELTYPE *profileLevel = (OMX_VIDEO_PARAM_PROFILELEVELTYPE *)ComponentParamStruct;
+			int32_t profileIdx, levelIdx;
+			if( profileLevel->nPortIndex > 1 )
+			{
+				return OMX_ErrorBadPortIndex;
+			}
+
+			if( pDecComp->videoCodecId == NX_AVC_DEC )
+			{
+				if( profileLevel->nProfileIndex >= (MAX_DEC_SUPPORTED_AVC_PROFILES*MAX_DEC_SUPPORTED_AVC_LEVELS) )
+				{
+					return OMX_ErrorNoMore;
+				}
+				profileIdx = profileLevel->nProfileIndex / MAX_DEC_SUPPORTED_AVC_PROFILES;
+				levelIdx = profileLevel->nProfileIndex % MAX_DEC_SUPPORTED_AVC_LEVELS;
+				profileLevel->eProfile = gstDecSupportedAVCProfiles[profileIdx];
+				profileLevel->eLevel = gstDecSupportedAVCLevels[levelIdx];
+			}
+			else if( pDecComp->videoCodecId == NX_MP4_DEC )
+			{
+				if( profileLevel->nProfileIndex >= MAX_DEC_SUPPORTED_MPEG4_PROFILES*MAX_DEC_SUPPORTED_MPEG4_LEVELS )
+				{
+					return OMX_ErrorNoMore;
+				}
+				profileIdx = profileLevel->nProfileIndex / MAX_DEC_SUPPORTED_MPEG4_PROFILES;
+				levelIdx = profileLevel->nProfileIndex % MAX_DEC_SUPPORTED_MPEG4_LEVELS;
+				profileLevel->eProfile = gstDecSupportedMPEG4Profiles[profileIdx];
+				profileLevel->eLevel = gstDecSupportedMPEG4Levels[levelIdx];
+			}
+			else
+			{
+				return OMX_ErrorNoMore;
 			}
 			break;
 		}

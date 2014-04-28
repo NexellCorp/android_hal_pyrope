@@ -88,6 +88,9 @@ typedef struct tNX_VIDENC_COMP_TYPE{
 	int32_t						seqBufSize;
 	OMX_BOOL					bCodecSpecificInfo;
 
+	//	Color Space Converter Destination Buffer
+	NX_VID_MEMORY_HANDLE		hCSCMem;
+
 	//	Encoder Handle
 	NX_VID_ENC_HANDLE		hVpuCodec;
 	OMX_S32					vpuCodecId;
