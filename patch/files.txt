@@ -1,4 +1,3 @@
-TransitionDrawable.java frameworks/base/graphics/java/android/graphics/drawable
 LocationManagerService.java frameworks/base/services/java/com/android/server
 WriteExternalStorageTest.java cts/hostsidetests/appsecurity/test-apps/WriteExternalStorageApp/src/com/android/cts/writeexternalstorageapp
 BuildVersionTest.java cts/tests/tests/os/src/android/os/cts
