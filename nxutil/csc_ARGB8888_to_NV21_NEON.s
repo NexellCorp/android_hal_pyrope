@@ -1,9 +1,9 @@
 
     .arch armv7-a
     .text
-    .global csc_ARGB8888_to_YUV420SP_NEON
-    .type   csc_ARGB8888_to_YUV420SP_NEON, %function
-csc_ARGB8888_to_YUV420SP_NEON:
+    .global csc_ARGB8888_to_NV21_NEON
+    .type   csc_ARGB8888_to_NV21_NEON, %function
+csc_ARGB8888_to_NV21_NEON:
     .fnstart
 
     @r0     pDstY

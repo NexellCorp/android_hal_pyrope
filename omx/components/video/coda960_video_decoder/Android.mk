@@ -18,6 +18,7 @@ LOCAL_SRC_FILES:= \
 	NX_Div3Decoder.c \
 	NX_RVDecoder.c \
 	NX_VC1Decoder.c \
+	CodecProfileLevel.c \
 	NX_OMXVideoDecoder.c
 
 LOCAL_C_INCLUDES += \
