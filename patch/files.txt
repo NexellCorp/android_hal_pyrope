@@ -4,3 +4,4 @@ BuildVersionTest.java cts/tests/tests/os/src/android/os/cts
 FileSystemPermissionTest.java cts/tests/tests/permission/src/android/permission/cts
 URLConnectionTest.java libcore/luni/src/test/java/org/apache/harmony/luni/tests/java/net
 vnd_secret.txt hardware/broadcom/libbt/include
+BrowserBenchTest.java cts/suite/cts/deviceTests/browserbench/src/com/android/cts/browser
