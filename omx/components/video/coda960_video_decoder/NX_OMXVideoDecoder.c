@@ -15,8 +15,7 @@
 #include <nexell_format.h>
 
 #include "NX_OMXVideoDecoder.h"
-#include "DecodeFrame.h"
-#include "CodecProfileLevel.h"
+#include "NX_DecoderUtil.h"
 
 //	Default Recomanded Functions for Implementation Components
 static OMX_ERRORTYPE NX_VidDec_GetConfig(OMX_HANDLETYPE hComp, OMX_INDEXTYPE nConfigIndex, OMX_PTR pComponentConfigStructure);
@@ -173,6 +172,7 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent)
 	pDecComp->outputFormat.eColorFormat = OMX_COLOR_FormatYUV420Planar;
 	pDecComp->bUseNativeBuffer = OMX_FALSE;
 	pDecComp->bEnableThumbNailMode = OMX_FALSE;
+	pDecComp->bMetaDataInBuffers = OMX_FALSE;
 
 	pDecComp->outBufferAllocSize = 0;
 	pDecComp->numOutBuffers = 0;
@@ -284,9 +284,6 @@ static OMX_ERRORTYPE NX_VidDec_GetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 		{
 			OMX_VIDEO_PARAM_PORTFORMATTYPE *pVideoFormat = (OMX_VIDEO_PARAM_PORTFORMATTYPE *)ComponentParamStruct;
 			TRACE("%s() : OMX_IndexParamVideoPortFormat : port Index = %ld, format index = %ld\n", __FUNCTION__, pVideoFormat->nPortIndex, pVideoFormat->nIndex );
-			if( pVideoFormat->nIndex != 0 ){
-				return OMX_ErrorNoMore;
-			}
 			if( pVideoFormat->nPortIndex == 0 )	//	Input Information
 			{
 				//	Set from component Role
@@ -294,9 +291,17 @@ static OMX_ERRORTYPE NX_VidDec_GetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 			}
 			else
 			{
-				//	Output
-				memcpy( pVideoFormat, &pDecComp->outputFormat, sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE) );
-				pVideoFormat->eColorFormat = OMX_COLOR_FormatYUV420Planar;
+				switch ( pVideoFormat->nIndex )
+				{
+					case 0:
+						memcpy( pVideoFormat, &pDecComp->outputFormat, sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE) );
+						pDecComp->outputFormat.nPortIndex= 1;
+						pVideoFormat->eColorFormat = OMX_COLOR_FormatYUV420Planar;     break;
+					// case 1:
+					// 	pVideoFormat->eColorFormat = OMX_COLOR_FormatYUV420SemiPlanar; break;
+					default:
+						return OMX_ErrorNoMore;
+				}
 			}
 			break;
 		}
@@ -563,44 +568,6 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 			}
 			break;
 		}
-
-		case OMX_IndexEnableAndroidNativeBuffers:
-		{
-			struct EnableAndroidNativeBuffersParams *pEnNativeBuf = (struct EnableAndroidNativeBuffersParams *)ComponentParamStruct;
-			if( pEnNativeBuf->nPortIndex != 1 )
-				return OMX_ErrorBadPortIndex;
-			pDecComp->bUseNativeBuffer = pEnNativeBuf->enable;
-			DbgMsg("Native buffer flag is %s!!", (pDecComp->bUseNativeBuffer==OMX_TRUE)?"Enabled":"Disabled");
-			break;
-		}
-		case OMX_IndexVideoDecoderThumbnailMode:
-		{
-			//	Thumbnail Mode
-			pDecComp->bEnableThumbNailMode = OMX_TRUE;
-
-			//	Reconfigure Output Buffer Information for Thubmail Mode.
-			pDecComp->pOutputPort->stdPortDef.nBufferCountActual = VID_OUTPORT_MIN_BUF_CNT_THUMB;
-			pDecComp->pOutputPort->stdPortDef.nBufferCountMin    = VID_OUTPORT_MIN_BUF_CNT_THUMB;
-			pDecComp->pOutputPort->stdPortDef.nBufferSize        = pDecComp->width*pDecComp->height*3/2;
-			break;
-		}
-		case OMX_IndexVideoDecoderExtradata:
-		{
-			OMX_U8 *pExtraData = (OMX_U8 *)ComponentParamStruct;
-			OMX_S32 extraSize = *((OMX_S32*)pExtraData);
-
-			if( pDecComp->pExtraData )
-			{
-				free(pDecComp->pExtraData);
-				pDecComp->pExtraData = NULL;
-				pDecComp->nExtraDataSize = 0;
-			}
-			pDecComp->nExtraDataSize = extraSize;
-
-			pDecComp->pExtraData = (OMX_U8*)malloc( extraSize );
-			memcpy( pDecComp->pExtraData, pExtraData+4, extraSize );
-			break;
-		}
 		case OMX_IndexVideoDecoderCodecTag:
 		{
 			OMX_S32 *codecTag = (OMX_S32 *)ComponentParamStruct;
@@ -625,6 +592,59 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 			}
 			break;
 		}
+
+		//
+		//	For Android Extension
+		//
+		case OMX_IndexEnableAndroidNativeBuffers:
+		{
+			struct EnableAndroidNativeBuffersParams *pEnNativeBuf = (struct EnableAndroidNativeBuffersParams *)ComponentParamStruct;
+			if( pEnNativeBuf->nPortIndex != 1 )
+				return OMX_ErrorBadPortIndex;
+			pDecComp->bUseNativeBuffer = pEnNativeBuf->enable;
+			DbgMsg("Native buffer flag is %s!!", (pDecComp->bUseNativeBuffer==OMX_TRUE)?"Enabled":"Disabled");
+			break;
+		}
+		//case OMX_IndexStoreMetaDataInBuffers:
+		//{
+		//	struct StoreMetaDataInBuffersParams *pParam = (struct StoreMetaDataInBuffersParams *)ComponentParamStruct;
+		//	DbgMsg("%s() : OMX_IndexStoreMetaDataInBuffers : port(%ld), flag(%d)\n", __FUNCTION__, pParam->nPortIndex, pParam->bStoreMetaData );
+		//	pDecComp->bMetaDataInBuffers = pParam->bStoreMetaData;
+		//	break;
+		//}
+		case OMX_IndexVideoDecoderThumbnailMode:
+		{
+			//	Thumbnail Mode
+			pDecComp->bEnableThumbNailMode = OMX_TRUE;
+
+			//	Reconfigure Output Buffer Information for Thubmail Mode.
+			pDecComp->pOutputPort->stdPortDef.nBufferCountActual = VID_OUTPORT_MIN_BUF_CNT_THUMB;
+			pDecComp->pOutputPort->stdPortDef.nBufferCountMin    = VID_OUTPORT_MIN_BUF_CNT_THUMB;
+			pDecComp->pOutputPort->stdPortDef.nBufferSize        = pDecComp->width*pDecComp->height*3/2;
+			break;
+		}
+
+		//
+		//	Private Extractor ( FFMPEGExtractor )
+		//
+		case OMX_IndexVideoDecoderExtradata:
+		{
+			OMX_U8 *pExtraData = (OMX_U8 *)ComponentParamStruct;
+			OMX_S32 extraSize = *((OMX_S32*)pExtraData);
+
+			if( pDecComp->pExtraData )
+			{
+				free(pDecComp->pExtraData);
+				pDecComp->pExtraData = NULL;
+				pDecComp->nExtraDataSize = 0;
+			}
+			pDecComp->nExtraDataSize = extraSize;
+
+			pDecComp->pExtraData = (OMX_U8*)malloc( extraSize );
+			memcpy( pDecComp->pExtraData, pExtraData+4, extraSize );
+			break;
+		}
+
 		default :
 			return NX_BaseSetParameter( hComp, nParamIndex, ComponentParamStruct );
 	}
@@ -656,9 +676,9 @@ static OMX_ERRORTYPE NX_VidDec_UseBuffer (OMX_HANDLETYPE hComponent, OMX_BUFFERH
 		pPortBuf = pDecComp->pOutputBuffers;
 	}
 
-	DbgBuffer( "%s() : pPort->stdPortDef.nBufferSize = %ld\n", __FUNCTION__, pPort->stdPortDef.nBufferSize);
+	DbgBuffer( "%s() : pPort->stdPortDef.nBufferSize = %ld, nSizeBytes = %ld\n", __FUNCTION__, pPort->stdPortDef.nBufferSize, nSizeBytes);
 
-	if( pPort->stdPortDef.nBufferSize > nSizeBytes )
+	if( pDecComp->bUseNativeBuffer == OMX_FALSE && pPort->stdPortDef.nBufferSize > nSizeBytes )
 		return OMX_ErrorBadParameter;
 
 	for( i=0 ; i<pPort->stdPortDef.nBufferCountActual ; i++ ){
@@ -1479,8 +1499,6 @@ ERROR_EXIT:
 //					FFMPEG Video Decoder Handler
 //
 
-#include "DecodeFrame.h"
-
 void CodecTagToMp4Class( OMX_S32 codecTag, OMX_S32 *codecId, OMX_S32 *mp4Class )
 {
 	*mp4Class = 0;
@@ -1648,7 +1666,7 @@ int InitializeCodaVpu(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, unsigned char *buf, i
 				pDecComp->vidFrameBuf[i].crPhyAddr = pDecComp->vidFrameBuf[i].cbPhyAddr + ALIGN(handle->stride>>1,16) * ALIGN(vstride>>1,16);
 				pDecComp->vidFrameBuf[i].luStride  = handle->stride;
 				pDecComp->vidFrameBuf[i].cbStride  = pDecComp->vidFrameBuf[i].crStride = handle->stride >> 1;
-				DbgMsg("===== Physical Address(0x%08x,0x%08x,0x%08x), H Stride(%d), V Stride(%d)\n",
+				TRACE("===== Physical Address(0x%08x,0x%08x,0x%08x), H Stride(%d), V Stride(%d)\n",
 						pDecComp->vidFrameBuf[i].luPhyAddr, pDecComp->vidFrameBuf[i].cbPhyAddr, pDecComp->vidFrameBuf[i].crPhyAddr, handle->stride, vstride );
 				pDecComp->hVidFrameBuf[i] = &pDecComp->vidFrameBuf[i];
 			}

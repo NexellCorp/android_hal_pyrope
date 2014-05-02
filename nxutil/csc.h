@@ -13,6 +13,12 @@ int cscYV12ToNV21(char *srcY, char *srcCb, char *srcCr,
 
 int cscARGBToNV21(char *src, char *dstY, char *dstCbCr, uint32_t srcWidth, uint32_t srcHeight, uint32_t cbFirst);
 
+//  Copy Virtual Address Space to H/W Addreadd Space
+int cscYV12ToYV12(  char *srcY, char *srcU, char *srcV,
+                    char *dstY, char *dstU, char *dstV,
+                    uint32_t srcStride, uint32_t dstStrideY, uint32_t dstStrideUV,
+                    uint32_t width, uint32_t height );
+
 #ifdef __cplusplus
 }
 #endif

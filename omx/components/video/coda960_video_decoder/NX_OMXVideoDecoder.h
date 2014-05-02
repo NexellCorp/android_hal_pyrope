@@ -20,6 +20,7 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent);
 #include <hardware/gralloc.h>
 #include <cutils/native_handle.h>
 #include <gralloc_priv.h>
+#include <media/hardware/MetadataBufferType.h>
 
 #include <nx_fourcc.h>
 #include <nx_video_api.h>
@@ -51,7 +52,9 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent);
 #define	UNUSED_PARAM(X)		X=X
 #endif
 
-
+//
+//	DEBUG FLAGS
+//
 #define	DEBUG_ANDROID	1
 #define	DEBUG_BUFFER	0
 #define	DEBUG_FUNC		0
@@ -164,6 +167,7 @@ struct tNX_VIDDEC_VIDEO_COMP_TYPE{
 
 	OMX_BOOL					bUseNativeBuffer;
 	OMX_BOOL					bEnableThumbNailMode;
+	OMX_BOOL					bMetaDataInBuffers;
 
 	//	Extra Informations &
 	OMX_U8						codecSpecificData[MAX_DEC_SPECIFIC_DATA];

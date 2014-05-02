@@ -9,6 +9,7 @@
 #include <NX_OMXQueue.h>
 
 #include <hardware/gralloc.h>
+#include <media/hardware/MetadataBufferType.h>
 
 #include <nx_video_api.h>
 
@@ -28,10 +29,10 @@ OMX_ERRORTYPE NX_VidDecComponentInit (OMX_HANDLETYPE hComponent);
 #define	NX_OMX_MAX_BUF			128
 
 #define	VIDENC_INPORT_MIN_BUF_CNT	6
-#define	VIDENC_INPORT_MIN_BUF_SIZE	(4*1024)
+#define	VIDENC_INPORT_MIN_BUF_SIZE	(1920*1088*4)
 
 #define	VIDENC_OUTPORT_MIN_BUF_CNT	8
-#define	VIDENC_OUTPORT_MIN_BUF_SIZE	(2*1024*1024)
+#define	VIDENC_OUTPORT_MIN_BUF_SIZE	(4*1024*1024)
 
 #define	VIDENC_DEF_FRAMERATE		(30)
 #define	VIDENC_DEF_BITRATE			(3*1024*1024)
@@ -72,6 +73,7 @@ typedef struct tNX_VIDENC_COMP_TYPE{
 
 	//	Android Native Buffer Flasg
 	OMX_BOOL					bUseNativeBuffer;
+	OMX_BOOL					bMetaDataInBuffers;
 
 	//	Encoder parameters
 	uint32_t					encWidth;
@@ -92,10 +94,10 @@ typedef struct tNX_VIDENC_COMP_TYPE{
 	NX_VID_MEMORY_HANDLE		hCSCMem;
 
 	//	Encoder Handle
-	NX_VID_ENC_HANDLE		hVpuCodec;
-	OMX_S32					vpuCodecId;
+	NX_VID_ENC_HANDLE			hVpuCodec;
+	OMX_S32						vpuCodecId;
 
-	OMX_BYTE				pPictureBuf;
+	OMX_BYTE					pPictureBuf;
 
 }NX_VIDENC_COMP_TYPE;
 

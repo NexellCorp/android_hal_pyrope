@@ -249,6 +249,9 @@ OMX_ERRORTYPE NX_VidEncComponentInit (OMX_HANDLETYPE hComponent)
 	pEncComp->hBufAllocSem = NX_CreateSem(0, 16);
 	gstNumInstance ++;
 
+	pEncComp->bUseNativeBuffer = OMX_FALSE;
+	pEncComp->bMetaDataInBuffers = OMX_FALSE;
+
 
 	//	Default Encoder Paramter
 	pEncComp->bCodecSpecificInfo= OMX_FALSE;
@@ -500,8 +503,8 @@ static OMX_ERRORTYPE NX_VidEncSetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE 
 		case OMX_IndexParamVideoPortFormat:
 		{
 			OMX_VIDEO_PARAM_PORTFORMATTYPE *pVideoFormat = (OMX_VIDEO_PARAM_PORTFORMATTYPE *)ComponentParamStruct;
-			//int32_t h_stride = pEncComp->encWidth;
-			//int32_t v_stride = pEncComp->encHeight;
+			int32_t h_stride = pEncComp->encWidth;
+			int32_t v_stride = pEncComp->encHeight;
 			if( pVideoFormat->nPortIndex == 0 )
 			{
 				memcpy( &pEncComp->inputFormat, pVideoFormat, sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE) );
@@ -510,7 +513,7 @@ static OMX_ERRORTYPE NX_VidEncSetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE 
 			{
 				memcpy( &pEncComp->outputFormat, pVideoFormat, sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE) );
 			}
-			//pEncComp->pOutputPort->stdPortDef.nBufferSize        = h_stride*v_stride + ALIGN(v_stride>>1,16) * ALIGN(h_stride>>1,16) * 2;
+			pEncComp->pOutputPort->stdPortDef.nBufferSize = h_stride*v_stride + ALIGN(v_stride>>1,16) * ALIGN(h_stride>>1,16) * 2;
 			break;
 		}
 
@@ -594,11 +597,7 @@ static OMX_ERRORTYPE NX_VidEncSetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE 
 		{
 			struct StoreMetaDataInBuffersParams *pParam = (struct StoreMetaDataInBuffersParams *)ComponentParamStruct;
 			TRACE("%s() : OMX_IndexStoreMetaDataInBuffers : port Index = %ld\n", __FUNCTION__, pParam->nPortIndex );
-			if( pParam->nPortIndex != 0 )
-			{
-				NX_ErrMsg( "Error: %s() : port index = %d\n", __FUNCTION__, pParam->nPortIndex );
-				//return OMX_ErrorBadPortIndex;
-			}
+			pEncComp->bMetaDataInBuffers = pParam->bStoreMetaData;
 			break;
 		}
 		default :
@@ -1234,15 +1233,14 @@ static OMX_S32 EncoderOpen(NX_VIDENC_COMP_TYPE *pEncComp)
 	pEncComp->encHeight = pInPortDef->format.video.nFrameHeight;
 	NX_VID_ENC_INIT_PARAM encInitParam;
 
-	DbgMsg( "==============================================\n" );
-	DbgMsg( "  encWidth       = %d\n", pEncComp->encWidth       );
-	DbgMsg( "  encHeight      = %d\n", pEncComp->encHeight      );
-	DbgMsg( "  encKeyInterval = %d\n", pEncComp->encKeyInterval );
-	DbgMsg( "  encFrameRate   = %d\n", pEncComp->encFrameRate   );
-	DbgMsg( "  encBitRate     = %d\n", pEncComp->encBitRate     );
-	DbgMsg( "==============================================\n" );
+	TRACE( "==============================================\n" );
+	TRACE( "  encWidth       = %d\n", pEncComp->encWidth       );
+	TRACE( "  encHeight      = %d\n", pEncComp->encHeight      );
+	TRACE( "  encKeyInterval = %d\n", pEncComp->encKeyInterval );
+	TRACE( "  encFrameRate   = %d\n", pEncComp->encFrameRate   );
+	TRACE( "  encBitRate     = %d\n", pEncComp->encBitRate     );
+	TRACE( "==============================================\n" );
 
-    ALOGD("%s 2", __func__);
 	pEncComp->hVpuCodec = NX_VidEncOpen( NX_AVC_ENC );
 	if( NULL == pEncComp->hVpuCodec  )
 	{
@@ -1307,7 +1305,6 @@ static OMX_S32 EncoderClose(NX_VIDENC_COMP_TYPE *pEncComp)
 		pEncComp->hCSCMem = NULL;
 	}
 
-
 	return 0;
 }
 
@@ -1320,22 +1317,48 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 	OMX_S32 *recodingBuffer;
 
 	FUNC_IN;
+	if( NX_PopQueue( pInQueue, (void**)&pInBuf ) || pInBuf == NULL )
+	{
+		return 0;
+	}
 
-	if( NX_PopQueue( pInQueue, (void**)&pInBuf ) || pInBuf == NULL ){
+	if( pInBuf->nFlags & OMX_BUFFERFLAG_EOS )
+	{
+		pInBuf->nFilledLen = 0;		//	wast all input buffer
+		pEncComp->pCallbacks->EmptyBufferDone( pEncComp, pEncComp->hComp->pApplicationPrivate, pInBuf );
+
+		NX_PopQueue( pOutQueue, (void**)&pOutBuf );
+		pOutBuf->nOffset = 0;
+		pOutBuf->nTimeStamp = pInBuf->nTimeStamp;
+		pOutBuf->nFilledLen = 0;
+		pOutBuf->nFlags = pInBuf->nFlags;
+		pEncComp->pCallbacks->FillBufferDone( pEncComp, pEncComp->hComp->pApplicationPrivate, pOutBuf );
 		return 0;
 	}
 
 	//	Get YUV Image Plane
 	recodingBuffer = (OMX_S32*)pInBuf->pBuffer;
-	if( recodingBuffer[0] != 1 )	//	1 : kMetadataBufferTypeGrallocSource
+
+	if( recodingBuffer[0]!=kMetadataBufferTypeCameraSource &&
+		recodingBuffer[0]!=kMetadataBufferTypeGrallocSource &&
+		pEncComp->inputFormat.eColorFormat != OMX_COLOR_FormatAndroidOpaque &&
+		pEncComp->inputFormat.eColorFormat != OMX_COLOR_FormatYUV420Planar )
 	{
-		ErrMsg("VideoEncoder Require kMetadataBufferTypeGrallocSource data!!!\n");
+		ErrMsg("Encoding Mode : NativeBuffer(%ld), MetaDataInBuffers(%ld), InputFormat(0x%08x) !!!\n", pEncComp->bUseNativeBuffer, pEncComp->bMetaDataInBuffers, pEncComp->inputFormat.eColorFormat);
 		return -1;
 	}
 
-	hPrivate = (struct private_handle_t const *)recodingBuffer[1];
+	TRACE("Encoding Mode : NativeBuffer(%ld), MetaDataInBuffers(%ld), InputFormat(0x%08x) !!!\n", pEncComp->bUseNativeBuffer, pEncComp->bMetaDataInBuffers, pEncComp->inputFormat.eColorFormat);
+
+	//
+	//	Data Format :
+	//		pInBuf->pBuffer[0~3] : Buffer Type
+	//		pInBuf->pBuffer[4~7] : private_hand_t *
+	//		ARGB Buffer
+	//
 	if( pEncComp->inputFormat.eColorFormat == OMX_COLOR_FormatAndroidOpaque )
 	{
+		hPrivate = (struct private_handle_t const *)recodingBuffer[1];
 		int ion_fd = ion_open();
 		if( ion_fd<0 )
 		{
@@ -1349,35 +1372,37 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 			close(ion_fd);
 			return -1;
 		}
-
 		//	CSC
 		if( pEncComp->hCSCMem == NULL )
 		{
 			pEncComp->hCSCMem = NX_VideoAllocateMemory( 4096, pEncComp->encWidth, pEncComp->encHeight, NX_MEM_MAP_LINEAR, FOURCC_NV12 );
 		}
-
 		if( pEncComp->hCSCMem )
 		{
 			cscARGBToNV21( (char*)inData, (char*)pEncComp->hCSCMem->luVirAddr, (char*)pEncComp->hCSCMem->cbVirAddr, pEncComp->encWidth, pEncComp->encHeight, 1);
 			memset( &inputMem, 0, sizeof(inputMem) );
 			inputMem.memoryMap = 0;		//	Linear
 			inputMem.fourCC    = FOURCC_NV12;
-			inputMem.imgWidth  = pEncComp->encWidth;
-			inputMem.imgHeight = pEncComp->encHeight;
+			inputMem.imgWidth  = hPrivate->width;
+			inputMem.imgHeight = hPrivate->height;
 			inputMem.luPhyAddr = pEncComp->hCSCMem->luPhyAddr;
-			inputMem.cbPhyAddr = inputMem.luPhyAddr + hPrivate->width * hPrivate->height;
-			inputMem.crPhyAddr = inputMem.luPhyAddr + hPrivate->width * hPrivate->height;
-			inputMem.luStride  = hPrivate->width;
-			inputMem.cbStride  = hPrivate->width;
+			inputMem.cbPhyAddr = pEncComp->hCSCMem->cbPhyAddr;
+			inputMem.crPhyAddr = pEncComp->hCSCMem->crPhyAddr;
+			inputMem.luStride  = 
+			inputMem.cbStride  = 
+			inputMem.crStride  = hPrivate->width;
 		}
 		munmap( inData, hPrivate->size );
 		close(ion_fd);
-		TRACE("PhyAddr(0x%08x,0x%08x), stride(%d)\n", inputMem.luPhyAddr, inputMem.cbPhyAddr, hPrivate->stride );
 	}
-	else
+	//
+	//	Data Format :
+	//		pInBuf->pBuffer[0~3] : Buffer Type
+	//		pInBuf->pBuffer[4~7] : private_hand_t *
+	//
+	else if( pEncComp->bUseNativeBuffer == OMX_TRUE || pEncComp->bMetaDataInBuffers==OMX_TRUE )
 	{
-        // psw0523 fix for new gralloc
-		int vStride = ALIGN(hPrivate->height, 16);
+		hPrivate = (struct private_handle_t const *)recodingBuffer[1];
 		int ion_fd = ion_open();
 		if( ion_fd<0 )
 		{
@@ -1391,8 +1416,9 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 			return ret;
 		}
 		
+		int vStride = ALIGN(hPrivate->height, 16);
 		inputMem.memoryMap = 0;		//	Linear
-		inputMem.fourCC    = FOURCC_YV12;
+		inputMem.fourCC    = FOURCC_MVS0;
 		inputMem.imgWidth  = pEncComp->encWidth;
 		inputMem.imgHeight = pEncComp->encHeight;
 		inputMem.cbPhyAddr = inputMem.luPhyAddr + (hPrivate->stride * hPrivate->height);
@@ -1400,6 +1426,28 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 		inputMem.luStride  = hPrivate->stride;
 		inputMem.cbStride  = inputMem.crStride = hPrivate->stride >> 1;
         close(ion_fd);
+	}
+	//
+	//	YV12 Data Format
+	//
+	else
+	{
+		//	CSC
+		if( pEncComp->hCSCMem == NULL )
+		{
+			pEncComp->hCSCMem = NX_VideoAllocateMemory( 4096, pEncComp->encWidth, pEncComp->encHeight, NX_MEM_MAP_LINEAR, FOURCC_MVS0 );
+		}
+		if( pEncComp->hCSCMem )
+		{
+			char *srcY = (char*)pInBuf->pBuffer;
+			char *srcU = srcY + pEncComp->encWidth * pEncComp->encHeight;
+			char *srcV = srcU + pEncComp->encWidth * pEncComp->encHeight / 4;
+			cscYV12ToYV12(  srcY, srcU, srcV,
+							(char*)pEncComp->hCSCMem->luVirAddr, (char*)pEncComp->hCSCMem->cbVirAddr, (char*)pEncComp->hCSCMem->crVirAddr,
+							pEncComp->encWidth, pEncComp->hCSCMem->luStride, pEncComp->hCSCMem->cbStride,
+							pEncComp->encWidth, pEncComp->encHeight );
+			memset( &inputMem, pEncComp->hCSCMem, sizeof(inputMem) );
+		}
 	}
 
 	NX_PopQueue( pOutQueue, (void**)&pOutBuf );
@@ -1435,12 +1483,12 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 	if( encOut.isKey )
 		pOutBuf->nFlags |= OMX_BUFFERFLAG_SYNCFRAME;
 
-	TRACE("Encoder : pOutBuf->nTimeStamp = %lld\n", pOutBuf->nTimeStamp);
-
 	memcpy(pOutBuf->pBuffer, encOut.outBuf, encOut.bufSize);
 	pOutBuf->nOffset = 0;
 	pOutBuf->nTimeStamp = pInBuf->nTimeStamp;
 	pOutBuf->nFilledLen = encOut.bufSize;
+
+	TRACE("Encoder : nTimeStamp(%lld), outLength(%ld) \n", pOutBuf->nTimeStamp, pOutBuf->nFilledLen);
 	pEncComp->pCallbacks->FillBufferDone( pEncComp, pEncComp->hComp->pApplicationPrivate, pOutBuf );
 
 	FUNC_OUT;

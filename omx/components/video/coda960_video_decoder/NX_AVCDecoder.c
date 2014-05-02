@@ -5,7 +5,7 @@
 #include <system/graphics.h>
 
 #include "NX_OMXVideoDecoder.h"
-#include "DecodeFrame.h"
+#include "NX_DecoderUtil.h"
 
 int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, NX_QUEUE *pOutQueue)
 {
@@ -126,69 +126,21 @@ int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 		decIn.eos = 0;
 		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, &decIn, &decOut );
 	}
+
 	TRACE("decOut : readPos = %d, writePos = %d\n", decOut.strmReadPos, decOut.strmWritePos );
+	TRACE("Output Buffer : ColorFormat(0x%08x), NatvieBuffer(%d), Thumbnail(%d), MetaDataInBuffer(%d)\n",
+			pDecComp->outputFormat.eColorFormat, pDecComp->bUseNativeBuffer, pDecComp->bEnableThumbNailMode, pDecComp->bMetaDataInBuffers );
+
 
 	if( ret==0 && decOut.outImgIdx >= 0 && ( decOut.outImgIdx < NX_OMX_MAX_BUF ) )
 	{
 		if( OMX_TRUE == pDecComp->bEnableThumbNailMode )
 		{
 			//	Thumbnail Mode
-			OMX_U8 *outData;
-			OMX_U8 *srcY, *srcU, *srcV;
-			OMX_S32 strideY, strideU, strideV, width, height;
+			NX_VID_MEMORY_INFO *pImg = &decOut.outImg;
 			NX_PopQueue( pOutQueue, (void**)&pOutBuf );
-			outData = pOutBuf->pBuffer;
-
-			srcY = (OMX_U8*)decOut.outImg.luVirAddr;
-			srcU = (OMX_U8*)decOut.outImg.cbVirAddr;
-			srcV = (OMX_U8*)decOut.outImg.crVirAddr;
-			strideY = decOut.outImg.luStride;
-			strideU = decOut.outImg.cbStride;
-			strideV = decOut.outImg.crStride;
-			width = pDecComp->width;
-			height = pDecComp->height;
-
-			if( width == strideY )
-			{
-				memcpy( outData, srcY, width*height );
-				outData += width*height;
-
-			}
-			else
-			{
-				OMX_S32 h;
-				for( h=0 ; h<height ; h++ )
-				{
-					memcpy( outData, srcY, width );
-					srcY += strideY;
-					outData += width;
-				}
-			}
-			width /= 2;
-			height /= 2;
-
-			if( width == strideU )
-			{
-				memcpy( outData, srcU, width*height );
-				outData += width*height;
-				memcpy( outData, srcV, width*height );
-			}
-			else
-			{
-				OMX_S32 h;
-				for( h=0 ; h<height ; h++ )
-				{
-					memcpy( outData, srcU, width );
-					srcY += strideY;
-					outData += width;
-				}
-				for( h=0 ; h<height ; h++ )
-				{
-					memcpy( outData, srcV, width );
-					srcY += strideY;
-					outData += width;
-				}
-			}
+			CopySurfaceToBufferYV12( (OMX_U8*)pImg->luVirAddr, (OMX_U8*)pImg->cbVirAddr, (OMX_U8*)pImg->crVirAddr,
+				pOutBuf->pBuffer, pImg->luStride, pImg->cbStride, pDecComp->width, pDecComp->height );
 
 			NX_VidDecClrDspFlag( pDecComp->hVpuCodec, NULL, decOut.outImgIdx );
 			pOutBuf->nFilledLen = pDecComp->width * pDecComp->height * 3 / 2;
@@ -200,6 +152,7 @@ int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 			DbgMsg("ThumbNail Mode : pOutBuf->nAllocLen = %ld, pOutBuf->nFilledLen = %ld\n", pOutBuf->nAllocLen, pOutBuf->nFilledLen );
 			pDecComp->outFrameCount++;
 			pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
+			goto Exit;
 		}
 		else
 		{
@@ -213,6 +166,13 @@ int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 			//	Native Window Buffer Mode
 			//	Get Output Buffer Pointer From Output Buffer Pool
 			pOutBuf = pDecComp->pOutputBuffers[decOut.outImgIdx];
+			// if( OMX_TRUE == pDecComp->bMetaDataInBuffers )
+			// {
+			// 	uint32_t *pOutBufType = pDecComp->pOutputBuffers[decOut.outImgIdx];
+			// 	*pOutBufType = kMetadataBufferTypeGrallocSource;
+			// 	pOutBuf = (OMX_BUFFERHEADERTYPE*)(((unsigned char*)pDecComp->pOutputBuffers[decOut.outImgIdx])+4);
+			// 	DbgMsg("~~~~~~~~~~~~~~~~~~~ Outbuffer Data Type ~~~~~~~~~~~~~~~~~~~~~");
+			// }
 
 			if( pDecComp->outBufferUseFlag[decOut.outImgIdx] == 0 )
 			{
