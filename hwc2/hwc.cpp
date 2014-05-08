@@ -765,15 +765,14 @@ static int hwc_open(const struct hw_module_t *module, const char *name, struct h
     fd = open(HDMI_STATE_FILE, O_RDONLY);
     if (fd < 0) {
         ALOGE("failed to open hdmi state fd: %s", HDMI_STATE_FILE);
-        goto error_out;
+    } else {
+        char val;
+        if (read(fd, &val, 1) == 1 && val == '1') {
+            me->mHDMIPlugged = true;
+            ALOGD("HDMI Plugged boot!!!");
+        }
+        me->mHDMIStateFd = fd;
     }
-
-    char val;
-    if (read(fd, &val, 1) == 1 && val == '1') {
-        me->mHDMIPlugged = true;
-        ALOGD("HDMI Plugged boot!!!");
-    }
-    me->mHDMIStateFd = fd;
 
     fd = open(VSYNC_MON_FILE, O_RDONLY);
     if (fd < 0) {
