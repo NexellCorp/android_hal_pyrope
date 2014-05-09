@@ -481,7 +481,7 @@ static OMX_ERRORTYPE NX_VidEncSetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE 
 			}
 			else{
 				//	Error
-				NX_ErrMsg("Error: %s(): in role = %s\n", __FUNCTION__, (OMX_STRING)pInRole->cRole );
+				ErrMsg("Error: %s(): in role = %s\n", __FUNCTION__, (OMX_STRING)pInRole->cRole );
 				return OMX_ErrorBadParameter;
 			}
 			if( pEncComp->compRole ){
@@ -559,12 +559,12 @@ static OMX_ERRORTYPE NX_VidEncSetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE 
 			}
 			else if( pIRF->eRefreshMode == OMX_VIDEO_IntraRefreshAdaptive )
 			{
-				NX_ErrMsg("Unsupported Encoder Setting( IntraRefreshMode(OMX_VIDEO_IntraRefreshAdaptive)!!!");
+				ErrMsg("Unsupported Encoder Setting( IntraRefreshMode(OMX_VIDEO_IntraRefreshAdaptive)!!!");
 				return OMX_ErrorUnsupportedSetting;
 			}
 			else if( pIRF->eRefreshMode == OMX_VIDEO_IntraRefreshBoth )
 			{
-				NX_ErrMsg("Unsupported Encoder Setting( IntraRefreshMode(OMX_VIDEO_IntraRefreshBoth))!!!");
+				ErrMsg("Unsupported Encoder Setting( IntraRefreshMode(OMX_VIDEO_IntraRefreshBoth))!!!");
 				return OMX_ErrorUnsupportedSetting;
 			}
 			else
@@ -1081,7 +1081,7 @@ static void NX_VidEncCommandProc( NX_VIDENC_COMP_TYPE *pEncComp, OMX_COMMANDTYPE
 				//	Bad parameter
 				eEvent = OMX_EventError;
 				nData1 = OMX_ErrorBadPortIndex;
-				NX_ErrMsg(" Errror : %s:Line(%d) : OMX_ErrorBadPortIndex(%ld)\n", __FILE__, __LINE__, nParam1);
+				ErrMsg(" Errror : %s:Line(%d) : OMX_ErrorBadPortIndex(%ld)\n", __FILE__, __LINE__, nParam1);
 				break;
 			}
 
@@ -1344,7 +1344,7 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 		pEncComp->inputFormat.eColorFormat != OMX_COLOR_FormatAndroidOpaque &&
 		pEncComp->inputFormat.eColorFormat != OMX_COLOR_FormatYUV420Planar )
 	{
-		ErrMsg("Encoding Mode : NativeBuffer(%ld), MetaDataInBuffers(%ld), InputFormat(0x%08x) !!!\n", pEncComp->bUseNativeBuffer, pEncComp->bMetaDataInBuffers, pEncComp->inputFormat.eColorFormat);
+		ErrMsg("Encoding Mode : NativeBuffer(%d), MetaDataInBuffers(%d), InputFormat(0x%08x) !!!\n", pEncComp->bUseNativeBuffer, pEncComp->bMetaDataInBuffers, pEncComp->inputFormat.eColorFormat);
 		return -1;
 	}
 
@@ -1379,7 +1379,12 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 		}
 		if( pEncComp->hCSCMem )
 		{
+			//struct timeval start, end;
+			//gettimeofday( &start, NULL );
 			cscARGBToNV21( (char*)inData, (char*)pEncComp->hCSCMem->luVirAddr, (char*)pEncComp->hCSCMem->cbVirAddr, pEncComp->encWidth, pEncComp->encHeight, 1);
+			//gettimeofday( &end, NULL );
+			//uint32_t value = (end.tv_sec - start.tv_sec)*1000 + (end.tv_usec - start.tv_usec)/1000;
+			//DbgMsg("~~~~TimeStamp = %d msec\n", value);
 			memset( &inputMem, 0, sizeof(inputMem) );
 			inputMem.memoryMap = 0;		//	Linear
 			inputMem.fourCC    = FOURCC_NV12;
@@ -1446,7 +1451,7 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 							(char*)pEncComp->hCSCMem->luVirAddr, (char*)pEncComp->hCSCMem->cbVirAddr, (char*)pEncComp->hCSCMem->crVirAddr,
 							pEncComp->encWidth, pEncComp->hCSCMem->luStride, pEncComp->hCSCMem->cbStride,
 							pEncComp->encWidth, pEncComp->encHeight );
-			memset( &inputMem, pEncComp->hCSCMem, sizeof(inputMem) );
+			memcpy(&inputMem, pEncComp->hCSCMem, sizeof(inputMem) );
 		}
 	}
 

@@ -56,7 +56,7 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 			DbgMsg("Copy Extra Data (%d)\n", inSize );
 			if( pDecComp->codecSpecificDataSize + inSize > MAX_DEC_SPECIFIC_DATA )
 			{
-				NX_ErrMsg("Too Short Codec Config Buffer!!!!\n");
+				ErrMsg("Too Short Codec Config Buffer!!!!\n");
 				goto Exit;
 			}
 			memcpy( pDecComp->codecSpecificData + pDecComp->codecSpecificDataSize, inData, inSize );

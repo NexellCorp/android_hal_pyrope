@@ -453,7 +453,7 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 			else
 			{
 				//	Error
-				NX_ErrMsg("Error: %s(): in role = %s\n", __FUNCTION__, (OMX_STRING)pInRole->cRole );
+				ErrMsg("Error: %s(): in role = %s\n", __FUNCTION__, (OMX_STRING)pInRole->cRole );
 				return OMX_ErrorBadParameter;
 			}
 
@@ -934,11 +934,11 @@ static OMX_ERRORTYPE NX_VidDec_StateTransition( NX_VIDDEC_VIDEO_COMP_TYPE *pDecC
 
 	//	Check basic errors
 	if( eCurState == eNewState ){
-		NX_ErrMsg("%s:line(%d) : %s() same state\n", __FILE__, __LINE__, __FUNCTION__ );
+		ErrMsg("%s:line(%d) : %s() same state\n", __FILE__, __LINE__, __FUNCTION__ );
 		return OMX_ErrorSameState;
 	}
 	if( OMX_StateInvalid==eCurState || OMX_StateInvalid==eNewState ){
-		NX_ErrMsg("%s:line(%d) : %s() Invalid state\n", __FILE__, __LINE__, __FUNCTION__ );
+		ErrMsg("%s:line(%d) : %s() Invalid state\n", __FILE__, __LINE__, __FUNCTION__ );
 		return OMX_ErrorInvalidState;
 	}
 
@@ -1302,7 +1302,7 @@ static void NX_VidDec_CommandProc( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_COMM
 				//	Bad parameter
 				eEvent = OMX_EventError;
 				nData1 = OMX_ErrorBadPortIndex;
-				NX_ErrMsg(" Errror : OMX_ErrorBadPortIndex(%d) : %d: %s", nParam1, __FILE__, __LINE__);
+				ErrMsg(" Errror : OMX_ErrorBadPortIndex(%ld) : %s: %d", nParam1, __FILE__, __LINE__);
 				break;
 			}
 
@@ -1733,23 +1733,6 @@ int PopVideoTimeStamp(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_TICKS *timestamp,
 		DbgMsg("Cannot Found Time Stamp!!!");
 		return -1;
 	}
-}
-
-static int isIdrFrame( unsigned char *buf, int size )
-{
-	int i;
-	int isIdr=0;
-
-	for( i=0 ; i<size-4; i++ )
-	{
-		if( buf[i]==0 && buf[i+1]==0 && ((buf[i+2]&0x1F)==0x05) )	//	Check Nal Start Code & Nal Type
-		{
-			isIdr = 1;
-			break;
-		}
-	}
-
-	return isIdr;
 }
 
 

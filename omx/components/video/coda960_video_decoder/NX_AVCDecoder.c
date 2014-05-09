@@ -56,7 +56,7 @@ int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 			DbgMsg("Copy Extra Data (%d)\n", inSize );
 			if( pDecComp->codecSpecificDataSize + inSize > MAX_DEC_SPECIFIC_DATA )
 			{
-				NX_ErrMsg("Too Short Codec Config Buffer!!!!\n");
+				ErrMsg("Too Short Codec Config Buffer!!!!\n");
 				goto Exit;
 			}
 			memcpy( pDecComp->codecSpecificData + pDecComp->codecSpecificDataSize, inData, inSize );
@@ -64,8 +64,6 @@ int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 			goto Exit;
 		}
 	}
-
-//	DbgMsg( "isIdrFrame = %d\n", isIdrFrame( pInBuf->pBuffer , pInBuf->nFilledLen ) );
 
 	//{
 	//	OMX_U8 *buf = pInBuf->pBuffer;
