@@ -59,7 +59,7 @@
 #define MAX_CHANGE_COUNT        2
 
 // prepare --set serializing sync
-//#define USE_PREPARE_SET_SERIALIZING_SYNC
+#define USE_PREPARE_SET_SERIALIZING_SYNC
 
 using namespace android;
 
