@@ -58,6 +58,9 @@
 
 #define MAX_CHANGE_COUNT        2
 
+// prepare --set serializing sync
+//#define USE_PREPARE_SET_SERIALIZING_SYNC
+
 using namespace android;
 
 /**********************************************************************************************
@@ -127,9 +130,11 @@ public:
     volatile int32_t mChangingScenario;
 
     // for prepare, set sync
+#ifdef USE_PREPARE_SET_SERIALIZING_SYNC
     Mutex mSyncLock;
     Condition mSignalSync;
     bool mPrepared;
+#endif
 
     void handleVsyncEvent();
     void handleHDMIEvent(const char *buf, int len);
@@ -417,12 +422,14 @@ static int hwc_prepare(struct hwc_composer_device_1 *dev,
 
     struct NXHWC *me = (struct NXHWC *)dev;
 
+#ifdef USE_PREPARE_SET_SERIALIZING_SYNC
     {
         Mutex::Autolock l(me->mSyncLock);
         while (me->mPrepared) {
             me->mSignalSync.wait(me->mSyncLock);
         }
     }
+#endif
 
     hwc_display_contents_1_t *lcdContents = displays[HWC_DISPLAY_PRIMARY];
     hwc_display_contents_1_t *hdmiContents = displays[HWC_DISPLAY_EXTERNAL];
@@ -453,10 +460,12 @@ static int hwc_prepare(struct hwc_composer_device_1 *dev,
         }
     }
 
+#ifdef USE_PREPARE_SET_SERIALIZING_SYNC
     {
         Mutex::Autolock l(me->mSyncLock);
         me->mPrepared = true;
     }
+#endif
 
     return 0;
 }
@@ -528,11 +537,13 @@ static int hwc_set(struct hwc_composer_device_1 *dev,
     if (android_atomic_acquire_load(&me->mChangingScenario) > 0)
         me->changeUsageScenario();
 
+#ifdef USE_PREPARE_SET_SERIALIZING_SYNC
     {
         Mutex::Autolock l(me->mSyncLock);
         me->mPrepared = false;
         me->mSignalSync.signal();
     }
+#endif
 
     return 0;
 }
@@ -865,7 +876,9 @@ static int hwc_open(const struct hw_module_t *module, const char *name, struct h
     service->registerListener(listener);
 
     // prepare - set sync
+#ifdef USE_PREPARE_SET_SERIALIZING_SYNC
     me->mPrepared = false;
+#endif
 
     sNXHWC = me;
     return 0;
