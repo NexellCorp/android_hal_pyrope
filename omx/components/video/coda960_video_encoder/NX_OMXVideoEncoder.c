@@ -1426,7 +1426,7 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 		inputMem.fourCC    = FOURCC_MVS0;
 		inputMem.imgWidth  = pEncComp->encWidth;
 		inputMem.imgHeight = pEncComp->encHeight;
-		inputMem.cbPhyAddr = inputMem.luPhyAddr + handle->stride * vstride;
+		inputMem.cbPhyAddr = inputMem.luPhyAddr + hPrivate->stride * vStride;
 		inputMem.crPhyAddr = inputMem.cbPhyAddr + ALIGN(hPrivate->stride >> 1, 16) * ALIGN(vStride >> 1, 16);
 		inputMem.luStride  = hPrivate->stride;
 		inputMem.cbStride  = inputMem.crStride = hPrivate->stride >> 1;
