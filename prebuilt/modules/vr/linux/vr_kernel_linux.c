@@ -1026,12 +1026,18 @@ static int vr_driver_resume_scheduler(struct device *dev)
 }
 
 #ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_NEXELL_DFS_BCLK
+#include <mach/nxp-dfs-bclk.h>
+#endif
 static int vr_driver_runtime_suspend(struct device *dev)
 {
 	//VR_PM_DBG("-----------------------------------------------------\n");
 	//VR_PM_DBG("	VR POWERDown Start(CONFIG_PM_RUNTIME)\n");
 
 	vr_pm_runtime_suspend();
+#ifdef CONFIG_NEXELL_DFS_BCLK
+    bclk_put(BCLK_USER_OGL);
+#endif
 
 	//VR_PM_DBG("	VR POWERDown End(CONFIG_PM_RUNTIME)\n");
 	//VR_PM_DBG("-----------------------------------------------------\n");
@@ -1043,6 +1049,9 @@ static int vr_driver_runtime_resume(struct device *dev)
 	//VR_PM_DBG("-----------------------------------------------------\n");
 	//VR_PM_DBG("	VR POWERUp Start(CONFIG_PM_RUNTIME)\n");
 
+#ifdef CONFIG_NEXELL_DFS_BCLK
+    bclk_get(BCLK_USER_OGL);
+#endif
 	vr_pm_runtime_resume();
 
 	//VR_PM_DBG("	VR POWERUp End(CONFIG_PM_RUNTIME)\n");
