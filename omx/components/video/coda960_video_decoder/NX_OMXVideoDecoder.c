@@ -38,7 +38,7 @@ int decodeVideoFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, NX
 int processEOS(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp);
 
 static OMX_S32		gstNumInstance = 0;
-static OMX_S32		gstMaxInstance = 1;
+static OMX_S32		gstMaxInstance = 2;
 
 
 #ifdef NX_DYNAMIC_COMPONENTS
