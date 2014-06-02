@@ -18,6 +18,8 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 
 	UNUSED_PARAM(pOutQueue);
 
+	memset(&decIn,  0, sizeof(decIn)  );
+
 	if( pDecComp->bFlush )
 	{
 		flushVideoCodec( pDecComp );
@@ -98,11 +100,13 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 		pDecComp->bNeedKey = OMX_FALSE;
 		pDecComp->bInitialized = OMX_TRUE;
 
-		decIn.strmBuf = inData;
-		decIn.strmSize = 0;
-		decIn.timeStamp = pInBuf->nTimeStamp;
-		decIn.eos = 0;
-		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, &decIn, &decOut );
+		//decIn.strmBuf = inData;
+		//decIn.strmSize = 0;
+		//decIn.timeStamp = pInBuf->nTimeStamp;
+		//decIn.eos = 0;
+		//ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, &decIn, &decOut );
+		ret = 0;
+		decOut.outImgIdx = -1;
 	}
 	else
 	{
