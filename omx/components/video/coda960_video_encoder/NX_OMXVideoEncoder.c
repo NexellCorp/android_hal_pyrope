@@ -77,7 +77,7 @@ static void NX_VidEncCommandThread( void *arg );
 static void NX_VidEncBufferMgmtThread( void *arg );
 
 static OMX_S32		gstNumInstance = 0;
-static OMX_S32		gstMaxInstance = 1;
+static OMX_S32		gstMaxInstance = 2;
 
 
 static OMX_S32 EncoderOpen(NX_VIDENC_COMP_TYPE *pEncComp);

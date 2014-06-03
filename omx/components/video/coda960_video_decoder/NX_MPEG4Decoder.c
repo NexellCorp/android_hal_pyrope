@@ -18,6 +18,8 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 
 	UNUSED_PARAM(pOutQueue);
 
+	memset(&decIn,  0, sizeof(decIn)  );
+
 	if( pDecComp->bFlush )
 	{
 		flushVideoCodec( pDecComp );
@@ -33,7 +35,7 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 	inSize = pInBuf->nFilledLen;
 	pDecComp->inFrameCount++;
 
-	TRACE("[%6ld]pInBuf->nFlags = 0x%08x\n", pDecComp->inFrameCount++, (int)pInBuf->nFlags );
+	TRACE("[%6ld]pInBuf->nFlags = 0x%08x\n", pDecComp->inFrameCount, (int)pInBuf->nFlags );
 
 	if( pInBuf->nFlags & OMX_BUFFERFLAG_EOS )
 	{
@@ -67,7 +69,7 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 
 	//{
 	//	OMX_U8 *buf = pInBuf->pBuffer;
-	//	DbgMsg("pInBuf->nFlags(%7d) = 0x%08x, 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x\n", pInBuf->nFilledLen, pInBuf->nFlags,
+	//	DbgMsg("pInBuf : Size(%7d) Flag(0x%08x) : 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x\n", pInBuf->nFilledLen, pInBuf->nFlags,
 	//		buf[ 0],buf[ 1],buf[ 2],buf[ 3],buf[ 4],buf[ 5],buf[ 6],buf[ 7],
 	//		buf[ 8],buf[ 9],buf[10],buf[11],buf[12],buf[13],buf[14],buf[15],
 	//		buf[16],buf[17],buf[18],buf[19],buf[20],buf[21],buf[22],buf[23] );
@@ -98,11 +100,13 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 		pDecComp->bNeedKey = OMX_FALSE;
 		pDecComp->bInitialized = OMX_TRUE;
 
-		decIn.strmBuf = inData;
-		decIn.strmSize = 0;
-		decIn.timeStamp = pInBuf->nTimeStamp;
-		decIn.eos = 0;
-		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, &decIn, &decOut );
+		//decIn.strmBuf = inData;
+		//decIn.strmSize = 0;
+		//decIn.timeStamp = pInBuf->nTimeStamp;
+		//decIn.eos = 0;
+		//ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, &decIn, &decOut );
+		ret = 0;
+		decOut.outImgIdx = -1;
 	}
 	else
 	{
@@ -137,11 +141,11 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 		}
 		else
 		{
-			if( pDecComp->isOutIdr == OMX_FALSE && decOut.picType != PIC_TYPE_I )
-			{
-				NX_VidDecClrDspFlag( pDecComp->hVpuCodec, NULL, decOut.outImgIdx );
-				goto Exit;
-			}
+			//if( pDecComp->isOutIdr == OMX_FALSE && decOut.picType != PIC_TYPE_I )
+			//{
+			//	NX_VidDecClrDspFlag( pDecComp->hVpuCodec, NULL, decOut.outImgIdx );
+			//	goto Exit;
+			//}
 			pDecComp->isOutIdr = OMX_TRUE;
 
 			//	Native Window Buffer Mode
