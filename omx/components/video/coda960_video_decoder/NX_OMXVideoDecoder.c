@@ -823,6 +823,13 @@ static OMX_ERRORTYPE NX_VidDec_EmptyThisBuffer (OMX_HANDLETYPE hComp, OMX_BUFFER
 {
 	NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp = (NX_VIDDEC_VIDEO_COMP_TYPE *)((OMX_COMPONENTTYPE *)hComp)->pComponentPrivate;
 	FUNC_IN;
+
+	//{
+	//	OMX_U8 *buf = pBuffer->pBuffer;
+	//	DbgMsg("pBuffer : Size(%7d) Flag(0x%08x) : 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x\n", pBuffer->nFilledLen, pBuffer->nFlags,
+	//		buf[ 0],buf[ 1],buf[ 2],buf[ 3],buf[ 4],buf[ 5],buf[ 6],buf[ 7]);
+	//}
+
 	//	Push data to command buffer
 	assert( NULL != pDecComp->pInputPort );
 	assert( NULL != pDecComp->pInputPortQueue );
@@ -984,12 +991,8 @@ static OMX_ERRORTYPE NX_VidDec_StateTransition( NX_VIDDEC_VIDEO_COMP_TYPE *pDecC
 				DBG_STATE("OMX_StateLoaded --> OMX_StateIdle");
 
 				break;
-			case OMX_StateWaitForResources:
-			case OMX_StateExecuting:
-			case OMX_StatePause:
-				return OMX_ErrorIncorrectStateTransition;
 			default:
-				break;
+				return OMX_ErrorIncorrectStateTransition;
 		}
 	}else if( OMX_StateIdle == eCurState ){
 		switch( eNewState )
@@ -1046,10 +1049,8 @@ static OMX_ERRORTYPE NX_VidDec_StateTransition( NX_VIDDEC_VIDEO_COMP_TYPE *pDecC
 				pDecComp->eCurState = eNewState;
 				DBG_STATE("OMX_StateIdle --> OMX_StatePause");
 				break;
-			case OMX_StateWaitForResources:
-				return OMX_ErrorIncorrectStateTransition;
 			default:
-				break;
+				return OMX_ErrorIncorrectStateTransition;
 		}
 	}else if( OMX_StateExecuting == eCurState ){
 		switch( eNewState )
@@ -1122,11 +1123,8 @@ static OMX_ERRORTYPE NX_VidDec_StateTransition( NX_VIDDEC_VIDEO_COMP_TYPE *pDecC
 				pDecComp->eCurState = eNewState;
 				DBG_STATE("OMX_StateExecuting --> OMX_StatePause");
 				break;
-			case OMX_StateLoaded:
-			case OMX_StateWaitForResources:
-				return OMX_ErrorIncorrectStateTransition;
 			default:
-				break;
+				return OMX_ErrorIncorrectStateTransition;
 		}
 	}else if( OMX_StatePause==eCurState ){
 		switch( eNewState )
@@ -1142,26 +1140,22 @@ static OMX_ERRORTYPE NX_VidDec_StateTransition( NX_VIDDEC_VIDEO_COMP_TYPE *pDecC
 				pDecComp->eCurState = eNewState;
 				DBG_STATE("OMX_StatePause --> OMX_StateExecuting");
 				break;
-			case OMX_StateLoaded:
-			case OMX_StateWaitForResources:
-				return OMX_ErrorIncorrectStateTransition;
 			default:
-				break;
+				return OMX_ErrorIncorrectStateTransition;
 		}
 	}else if( OMX_StateWaitForResources==eCurState ){
 		switch( eNewState )
 		{
 			case OMX_StateLoaded:
+				DBG_STATE("OMX_StateWaitForResources --> OMX_StateLoaded");
 				pDecComp->eCurState = eNewState;
 				break;
 			case OMX_StateIdle:
+				DBG_STATE("OMX_StateWaitForResources --> OMX_StateIdle");
 				pDecComp->eCurState = eNewState;
 				break;
-			case OMX_StateExecuting:
-			case OMX_StatePause:
-				return OMX_ErrorIncorrectStateTransition;
 			default:
-				break;
+				return OMX_ErrorIncorrectStateTransition;
 		}
 	}else{
 		//	Error
@@ -1615,6 +1609,7 @@ int flushVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 	{
 		NX_VidDecFlush( pDecComp->hVpuCodec );
 		pDecComp->isOutIdr = OMX_FALSE;
+		FUNC_OUT;
 		return NX_VidDecFlush( pDecComp->hVpuCodec );
 	}
 	FUNC_OUT;
