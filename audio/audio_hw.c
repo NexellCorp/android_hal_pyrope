@@ -483,7 +483,13 @@ static void out_select_device(struct stream_out *out)
 {
     struct audio_device *adev = out->dev;
 
-	if (AUDIO_DEVICE_OUT_AUX_DIGITAL == adev->active_out)
+     DLOGI("%s  active_out =%x\n", __FUNCTION__,adev->active_out );
+
+/*	if (AUDIO_DEVICE_OUT_AUX_DIGITAL == adev->active_out)
+		out->card = &spdif_out;
+	else
+		out->card = &pcm_out;*/
+    if (AUDIO_DEVICE_OUT_SPEAKER == adev->active_out)
 		out->card = &spdif_out;
 	else
 		out->card = &pcm_out;
@@ -750,13 +756,14 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
 //  out->stream.get_next_write_timestamp = out_get_next_write_timestamp;
 
 	// jhkim
-	struct snd_card_dev *card = &pcm_out;
+	//struct snd_card_dev *card = &pcm_out;
+    struct snd_card_dev *card = &spdif_out;
 	struct pcm_config *pcm = &out->config;
 
-	if ((devices & AUDIO_DEVICE_OUT_AUX_DIGITAL) &&
+	/*if ((devices & AUDIO_DEVICE_OUT_AUX_DIGITAL) &&
 		(flags & AUDIO_OUTPUT_FLAG_DIRECT)) {
 		card = &spdif_out;
-	}
+	}*/
 
 	ret = pcm_config_setup(card, pcm);
 	if (ret)
