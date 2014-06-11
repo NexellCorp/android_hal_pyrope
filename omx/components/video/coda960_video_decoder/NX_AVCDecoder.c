@@ -187,7 +187,7 @@ int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 				pOutBuf->nTimeStamp = pInBuf->nTimeStamp;
 				pOutBuf->nFlags     = pInBuf->nFlags;
 			}
-			TRACE("nTimeStamp = %lld\n", pOutBuf->nTimeStamp/1000);
+			TRACE("pOutBuf->nTimeStamp = %lld\n", pOutBuf->nTimeStamp/1000);
 			pDecComp->outFrameCount++;
 			pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
 		}

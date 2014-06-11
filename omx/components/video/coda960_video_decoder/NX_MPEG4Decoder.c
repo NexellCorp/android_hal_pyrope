@@ -76,6 +76,7 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 	//}
 
 	//	Push Input Time Stamp
+	TRACE("pInBuf->nTimeStamp = %lld, pInBuf->nFilledLen = %d\n", pInBuf->nTimeStamp/1000, pInBuf->nFilledLen);
 	PushVideoTimeStamp(pDecComp, pInBuf->nTimeStamp, pInBuf->nFlags );
 
 
@@ -167,7 +168,7 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 				pOutBuf->nTimeStamp = pInBuf->nTimeStamp;
 				pOutBuf->nFlags     = pInBuf->nFlags;
 			}
-			TRACE("nTimeStamp = %lld\n", pOutBuf->nTimeStamp/1000);
+			TRACE("pOutBuf->nTimeStamp = %lld\n", pOutBuf->nTimeStamp/1000);
 			pDecComp->outFrameCount++;
 			pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
 		}

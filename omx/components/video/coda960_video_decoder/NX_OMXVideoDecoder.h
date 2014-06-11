@@ -36,7 +36,7 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent);
 
 #define	NX_OMX_MAX_BUF				32
 
-#define	VID_INPORT_MIN_BUF_CNT		10					//	Max 6 Avaliable
+#define	VID_INPORT_MIN_BUF_CNT		6					//	Max 6 Avaliable
 #define	VID_INPORT_MIN_BUF_SIZE		(1024*1024*1)		//	32 Mbps( 32Mbps, 4fps )
 
 //	Default Native Buffer Mode's buffers & buffer size
