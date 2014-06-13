@@ -588,7 +588,18 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 			{
 				//	Set Input Width & Height
 				pDecComp->width = pPortDef->format.video.nFrameWidth;
-				pDecComp->height = pPortDef->format.video.nFrameWidth;
+				pDecComp->height = pPortDef->format.video.nFrameHeight;
+
+				if( pDecComp->videoCodecId == NX_AVC_DEC )
+				{
+					int MBs;
+					MBs = ((pDecComp->width+15)>>4)*((pDecComp->height+15)>>4);
+					if(MBs < 1200)
+					{
+						pDecComp->pOutputPort->stdPortDef.nBufferCountMin = 19;
+						pDecComp->pOutputPort->stdPortDef.nBufferCountActual = 19;
+					}
+				}
 			}
 			break;
 		}

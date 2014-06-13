@@ -31,6 +31,30 @@ const OMX_VIDEO_AVCLEVELTYPE gstDecSupportedAVCLevels[MAX_DEC_SUPPORTED_AVC_LEVE
     OMX_VIDEO_AVCLevel42,	/**< Level 4.2 */
 };
 
+//	Max DPB(Deocded Picture Buffer Size Table)
+const double gstAVCMaxDeocdedPictureBuffer[MAX_DEC_SUPPORTED_AVC_LEVELS] = 
+{
+	148.5  , 148.5  , 337.5  , 891.0  , 891.0  , 891.0  , 1782.0 ,
+	3037.5 , 3037.5 , 6750.0 , 7680.0 , 12288.0, 12288.0, 13056.0
+};
+
+#ifndef MIN
+#define MIN(A,B)	((A>B)?B:A)
+#endif
+int AVCFindMinimumBufferSize(OMX_VIDEO_AVCLEVELTYPE level, int width, int height)
+{
+	int MBs;
+	double MaxDPB;
+	double buffers;
+	if( level < OMX_VIDEO_AVCLevel1 || level > OMX_VIDEO_AVCLevel42 )
+		return -1;
+
+	MBs = ((width+15)>>4) * ((height+15)>>4);
+	MaxDPB = gstDecSupportedAVCLevels[level];
+	buffers = 1024.*MaxDPB/(MBs*384.) + 0.9999;
+	return MIN( (int)buffers, 16 );
+}
+
 
 //
 //  Mpeg4 Supported Profile & Level
