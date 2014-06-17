@@ -79,15 +79,27 @@ int HDMICommonImpl::configRgb(struct hwc_layer_1 &layer)
     return 0;
 }
 
-int HDMICommonImpl::configVideo(struct hwc_layer_1 &layer)
+int HDMICommonImpl::configVideo(struct hwc_layer_1 &layer, const private_handle_t *h)
 {
     if (likely(mVideoConfigured))
         return 0;
 
+    int width;
+    int height;
+
+    if (h) {
+        width = h->width;
+        height = h->height;
+    } else {
+        width = layer.sourceCrop.right - layer.sourceCrop.left;
+        height = layer.sourceCrop.bottom - layer.sourceCrop.top;
+    }
+
     int ret = v4l2_set_format(mVideoID,
-            mWidth,
-            mHeight,
+            width,
+            height,
             V4L2_PIX_FMT_YUV420);
+    ALOGV("configVideo: %d:%d - %d:%d", layer.sourceCrop.left, layer.sourceCrop.top, layer.sourceCrop.right, layer.sourceCrop.bottom);
     if (ret < 0) {
         ALOGE("configVideo(): failed to v4l2_set_format()");
         return ret;

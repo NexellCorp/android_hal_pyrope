@@ -191,7 +191,7 @@ int HDMIUseGLAndVideoImpl::set(hwc_display_contents_1_t *contents, void *unused)
     if (mVideoLayerIndex >= 0) {
         mVideoHandle = reinterpret_cast<private_handle_t const *>(contents->hwLayers[mVideoLayerIndex].handle);
         mVideoRenderer->setHandle(mVideoHandle);
-        configVideo(contents->hwLayers[mVideoLayerIndex]);
+        configVideo(contents->hwLayers[mVideoLayerIndex], mVideoHandle);
         configVideoCrop(contents->hwLayers[mVideoLayerIndex]);
     } else {
         unConfigVideo();

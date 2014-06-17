@@ -28,7 +28,7 @@ protected:
     virtual void init();
 
     int configRgb(struct hwc_layer_1 &layer);
-    int configVideo(struct hwc_layer_1 &layer);
+    int configVideo(struct hwc_layer_1 &layer, const private_handle_t *h = NULL);
     int configHDMI(int width, int height);
     int configHDMI(uint32_t preset);
     int configVideoCrop(struct hwc_layer_1 &layer);
