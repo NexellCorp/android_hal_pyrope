@@ -85,9 +85,9 @@ int HDMICommonImpl::configVideo(struct hwc_layer_1 &layer)
         return 0;
 
     int ret = v4l2_set_format(mVideoID,
-            layer.sourceCrop.right - layer.sourceCrop.left,
-            layer.sourceCrop.bottom - layer.sourceCrop.top,
-            V4L2_PIX_FMT_YUV420M);
+            mWidth,
+            mHeight,
+            V4L2_PIX_FMT_YUV420);
     if (ret < 0) {
         ALOGE("configVideo(): failed to v4l2_set_format()");
         return ret;

@@ -155,6 +155,30 @@ int HDMIUseGLAndVideoImpl::set(hwc_display_contents_1_t *contents, void *unused)
 
     configHDMI(mWidth, mHeight);
 
+    mRGBLayerIndex = -1;
+    mVideoLayerIndex = -1;
+
+    for (size_t i = 0; i < contents->numHwLayers; i++) {
+        hwc_layer_1_t &layer = contents->hwLayers[i];
+
+        if (layer.compositionType == HWC_FRAMEBUFFER_TARGET) {
+            mRGBLayerIndex = i;
+            continue;
+        }
+
+        if (layer.compositionType == HWC_BACKGROUND)
+            continue;
+
+        if (mVideoLayerIndex == -1 && canOverlay(layer)) {
+            mVideoLayerIndex = i;
+            continue;
+        }
+
+        if (mRGBLayerIndex >= 0 && mVideoLayerIndex >= 0)
+            break;
+    }
+
+
     if (mRGBLayerIndex >= 0) {
         mRGBHandle = reinterpret_cast<private_handle_t const *>(contents->hwLayers[mRGBLayerIndex].handle);
         mRGBRenderer->setHandle(mRGBHandle);
