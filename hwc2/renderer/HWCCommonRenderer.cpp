@@ -48,13 +48,13 @@ HWCCommonRenderer::~HWCCommonRenderer()
 {
 }
 
-int HWCCommonRenderer::render()
+int HWCCommonRenderer::render(int *fenceFd)
 {
     if (mHandle) {
         int ret;
         private_handle_t const *hnd = mHandle;
 
-        ret = v4l2_qbuf(mID, mPlaneNum, mOutIndex, hnd, -1, NULL);
+        ret = v4l2_qbuf(mID, mPlaneNum, mOutIndex, hnd, -1, NULL, fenceFd, NULL);
         if (ret < 0) {
             ALOGE("failed to v4l2_qbuf()");
             return ret;
@@ -85,6 +85,7 @@ int HWCCommonRenderer::render()
         }
         mHandle = NULL;
     }
+
     return 0;
 }
 

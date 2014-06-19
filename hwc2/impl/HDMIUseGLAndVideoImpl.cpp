@@ -150,6 +150,7 @@ int HDMIUseGLAndVideoImpl::set(hwc_display_contents_1_t *contents, void *unused)
 
     mRGBHandle = NULL;
     mVideoHandle = NULL;
+    mVideoLayer = NULL;
 
     ALOGV("set: rgb %d, video %d", mRGBLayerIndex, mVideoLayerIndex);
 
@@ -171,6 +172,7 @@ int HDMIUseGLAndVideoImpl::set(hwc_display_contents_1_t *contents, void *unused)
 
         if (mVideoLayerIndex == -1 && canOverlay(layer)) {
             mVideoLayerIndex = i;
+            mVideoLayer = &layer;
             continue;
         }
 
@@ -213,8 +215,12 @@ private_handle_t const *HDMIUseGLAndVideoImpl::getVideoHandle()
 
 int HDMIUseGLAndVideoImpl::render()
 {
-    if (mVideoHandle)
-        mVideoRenderer->render();
+    if (mVideoHandle) {
+        int syncFd = mVideoLayer->acquireFenceFd;
+        mVideoRenderer->render(&syncFd);
+        mVideoLayer->releaseFenceFd = syncFd;
+        ALOGD("acquirefd: %d, releasefd: %d", mVideoLayer->acquireFenceFd, syncFd);
+    }
     if (mRGBHandle)
         mRGBRenderer->render();
     return 0;

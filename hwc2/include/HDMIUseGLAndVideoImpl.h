@@ -31,6 +31,7 @@ private:
     HWCRenderer *mVideoRenderer;
     private_handle_t const *mRGBHandle;
     private_handle_t const *mVideoHandle;
+    struct hwc_layer_1 *mVideoLayer;
 };
 
 }; // namespace

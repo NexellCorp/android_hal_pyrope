@@ -22,7 +22,7 @@ public:
         return mHandle;
     }
 
-    virtual int render() = 0;
+    virtual int render(int *fenceFd = NULL) = 0;
 
     virtual int stop() {
         return 0;

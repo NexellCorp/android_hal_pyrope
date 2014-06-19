@@ -418,7 +418,7 @@ int V4l2Video::qBuf(int planeNum, int index0, int const *fds0, int const *sizes0
         v4l2_buf.length = planeNum;
         if (syncfd0 != NULL) {
             v4l2_buf.flags = V4L2_BUF_FLAG_USE_SYNC;
-            v4l2_buf.reserved = -1; // acquire fence fd
+            v4l2_buf.reserved = *syncfd0; // acquire fence fd
         }
 
         for (i = 0; i < planeNum; i++) {
@@ -428,7 +428,7 @@ int V4l2Video::qBuf(int planeNum, int index0, int const *fds0, int const *sizes0
 
         int ret =  ioctl(FD, VIDIOC_QBUF, &v4l2_buf);
         if (ret == 0 && syncfd0 != NULL) {
-            *syncfd0 = v4l2_buf.reserved;
+            *syncfd0 = v4l2_buf.reserved; // release fence fd
         }
         return ret;
     } else {

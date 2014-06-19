@@ -13,7 +13,7 @@ public:
 
     virtual ~LCDRGBRenderer();
 
-    virtual int render();
+    virtual int render(int *fenceFd = NULL);
 
 private:
     int mFBFd;

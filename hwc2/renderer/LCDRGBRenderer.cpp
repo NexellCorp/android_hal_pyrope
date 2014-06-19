@@ -46,7 +46,7 @@ LCDRGBRenderer::~LCDRGBRenderer()
 }
 
 #define NXPFB_SET_FB_FD _IOW('N', 102, __u32)
-int LCDRGBRenderer::render()
+int LCDRGBRenderer::render(int *fenceFd)
 {
     if (mHandle) {
 #if 0

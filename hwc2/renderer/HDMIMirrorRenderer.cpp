@@ -123,7 +123,7 @@ private_handle_t const *HDMIMirrorRenderer::getHandle()
 #endif
 }
 
-int HDMIMirrorRenderer::render()
+int HDMIMirrorRenderer::render(int *fenceFd)
 {
     int ret;
 #if 0
