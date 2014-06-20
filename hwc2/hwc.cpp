@@ -414,6 +414,17 @@ static int get_hwc_property(uint32_t *pScenario)
 /**********************************************************************************************
  * Android HWComposer Callback Funcs
  */
+static int hwc_wait_commit(struct hwc_composer_device_1 *dev)
+{
+#ifdef USE_PREPARE_SET_SERIALIZING_SYNC
+    struct NXHWC *me = (struct NXHWC *)dev;
+    Mutex::Autolock l(me->mSyncLock);
+    while (me->mPrepared)
+        me->mSignalSync.wait(me->mSyncLock);
+#endif
+    return 0;
+}
+
 static int hwc_prepare(struct hwc_composer_device_1 *dev,
         size_t numDisplays, hwc_display_contents_1_t **displays)
 {
@@ -425,9 +436,7 @@ static int hwc_prepare(struct hwc_composer_device_1 *dev,
 #ifdef USE_PREPARE_SET_SERIALIZING_SYNC
     {
         Mutex::Autolock l(me->mSyncLock);
-        while (me->mPrepared) {
-            me->mSignalSync.wait(me->mSyncLock);
-        }
+        me->mPrepared = true;
     }
 #endif
 
@@ -459,13 +468,6 @@ static int hwc_prepare(struct hwc_composer_device_1 *dev,
             }
         }
     }
-
-#ifdef USE_PREPARE_SET_SERIALIZING_SYNC
-    {
-        Mutex::Autolock l(me->mSyncLock);
-        me->mPrepared = true;
-    }
-#endif
 
     return 0;
 }
@@ -856,6 +858,8 @@ static int hwc_open(const struct hw_module_t *module, const char *name, struct h
     me->base.registerProcs  = hwc_registerProcs;
     me->base.getDisplayConfigs      = hwc_getDisplayConfigs;
     me->base.getDisplayAttributes   = hwc_getDisplayAttributes;
+
+    me->base.reserved_proc[0] = (void *)hwc_wait_commit;
 
     *device = &me->base.common;
 
