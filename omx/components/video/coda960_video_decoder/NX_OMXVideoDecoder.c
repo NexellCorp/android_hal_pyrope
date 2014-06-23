@@ -171,7 +171,7 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent)
 	//	Set Video Output Port Information
 	pDecComp->outputFormat.eColorFormat = OMX_COLOR_FormatYUV420Planar;
 	pDecComp->bUseNativeBuffer = OMX_FALSE;
-	pDecComp->bEnableThumbNailMode = OMX_FALSE;
+	pDecComp->bEnableThumbNailMode = OMX_TRUE;
 	pDecComp->bMetaDataInBuffers = OMX_FALSE;
 
 	pDecComp->outBufferAllocSize = 0;
@@ -600,6 +600,14 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 						pDecComp->pOutputPort->stdPortDef.nBufferCountActual = 19;
 					}
 				}
+				if( pDecComp->bEnableThumbNailMode )
+				{
+					pDecComp->pOutputPort->stdPortDef.nBufferSize = pDecComp->width*pDecComp->height*3/2;
+				}
+				else
+				{
+					pDecComp->pOutputPort->stdPortDef.nBufferSize = VID_OUTPORT_MIN_BUF_SIZE;
+				}
 			}
 			break;
 		}
@@ -613,6 +621,7 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 			if( pEnNativeBuf->nPortIndex != 1 )
 				return OMX_ErrorBadPortIndex;
 			pDecComp->bUseNativeBuffer = pEnNativeBuf->enable;
+			pDecComp->bEnableThumbNailMode = OMX_FALSE;
 			DbgMsg("Native buffer flag is %s!!", (pDecComp->bUseNativeBuffer==OMX_TRUE)?"Enabled":"Disabled");
 			break;
 		}
