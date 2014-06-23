@@ -594,7 +594,7 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 				{
 					int MBs;
 					MBs = ((pDecComp->width+15)>>4)*((pDecComp->height+15)>>4);
-					if(MBs < 1620)
+					if(MBs <= 1620)
 					{
 						pDecComp->pOutputPort->stdPortDef.nBufferCountMin = 19;
 						pDecComp->pOutputPort->stdPortDef.nBufferCountActual = 19;
