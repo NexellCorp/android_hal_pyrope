@@ -50,6 +50,8 @@ protected:
     bool mHDMIConfigured;
 
     // video crop
+    int mVideoWidth;
+    int mVideoHeight;
     int mVideoLeft;
     int mVideoTop;
     int mVideoRight;

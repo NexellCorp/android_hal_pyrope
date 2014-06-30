@@ -45,7 +45,8 @@ HDMIUseGLAndVideoImpl::HDMIUseGLAndVideoImpl(int rgbID, int videoID)
     mRGBRenderer(NULL),
     mVideoRenderer(NULL),
     mRGBHandle(NULL),
-    mVideoHandle(NULL)
+    mVideoHandle(NULL),
+    mVideoLayer(NULL)
 {
     init();
 }
@@ -57,7 +58,8 @@ HDMIUseGLAndVideoImpl::HDMIUseGLAndVideoImpl(int rgbID, int videoID, int width, 
     mRGBRenderer(NULL),
     mVideoRenderer(NULL),
     mRGBHandle(NULL),
-    mVideoHandle(NULL)
+    mVideoHandle(NULL),
+    mVideoLayer(NULL)
 {
     init();
 }
@@ -143,6 +145,19 @@ int HDMIUseGLAndVideoImpl::prepare(hwc_display_contents_1_t *contents)
     return 0;
 }
 
+bool HDMIUseGLAndVideoImpl::checkVideoConfigChanged()
+{
+    uint32_t width = mVideoHandle->width;
+    uint32_t height = mVideoHandle->height;
+
+    return    (width != mVideoWidth    ||
+               height != mVideoHeight  ||
+               mVideoLeft != mVideoLayer->displayFrame.left ||
+               mVideoTop  != mVideoLayer->displayFrame.top ||
+               mVideoRight != mVideoLayer->displayFrame.right ||
+               mVideoBottom != mVideoLayer->displayFrame.bottom);
+}
+
 int HDMIUseGLAndVideoImpl::set(hwc_display_contents_1_t *contents, void *unused)
 {
     // if (unlikely(!mEnabled))
@@ -193,6 +208,11 @@ int HDMIUseGLAndVideoImpl::set(hwc_display_contents_1_t *contents, void *unused)
     if (mVideoLayerIndex >= 0) {
         mVideoHandle = reinterpret_cast<private_handle_t const *>(contents->hwLayers[mVideoLayerIndex].handle);
         mVideoRenderer->setHandle(mVideoHandle);
+        bool videoConfigChanged = checkVideoConfigChanged();
+        if (videoConfigChanged) {
+            unConfigVideo();
+            mVideoRenderer->stop();
+        }
         configVideo(contents->hwLayers[mVideoLayerIndex], mVideoHandle);
         configVideoCrop(contents->hwLayers[mVideoLayerIndex]);
     } else {
@@ -219,7 +239,7 @@ int HDMIUseGLAndVideoImpl::render()
         int syncFd = mVideoLayer->acquireFenceFd;
         mVideoRenderer->render(&syncFd);
         mVideoLayer->releaseFenceFd = syncFd;
-        ALOGD("acquirefd: %d, releasefd: %d", mVideoLayer->acquireFenceFd, syncFd);
+        ALOGV("acquirefd: %d, releasefd: %d", mVideoLayer->acquireFenceFd, syncFd);
     }
     if (mRGBHandle)
         mRGBRenderer->render();

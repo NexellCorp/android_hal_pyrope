@@ -84,6 +84,8 @@ int HDMICommonImpl::configVideo(struct hwc_layer_1 &layer, const private_handle_
     if (likely(mVideoConfigured))
         return 0;
 
+    bool configChanged = false;
+
     int width;
     int height;
 
@@ -94,6 +96,9 @@ int HDMICommonImpl::configVideo(struct hwc_layer_1 &layer, const private_handle_
         width = layer.sourceCrop.right - layer.sourceCrop.left;
         height = layer.sourceCrop.bottom - layer.sourceCrop.top;
     }
+
+    mVideoWidth = width;
+    mVideoHeight = height;
 
     int ret = v4l2_set_format(mVideoID,
             width,

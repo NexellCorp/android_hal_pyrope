@@ -23,6 +23,7 @@ public:
 
 protected:
     virtual void init();
+    bool checkVideoConfigChanged();
 
 private:
     int  mRGBLayerIndex;
