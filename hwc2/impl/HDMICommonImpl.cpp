@@ -158,10 +158,24 @@ int HDMICommonImpl::configHDMI(int width, int height)
 
     uint32_t preset;
 
-    if (width <= 1280)
-        preset = V4L2_DV_720P60;
-    else
+    switch (height) {
+    case 1080:
         preset = V4L2_DV_1080P60;
+        break;
+    case 720:
+        preset = V4L2_DV_720P60;
+        break;
+    case 576:
+        preset = V4L2_DV_576P50;
+        break;
+    case 480:
+        //preset = V4L2_DV_480P60;
+        preset = V4L2_DV_480P59_94;
+        break;
+    default:
+        preset = V4L2_DV_1080P60;
+        break;
+    }
 
     return configHDMI(preset);
 }

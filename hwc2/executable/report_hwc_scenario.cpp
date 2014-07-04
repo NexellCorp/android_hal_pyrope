@@ -4,7 +4,7 @@
 
 #define HWC_PROPERTY_SCENARIO_KEY      "hwc.scenario"
 #define HWC_PROPERTY_RESOLUTION_KEY    "hwc.resolution"
-#define HWC_PROPERTY_SCALE_KEY         "hwc.key"
+#define HWC_PROPERTY_SCALE_KEY         "hwc.scale"
 
 using namespace android;
 
