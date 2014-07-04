@@ -16,7 +16,7 @@ status_t BnNXHWCService::onTransact(uint32_t code, const Parcel &data, Parcel *r
     data.checkInterface(this);
     int32_t val = data.readInt32();
 
-    ALOGD("BnNXHWCService::onTransact(%i) %i", code, val);
+    ALOGV("BnNXHWCService::onTransact(%i) %i", code, val);
 
     switch (code) {
     case HWC_SCENARIO_PROPERTY_CHANGED:
@@ -25,6 +25,10 @@ status_t BnNXHWCService::onTransact(uint32_t code, const Parcel &data, Parcel *r
 
     case HWC_RESC_SCALE_FACTOR_CHANGED:
         hwcRescScaleFactorChanged(val);
+        break;
+
+    case HWC_RESOLUTION_CHANGED:
+        hwcResolutionChanged(val);
         break;
 
     default:
