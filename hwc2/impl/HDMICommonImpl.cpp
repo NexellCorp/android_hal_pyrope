@@ -79,15 +79,32 @@ int HDMICommonImpl::configRgb(struct hwc_layer_1 &layer)
     return 0;
 }
 
-int HDMICommonImpl::configVideo(struct hwc_layer_1 &layer)
+int HDMICommonImpl::configVideo(struct hwc_layer_1 &layer, const private_handle_t *h)
 {
     if (likely(mVideoConfigured))
         return 0;
 
+    bool configChanged = false;
+
+    int width;
+    int height;
+
+    if (h) {
+        width = h->width;
+        height = h->height;
+    } else {
+        width = layer.sourceCrop.right - layer.sourceCrop.left;
+        height = layer.sourceCrop.bottom - layer.sourceCrop.top;
+    }
+
+    mVideoWidth = width;
+    mVideoHeight = height;
+
     int ret = v4l2_set_format(mVideoID,
-            layer.sourceCrop.right - layer.sourceCrop.left,
-            layer.sourceCrop.bottom - layer.sourceCrop.top,
-            V4L2_PIX_FMT_YUV420M);
+            width,
+            height,
+            V4L2_PIX_FMT_YUV420);
+    ALOGV("configVideo: %d:%d - %d:%d", layer.sourceCrop.left, layer.sourceCrop.top, layer.sourceCrop.right, layer.sourceCrop.bottom);
     if (ret < 0) {
         ALOGE("configVideo(): failed to v4l2_set_format()");
         return ret;
@@ -141,10 +158,24 @@ int HDMICommonImpl::configHDMI(int width, int height)
 
     uint32_t preset;
 
-    if (width <= 1280)
-        preset = V4L2_DV_720P60;
-    else
+    switch (height) {
+    case 1080:
         preset = V4L2_DV_1080P60;
+        break;
+    case 720:
+        preset = V4L2_DV_720P60;
+        break;
+    case 576:
+        preset = V4L2_DV_576P50;
+        break;
+    case 480:
+        //preset = V4L2_DV_480P60;
+        preset = V4L2_DV_480P59_94;
+        break;
+    default:
+        preset = V4L2_DV_1080P60;
+        break;
+    }
 
     return configHDMI(preset);
 }

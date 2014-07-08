@@ -95,6 +95,28 @@ const OMX_VIDEO_MPEG2LEVELTYPE gstDecSupportedMPEG2Levels[MAX_DEC_SUPPORTED_MPEG
     OMX_VIDEO_MPEG2LevelHL,
 };
 
+// added by kshblue (14.07.04)
+//
+//  H263 Supported Profile & Level 
+//
+const OMX_VIDEO_H263PROFILETYPE gstDecSupportedH263Profiles[MAX_DEC_SUPPORTED_H263_PROFILES] =
+{
+    OMX_VIDEO_H263ProfileBaseline,
+    OMX_VIDEO_H263ProfileISWV2,
+};
+
+const OMX_VIDEO_H263LEVELTYPE gstDecSupportedH263Levels[MAX_DEC_SUPPORTED_H263_LEVELS] =
+{
+    OMX_VIDEO_H263Level10,
+    OMX_VIDEO_H263Level20,
+    OMX_VIDEO_H263Level30,
+    OMX_VIDEO_H263Level40,
+    OMX_VIDEO_H263Level45,
+    OMX_VIDEO_H263Level50,
+    OMX_VIDEO_H263Level60,
+    OMX_VIDEO_H263Level70,
+};
+
 
 
 //  Copy Surface YV12 to General YV12

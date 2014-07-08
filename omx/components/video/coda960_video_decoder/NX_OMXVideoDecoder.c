@@ -171,7 +171,7 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent)
 	//	Set Video Output Port Information
 	pDecComp->outputFormat.eColorFormat = OMX_COLOR_FormatYUV420Planar;
 	pDecComp->bUseNativeBuffer = OMX_FALSE;
-	pDecComp->bEnableThumbNailMode = OMX_FALSE;
+	pDecComp->bEnableThumbNailMode = OMX_TRUE;
 	pDecComp->bMetaDataInBuffers = OMX_FALSE;
 
 	pDecComp->outBufferAllocSize = 0;
@@ -360,6 +360,17 @@ static OMX_ERRORTYPE NX_VidDec_GetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 				profileLevel->eProfile = gstDecSupportedMPEG4Profiles[profileIdx];
 				profileLevel->eLevel = gstDecSupportedMPEG4Levels[levelIdx];
 			}
+			else if( pDecComp->videoCodecId == NX_H263_DEC )     // add by kshblue (14.07.04)
+			{
+				if( profileLevel->nProfileIndex >= MAX_DEC_SUPPORTED_H263_PROFILES*MAX_DEC_SUPPORTED_H263_LEVELS )
+				{
+					return OMX_ErrorNoMore;
+				}
+				profileIdx = profileLevel->nProfileIndex / MAX_DEC_SUPPORTED_H263_PROFILES;
+				levelIdx = profileLevel->nProfileIndex % MAX_DEC_SUPPORTED_H263_LEVELS;
+				profileLevel->eProfile = gstDecSupportedH263Profiles[profileIdx];
+				profileLevel->eLevel = gstDecSupportedH263Levels[levelIdx];
+			}
 			else
 			{
 				return OMX_ErrorNoMore;
@@ -532,13 +543,18 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 			break;
 		}
 
-		case OMX_IndexParamVideoH263:
+		case OMX_IndexParamVideoH263:     // modified by kshblue (14.07.04)
 		{
 			OMX_VIDEO_PARAM_H263TYPE *pH263Param = (OMX_VIDEO_PARAM_H263TYPE *)ComponentParamStruct;
 			TRACE("%s(): In, (nParamIndex=0x%08x)OMX_VIDEO_PARAM_H263TYPE\n", __FUNCTION__, nParamIndex );
-			if( pH263Param->eProfile > OMX_VIDEO_H263ProfileISWV2 )
+			if( pH263Param->eProfile != OMX_VIDEO_H263ProfileBaseline || pH263Param->eProfile != OMX_VIDEO_H263ProfileISWV2 )
 			{
 				ErrMsg("NX_VidDec_SetParameter() : OMX_IndexParamVideoH263 failed!! Cannot support profile(%d)\n", pH263Param->eProfile);
+				return OMX_ErrorPortsNotCompatible;
+			}
+			if ( pH263Param->eLevel > OMX_VIDEO_H263Level70 )
+			{
+				ErrMsg("NX_VidDec_SetParameter() : OMX_IndexParamVideoH263 failed!! Cannot support level(%d)\n", pH263Param->eLevel);
 				return OMX_ErrorPortsNotCompatible;
 			}
 			break;
@@ -594,11 +610,19 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 				{
 					int MBs;
 					MBs = ((pDecComp->width+15)>>4)*((pDecComp->height+15)>>4);
-					if(MBs < 1200)
+					if(MBs <= 1620)
 					{
 						pDecComp->pOutputPort->stdPortDef.nBufferCountMin = 19;
 						pDecComp->pOutputPort->stdPortDef.nBufferCountActual = 19;
 					}
+				}
+				if( pDecComp->bEnableThumbNailMode )
+				{
+					pDecComp->pOutputPort->stdPortDef.nBufferSize = pDecComp->width*pDecComp->height*3/2;
+				}
+				else
+				{
+					pDecComp->pOutputPort->stdPortDef.nBufferSize = VID_OUTPORT_MIN_BUF_SIZE;
 				}
 			}
 			break;
@@ -613,6 +637,7 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 			if( pEnNativeBuf->nPortIndex != 1 )
 				return OMX_ErrorBadPortIndex;
 			pDecComp->bUseNativeBuffer = pEnNativeBuf->enable;
+			pDecComp->bEnableThumbNailMode = OMX_FALSE;
 			DbgMsg("Native buffer flag is %s!!", (pDecComp->bUseNativeBuffer==OMX_TRUE)?"Enabled":"Disabled");
 			break;
 		}

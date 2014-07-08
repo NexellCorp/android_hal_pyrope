@@ -12,7 +12,7 @@ public:
     HWCCommonRenderer(int id, int maxBufferCount, int planeNum = 3);
     virtual ~HWCCommonRenderer();
 
-    virtual int render();
+    virtual int render(int *fenceFd = NULL);
     virtual int stop();
 
 private:

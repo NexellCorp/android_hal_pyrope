@@ -15,7 +15,7 @@ public:
     virtual ~NULLRenderer() {
     }
 
-    virtual int render() {
+    virtual int render(int *fenceFd = NULL) {
         return 0;
     }
 };

@@ -17,7 +17,7 @@ public:
     virtual int setHandle(private_handle_t const *handle);
     virtual private_handle_t const *getHandle();
     virtual int stop();
-    virtual int render();
+    virtual int render(int *fenceFd = NULL);
 
 private:
     int mFBFd;
