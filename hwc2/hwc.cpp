@@ -9,6 +9,11 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/mman.h>
+#include <sys/time.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <linux/fb.h>
 #include <linux/media.h>
@@ -53,10 +58,17 @@
 #define HWC_SCENARIO_PROPERTY_KEY    "hwc.scenario"
 #define HWC_SCALE_PROPERTY_KEY       "hwc.scale"
 #define HWC_RESOLUTION_PROPERTY_KEY  "hwc.resolution"
+#define HWC_HDMIMODE_PROPERTY_KEY    "hwc.hdmimode"
 
 #define DEFAULT_SCALE_FACTOR    0
+#define MAX_SCALE_FACTOR        3
 
 #define MAX_CHANGE_COUNT        2
+
+enum {
+    HDMI_MODE_PRIMARY = 0,
+    HDMI_MODE_SECONDARY
+};
 
 // prepare --set serializing sync
 #define USE_PREPARE_SET_SERIALIZING_SYNC
@@ -94,7 +106,6 @@ public:
     /* fds */
     int mVsyncCtlFd;
     int mVsyncMonFd;
-    int mHDMIStateFd;
     int mFrameBufferFd;
 
     /* threads */
@@ -106,8 +117,13 @@ public:
     /* state */
     bool mHDMIPlugged;
 
-    /* usage scenario */
+    /* properties */
     uint32_t mUsageScenario;
+    uint32_t mHDMIPreset;
+    uint32_t mScaleFactor;
+    /* hdmi mode : primary 0, secondary 1 */
+    uint32_t mHDMIMode;
+
 
     /* interface to SurfaceFlinger */
     const hwc_procs_t *mProcs;
@@ -119,10 +135,6 @@ public:
     volatile int32_t mUseHDMIAlternate;
     volatile int32_t mChangeHDMIImpl;
 
-    /* HDMI preset */
-    int32_t mHDMIPreset;
-    int32_t mScaleFactor;
-
     uint32_t mCpuVersion;
 
     uint32_t mHDMIWidth;
@@ -132,9 +144,13 @@ public:
     // for prepare, set sync
 #ifdef USE_PREPARE_SET_SERIALIZING_SYNC
     Mutex mSyncLock;
-    Condition mSignalSync;
+    Condition mSyncSignal;
     bool mPrepared;
 #endif
+
+    Mutex mChangeImplLock;
+    Condition mChangeImplSignal;
+    bool mChangingImpl;
 
     void handleVsyncEvent();
     void handleHDMIEvent(const char *buf, int len);
@@ -143,206 +159,17 @@ public:
     void handleRescScaleFactorChanged(uint32_t factor);
 
     void changeUsageScenario();
+    void changeHDMIImpl();
+
+    void getHWCProperty();
+    void checkHDMIModeAndSetProperty();
+    void setHDMIPreset(uint32_t preset);
 };
 
 /**
  * for property change callback
  */
 static struct NXHWC *sNXHWC = NULL;
-
-/**********************************************************************************************
- * NXHWC Member Functions
- */
-void NXHWC::HWCPropertyChangeListener::onPropertyChanged(int code, int val)
-{
-    ALOGD("onPropertyChanged: code %i, val %i", code, val);
-    switch (code) {
-    case INXHWCService::HWC_SCENARIO_PROPERTY_CHANGED:
-        mParent->handleUsageScenarioChanged(val);
-        break;
-    case INXHWCService::HWC_RESOLUTION_CHANGED:
-        mParent->handleResolutionChanged(val);
-        break;
-    case INXHWCService::HWC_RESC_SCALE_FACTOR_CHANGED:
-        mParent->handleRescScaleFactorChanged(val);
-        break;
-    }
-}
-
-void NXHWC::handleVsyncEvent()
-{
-    if (!mProcs)
-        return;
-
-    int err = lseek(mVsyncMonFd, 0, SEEK_SET);
-    if (err < 0 ) {
-        ALOGE("error seeking to vsync timestamp: %s", strerror(errno));
-        return;
-    }
-
-    char buf[4096] = {0, };
-    err = read(mVsyncMonFd, buf, sizeof(buf));
-    if (err < 0) {
-        ALOGE("error reading vsync timestamp: %s", strerror(errno));
-        return;
-    }
-    buf[sizeof(buf) - 1] = '\0';
-
-    errno = 0;
-    uint64_t timestamp = strtoull(buf, NULL, 0);
-    ALOGV("vsync: timestamp %llu", timestamp);
-    if (!errno)
-        mProcs->vsync(mProcs, 0, timestamp);
-}
-
-void NXHWC::handleHDMIEvent(const char *buf, int len)
-{
-    const char *s = buf;
-    s += strlen(s) + 1;
-    int hpd = 0;
-
-    while (*s) {
-        if (!strncmp(s, "SWITCH_STATE=", strlen("SWITCH_STATE=")))
-            hpd = atoi(s + strlen("SWITCH_STATE=")) == 1;
-
-        s += strlen(s) + 1;
-        if (s - buf >= len)
-            break;
-    }
-
-    if (hpd) {
-        if (!mHDMIPlugged) {
-            ALOGD("hdmi plugged!!!");
-            mHDMIPlugged = true;
-            mHDMIImpl->enable();
-            mProcs->hotplug(mProcs, HWC_DISPLAY_EXTERNAL, mHDMIPlugged);
-        }
-    } else {
-        if (mHDMIPlugged) {
-            ALOGD("hdmi unplugged!!!");
-            mHDMIPlugged = false;
-            mHDMIImpl->disable();
-            if (mHDMIAlternateImpl)
-                mHDMIAlternateImpl->disable();
-            mProcs->hotplug(mProcs, HWC_DISPLAY_EXTERNAL, mHDMIPlugged);
-        }
-    }
-}
-
-void NXHWC::handleUsageScenarioChanged(uint32_t usageScenario)
-{
-    if (usageScenario != mUsageScenario) {
-        ALOGD("handleUsageScenarioChange: hwc usage scenario %d ---> %d", mUsageScenario, usageScenario);
-        android_atomic_release_cas(mChangingScenario, 1, &mChangingScenario);
-        mUsageScenario = usageScenario;
-    }
-}
-
-void NXHWC::changeUsageScenario()
-{
-    ALOGD("Change Usage Scenario real!!!");
-    android::HWCImpl *oldLCDImpl, *oldHDMIImpl, *oldHDMIAlternativeImpl;
-    android::HWCImpl *newLCDImpl, *newHDMIImpl, *newHDMIAlternativeImpl;
-
-    oldLCDImpl = mLCDImpl;
-    oldHDMIImpl = mHDMIImpl;
-    oldHDMIAlternativeImpl = mHDMIAlternateImpl;
-
-    mHDMIImpl->disable();
-    if (mHDMIAlternateImpl != NULL && mHDMIAlternateImpl->getEnabled())
-        mHDMIAlternateImpl->disable();
-
-    newLCDImpl = HWCreator::create(HWCreator::DISPLAY_LCD, mUsageScenario, mScreenInfo.width, mScreenInfo.height);
-    if (!newLCDImpl) {
-        ALOGE("failed to create lcd implementor: scenario %d", mUsageScenario);
-    }
-
-    ALOGD("hdmi wxh(%dx%d), srcwxh(%dx%d)", mHDMIWidth, mHDMIHeight, mScreenInfo.width, mScreenInfo.height);
-    newHDMIImpl = HWCreator::create(HWCreator::DISPLAY_HDMI, mUsageScenario,
-            mHDMIWidth, mHDMIHeight,
-            mScreenInfo.width, mScreenInfo.height, DEFAULT_SCALE_FACTOR);
-    if (!newHDMIImpl) {
-        ALOGE("failed to create hdmi implementor: scenario %d", mUsageScenario);
-    }
-
-    newHDMIAlternativeImpl = HWCreator::create(HWCreator::DISPLAY_HDMI_ALTERNATE, mUsageScenario,
-            mHDMIWidth, mHDMIHeight,
-            mScreenInfo.width, mScreenInfo.height, 1);
-    mUseHDMIAlternate = 0;
-    mChangeHDMIImpl = 0;
-
-    mLCDImpl = newLCDImpl;
-    mHDMIImpl = newHDMIImpl;
-    mHDMIAlternateImpl = newHDMIAlternativeImpl;
-
-    mHDMIImpl->enable();
-
-    delete oldLCDImpl;
-    delete oldHDMIImpl;
-    if (oldHDMIAlternativeImpl)
-        delete oldHDMIAlternativeImpl;
-
-    ALOGD("complete!!!");
-
-    android_atomic_release_cas(mChangingScenario, 0, &mChangingScenario);
-}
-
-void NXHWC::handleRescScaleFactorChanged(uint32_t factor)
-{
-    ALOGD("handleRescScaleFactorChanged: %d", factor);
-}
-
-void NXHWC::handleResolutionChanged(uint32_t resolution)
-{
-    ALOGD("handleResolutionChanged: %d", resolution);
-}
-
-/**********************************************************************************************
- * VSync & HDMI Hot Plug Monitoring Thread
- */
-static void *hwc_vsync_thread(void *data)
-{
-    struct NXHWC *me = (struct NXHWC *)data;
-    char uevent_desc[4096];
-    memset(uevent_desc, 0, sizeof(uevent_desc));
-
-    setpriority(PRIO_PROCESS, 0, HAL_PRIORITY_URGENT_DISPLAY);
-
-    uevent_init();
-
-    char temp[4096];
-    int err = read(me->mVsyncMonFd, temp, sizeof(temp));
-    if (err < 0) {
-        ALOGE("error reading vsync timestamp: %s", strerror(errno));
-        return NULL;
-    }
-
-    struct pollfd fds[2];
-    fds[0].fd = me->mVsyncMonFd;
-    fds[0].events = POLLPRI;
-    fds[1].fd = uevent_get_fd();
-    fds[1].events = POLLIN;
-
-    while(true) {
-        err = poll(fds, 2, -1);
-
-        if (err > 0) {
-            if (fds[0].revents & POLLPRI) {
-                me->handleVsyncEvent();
-            } else if (fds[1].revents & POLLIN) {
-                int len = uevent_next_event(uevent_desc, sizeof(uevent_desc) - 2);
-                bool hdmi = !strcmp(uevent_desc, "change@/devices/virtual/switch/hdmi");
-                if (hdmi)
-                    me->handleHDMIEvent(uevent_desc, len);
-            }
-        } else if (err == -1) {
-            if (errno == EINTR) break;
-            ALOGE("error in vsync thread: %s", strerror(errno));
-        }
-    }
-
-    return NULL;
-}
 
 /**********************************************************************************************
  * Util Funcs
@@ -397,19 +224,381 @@ static int get_fb_screen_info(struct FBScreenInfo *pInfo)
     return 0;
 }
 
-static int get_hwc_property(uint32_t *pScenario)
+static bool hdmi_connected()
+{
+    char val;
+    int fd = open(HDMI_STATE_FILE, O_RDONLY);
+    if (fd < 0) {
+        ALOGE("failed to open hdmi state fd: %s", HDMI_STATE_FILE);
+    } else {
+        char val;
+        if (read(fd, &val, 1) == 1 && val == '1') {
+            return true;
+        }
+        close(fd);
+    }
+
+    return false;
+}
+
+/**********************************************************************************************
+ * VSync & HDMI Hot Plug Monitoring Thread
+ */
+static void *hwc_vsync_thread(void *data)
+{
+    struct NXHWC *me = (struct NXHWC *)data;
+    char uevent_desc[4096];
+    memset(uevent_desc, 0, sizeof(uevent_desc));
+
+    setpriority(PRIO_PROCESS, 0, HAL_PRIORITY_URGENT_DISPLAY);
+
+    uevent_init();
+
+    char temp[4096];
+    int err = read(me->mVsyncMonFd, temp, sizeof(temp));
+    if (err < 0) {
+        ALOGE("error reading vsync timestamp: %s", strerror(errno));
+        return NULL;
+    }
+
+    struct pollfd fds[2];
+    fds[0].fd = me->mVsyncMonFd;
+    fds[0].events = POLLPRI;
+    fds[1].fd = uevent_get_fd();
+    fds[1].events = POLLIN;
+
+    while(true) {
+        err = poll(fds, 2, -1);
+
+        if (err > 0) {
+            if (fds[0].revents & POLLPRI) {
+                me->handleVsyncEvent();
+            } else if (fds[1].revents & POLLIN) {
+                int len = uevent_next_event(uevent_desc, sizeof(uevent_desc) - 2);
+                bool hdmi = !strcmp(uevent_desc, "change@/devices/virtual/switch/hdmi");
+                if (hdmi)
+                    me->handleHDMIEvent(uevent_desc, len);
+            }
+        } else if (err == -1) {
+            if (errno == EINTR) break;
+            ALOGE("error in vsync thread: %s", strerror(errno));
+        }
+    }
+
+    return NULL;
+}
+
+/**********************************************************************************************
+ * NXHWC Member Functions
+ */
+void NXHWC::HWCPropertyChangeListener::onPropertyChanged(int code, int val)
+{
+    ALOGV("onPropertyChanged: code %i, val %i", code, val);
+    switch (code) {
+    case INXHWCService::HWC_SCENARIO_PROPERTY_CHANGED:
+        mParent->handleUsageScenarioChanged(val);
+        break;
+    case INXHWCService::HWC_RESOLUTION_CHANGED:
+        mParent->handleResolutionChanged(val);
+        break;
+    case INXHWCService::HWC_RESC_SCALE_FACTOR_CHANGED:
+        mParent->handleRescScaleFactorChanged(val);
+        break;
+    }
+}
+
+void NXHWC::handleVsyncEvent()
+{
+    if (!mProcs)
+        return;
+
+    int err = lseek(mVsyncMonFd, 0, SEEK_SET);
+    if (err < 0 ) {
+        ALOGE("error seeking to vsync timestamp: %s", strerror(errno));
+        return;
+    }
+
+    char buf[4096] = {0, };
+    err = read(mVsyncMonFd, buf, sizeof(buf));
+    if (err < 0) {
+        ALOGE("error reading vsync timestamp: %s", strerror(errno));
+        return;
+    }
+    buf[sizeof(buf) - 1] = '\0';
+
+    errno = 0;
+    uint64_t timestamp = strtoull(buf, NULL, 0);
+    ALOGV("vsync: timestamp %llu", timestamp);
+    if (!errno)
+        mProcs->vsync(mProcs, 0, timestamp);
+}
+
+void NXHWC::handleHDMIEvent(const char *buf, int len)
+{
+    const char *s = buf;
+    s += strlen(s) + 1;
+    int hpd = 0;
+
+    while (*s) {
+        if (!strncmp(s, "SWITCH_STATE=", strlen("SWITCH_STATE=")))
+            hpd = atoi(s + strlen("SWITCH_STATE=")) == 1;
+
+        s += strlen(s) + 1;
+        if (s - buf >= len)
+            break;
+    }
+
+    //Mutex::Autolock l(mChangeImplLock);
+    //while (mChangingImpl)
+        //mChangeImplSignal.wait(mChangeImplLock);
+
+    if (hpd) {
+        if (!mHDMIPlugged) {
+            ALOGD("hdmi plugged!!!");
+
+            mHDMIPlugged = true;
+            mHDMIImpl->enable();
+            mProcs->hotplug(mProcs, HWC_DISPLAY_EXTERNAL, mHDMIPlugged);
+        }
+    } else {
+        if (mHDMIPlugged) {
+            ALOGD("hdmi unplugged!!!");
+
+            mHDMIPlugged = false;
+            mHDMIImpl->disable();
+            if (mHDMIAlternateImpl)
+                mHDMIAlternateImpl->disable();
+            mProcs->hotplug(mProcs, HWC_DISPLAY_EXTERNAL, mHDMIPlugged);
+        }
+    }
+}
+
+void NXHWC::handleUsageScenarioChanged(uint32_t usageScenario)
+{
+    if (usageScenario != mUsageScenario) {
+        ALOGD("handleUsageScenarioChange: hwc usage scenario %d ---> %d", mUsageScenario, usageScenario);
+        android_atomic_release_cas(mChangingScenario, 1, &mChangingScenario);
+        mUsageScenario = usageScenario;
+    }
+}
+
+void NXHWC::changeUsageScenario()
+{
+    ALOGD("Change Usage Scenario real!!!");
+    android::HWCImpl *oldLCDImpl, *oldHDMIImpl, *oldHDMIAlternativeImpl;
+    android::HWCImpl *newLCDImpl, *newHDMIImpl, *newHDMIAlternativeImpl;
+
+    oldLCDImpl = mLCDImpl;
+    oldHDMIImpl = mHDMIImpl;
+    oldHDMIAlternativeImpl = mHDMIAlternateImpl;
+
+    mHDMIImpl->disable();
+    if (mHDMIAlternateImpl != NULL && mHDMIAlternateImpl->getEnabled())
+        mHDMIAlternateImpl->disable();
+
+    newLCDImpl = HWCreator::create(HWCreator::DISPLAY_LCD, mUsageScenario, mScreenInfo.width, mScreenInfo.height);
+    if (!newLCDImpl) {
+        ALOGE("failed to create lcd implementor: scenario %d", mUsageScenario);
+    }
+
+    ALOGD("hdmi wxh(%dx%d), srcwxh(%dx%d)", mHDMIWidth, mHDMIHeight, mScreenInfo.width, mScreenInfo.height);
+    newHDMIImpl = HWCreator::create(HWCreator::DISPLAY_HDMI, mUsageScenario,
+            mHDMIWidth, mHDMIHeight,
+            mScreenInfo.width, mScreenInfo.height, DEFAULT_SCALE_FACTOR);
+    if (!newHDMIImpl) {
+        ALOGE("failed to create hdmi implementor: scenario %d", mUsageScenario);
+    }
+
+    newHDMIAlternativeImpl = HWCreator::create(HWCreator::DISPLAY_HDMI_ALTERNATE,
+            mUsageScenario,
+            mHDMIWidth,
+            mHDMIHeight,
+            mScreenInfo.width,
+            mScreenInfo.height,
+            mScaleFactor);
+    mUseHDMIAlternate = 0;
+    mChangeHDMIImpl = 0;
+
+    mLCDImpl = newLCDImpl;
+    mHDMIImpl = newHDMIImpl;
+    mHDMIAlternateImpl = newHDMIAlternativeImpl;
+
+    mHDMIImpl->enable();
+
+    delete oldLCDImpl;
+    delete oldHDMIImpl;
+    if (oldHDMIAlternativeImpl)
+        delete oldHDMIAlternativeImpl;
+
+    ALOGD("complete!!!");
+
+    android_atomic_release_cas(mChangingScenario, 0, &mChangingScenario);
+}
+
+void NXHWC::changeHDMIImpl()
+{
+    ALOGD("changeHDMIImpl entered");
+
+    // 1. check hdmi connected, disable hdmi
+    if (mHDMIPlugged) {
+        mHDMIPlugged = false;
+        mHDMIImpl->disable();
+        if (mHDMIAlternateImpl)
+            mHDMIAlternateImpl->disable();
+        ALOGD("changeHDMIImpl: force disconnect!");
+        mProcs->hotplug(mProcs, HWC_DISPLAY_EXTERNAL, mHDMIPlugged);
+    }
+
+    // 2. create new impl
+    android::HWCImpl *newHDMIImpl, *newHDMIAlternativeImpl;
+
+    newHDMIImpl = HWCreator::create(HWCreator::DISPLAY_HDMI,
+            mUsageScenario,
+            mHDMIWidth,
+            mHDMIHeight,
+            mScreenInfo.width,
+            mScreenInfo.height,
+            mScaleFactor);
+    if (!newHDMIImpl) {
+        ALOGE("handleResolutionChanged: failed to create hdmi implementor: scenario %d", mUsageScenario);
+        return;
+    }
+
+    newHDMIAlternativeImpl = HWCreator::create(HWCreator::DISPLAY_HDMI_ALTERNATE,
+            mUsageScenario,
+            mHDMIWidth,
+            mHDMIHeight,
+            mScreenInfo.width,
+            mScreenInfo.height,
+            mScaleFactor);
+
+    mUseHDMIAlternate = 0;
+
+    // 3. swap impl
+    android::HWCImpl *oldHDMIImpl = mHDMIImpl;
+    android::HWCImpl *oldHDMIAlternativeImpl = mHDMIAlternateImpl;
+
+    mHDMIImpl = newHDMIImpl;
+    mHDMIAlternateImpl = newHDMIAlternativeImpl;
+
+    // 4. delete old impl
+    delete oldHDMIImpl;
+    if (oldHDMIAlternativeImpl)
+        delete oldHDMIAlternativeImpl;
+
+    // 5. check hdmi connected and if so, enable
+    if (hdmi_connected()) {
+        ALOGD("changeHDMIImpl: force connect!");
+        mHDMIPlugged = true;
+        mHDMIImpl->enable();
+        mProcs->hotplug(mProcs, HWC_DISPLAY_EXTERNAL, mHDMIPlugged);
+    }
+
+    mChangingImpl = false;
+    mChangeImplSignal.signal();
+    ALOGD("changeHDMIImpl exit");
+}
+
+void NXHWC::handleRescScaleFactorChanged(uint32_t factor)
+{
+    ALOGD("handleRescScaleFactorChanged: %d", factor);
+}
+
+void NXHWC::handleResolutionChanged(uint32_t preset)
+{
+    ALOGD("handleResolutionChanged: %d", preset);
+
+    if (preset == mHDMIPreset)
+        return;
+
+    setHDMIPreset(preset);
+
+    {
+        Mutex::Autolock l(mChangeImplLock);
+        mChangingImpl = true;
+    }
+}
+
+void NXHWC::getHWCProperty()
 {
     int len;
-    const char *key = HWC_SCENARIO_PROPERTY_KEY;
     char buf[PROPERTY_VALUE_MAX];
-    len = property_get(key, buf, "2"); // default - LCDUseOnlyGL, HDMIUseOnlyGL
+    len = property_get((const char *)HWC_SCENARIO_PROPERTY_KEY, buf, "2"); // default - LCDUseOnlyGL, HDMIUseOnlyGL
     if (len <= 0)
-        *pScenario = 0;
+        mUsageScenario = 2;
     else
-        *pScenario = atoi(buf);
+        mUsageScenario = atoi(buf);
 
-    return len;
+    if (mUsageScenario >= HWCreator::USAGE_SCENARIO_MAX) {
+        ALOGW("invalid hwc scenario %d", mUsageScenario);
+        mUsageScenario = HWCreator::LCD_USE_ONLY_GL_HDMI_USE_ONLY_MIRROR;
+    }
+
+    len = property_get((const char *)HWC_RESOLUTION_PROPERTY_KEY, buf, "18"); // default - 1920x1080
+    if (len <= 0)
+        setHDMIPreset(18);
+    else
+        setHDMIPreset(atoi(buf));
+
+    len = property_get((const char *)HWC_SCALE_PROPERTY_KEY, buf, "3"); // default - no down scale
+    if (len <= 0)
+        mScaleFactor = 0;
+    else
+        mScaleFactor = MAX_SCALE_FACTOR - atoi(buf);
 }
+
+void NXHWC::checkHDMIModeAndSetProperty()
+{
+    int fd = open("/sys/devices/platform/nxp-hdmi/modalias", O_RDONLY);
+    char *mode;
+    if (fd < 0) {
+        ALOGD("%s: hdmi is secondary", __func__);
+        mHDMIMode = HDMI_MODE_SECONDARY;
+        mode = (char *)"secondary";
+    } else {
+        ALOGD("%s: hdmi is primary", __func__);
+        mHDMIMode = HDMI_MODE_PRIMARY;
+        mode = (char *)"primary";
+        close(fd);
+    }
+    property_set((const char *)HWC_HDMIMODE_PROPERTY_KEY, mode);
+}
+
+void NXHWC::setHDMIPreset(uint32_t preset)
+{
+    if (preset != mHDMIPreset) {
+        switch (preset) {
+            case V4L2_DV_1080P60:
+                mHDMIWidth = 1920;
+                mHDMIHeight = 1080;
+                mHDMIPreset = preset;
+                break;
+            case V4L2_DV_720P60:
+                mHDMIWidth = 1280;
+                mHDMIHeight = 720;
+                mHDMIPreset = preset;
+                break;
+            case V4L2_DV_576P50:
+                mHDMIWidth = 720;
+                mHDMIHeight = 576;
+                mHDMIPreset = preset;
+                break;
+            case V4L2_DV_480P60:
+                mHDMIWidth = 720;
+                mHDMIHeight = 480;
+                mHDMIPreset = preset;
+                break;
+            default:
+                mHDMIWidth = 1920;
+                mHDMIHeight = 1080;
+                mHDMIPreset = V4L2_DV_1080P60;
+                break;
+        }
+
+        ALOGD("HDMI Resolution: %dx%d", mHDMIWidth, mHDMIHeight);
+    }
+}
+
 
 /**********************************************************************************************
  * Android HWComposer Callback Funcs
@@ -420,7 +609,7 @@ static int hwc_wait_commit(struct hwc_composer_device_1 *dev)
     struct NXHWC *me = (struct NXHWC *)dev;
     Mutex::Autolock l(me->mSyncLock);
     while (me->mPrepared)
-        me->mSignalSync.wait(me->mSyncLock);
+        me->mSyncSignal.wait(me->mSyncLock);
 #endif
     return 0;
 }
@@ -543,9 +732,15 @@ static int hwc_set(struct hwc_composer_device_1 *dev,
     {
         Mutex::Autolock l(me->mSyncLock);
         me->mPrepared = false;
-        me->mSignalSync.signal();
+        me->mSyncSignal.signal();
     }
 #endif
+
+    {
+        Mutex::Autolock l(me->mChangeImplLock);
+        if (me->mChangingImpl)
+            me->changeHDMIImpl();
+    }
 
     return 0;
 }
@@ -720,8 +915,6 @@ static int hwc_close(hw_device_t *device)
 
     if (me->mVsyncCtlFd > 0)
         close(me->mVsyncCtlFd);
-    if (me->mHDMIStateFd > 0)
-        close(me->mHDMIStateFd);
     if (me->mVsyncMonFd > 0)
         close(me->mVsyncMonFd);
 
@@ -758,15 +951,15 @@ static int hwc_open(const struct hw_module_t *module, const char *name, struct h
         return -ENOMEM;
     }
 
-    me->mCpuVersion = getNXCpuVersion();
-    ALOGD("cpu version: %u", me->mCpuVersion);
-    if (me->mCpuVersion) {
-        me->mHDMIWidth = 1920;
-        me->mHDMIHeight = 1080;
-    } else {
-        me->mHDMIWidth = 1280;
-        me->mHDMIHeight = 720;
-    }
+    //me->mCpuVersion = getNXCpuVersion();
+    //ALOGD("cpu version: %u", me->mCpuVersion);
+    //if (me->mCpuVersion) {
+        //me->mHDMIWidth = 1920;
+        //me->mHDMIHeight = 1080;
+    //} else {
+        //me->mHDMIWidth = 1280;
+        //me->mHDMIHeight = 720;
+    //}
 
     int fd = open(VSYNC_CTL_FILE, O_RDWR);
     if (fd < 0) {
@@ -775,16 +968,9 @@ static int hwc_open(const struct hw_module_t *module, const char *name, struct h
     }
     me->mVsyncCtlFd = fd;
 
-    fd = open(HDMI_STATE_FILE, O_RDONLY);
-    if (fd < 0) {
-        ALOGE("failed to open hdmi state fd: %s", HDMI_STATE_FILE);
-    } else {
-        char val;
-        if (read(fd, &val, 1) == 1 && val == '1') {
-            me->mHDMIPlugged = true;
-            ALOGD("HDMI Plugged boot!!!");
-        }
-        me->mHDMIStateFd = fd;
+    if (hdmi_connected()) {
+        me->mHDMIPlugged = true;
+        ALOGD("HDMI Plugged boot!!!");
     }
 
     fd = open(VSYNC_MON_FILE, O_RDONLY);
@@ -800,32 +986,39 @@ static int hwc_open(const struct hw_module_t *module, const char *name, struct h
         goto error_out;
     }
 
-    uint32_t scenario;
-    get_hwc_property(&scenario);
-    if (scenario >= HWCreator::USAGE_SCENARIO_MAX) {
-        ALOGW("invalid hwc scenario %d", scenario);
-        scenario = HWCreator::LCD_USE_ONLY_GL_HDMI_USE_ONLY_MIRROR;
-    }
-    ALOGD("scenario : %d", scenario);
-    me->mUsageScenario = scenario;
+    //get_hwc_property(me);
+    me->getHWCProperty();
+    //check_hdmi_mode_and_set_property(me);
+    me->checkHDMIModeAndSetProperty();
 
-    me->mLCDImpl = HWCreator::create(HWCreator::DISPLAY_LCD, scenario, me->mScreenInfo.width, me->mScreenInfo.height);
+    me->mLCDImpl = HWCreator::create(HWCreator::DISPLAY_LCD,
+            me->mUsageScenario,
+            me->mScreenInfo.width,
+            me->mScreenInfo.height);
     if (!me->mLCDImpl) {
-        ALOGE("failed to create lcd implementor: scenario %d", scenario);
+        ALOGE("failed to create lcd implementor: scenario %d", me->mUsageScenario);
         goto error_out;
     }
 
-    me->mHDMIImpl = HWCreator::create(HWCreator::DISPLAY_HDMI, scenario,
-            me->mHDMIWidth, me->mHDMIHeight,
-            me->mScreenInfo.width, me->mScreenInfo.height, DEFAULT_SCALE_FACTOR);
+    me->mHDMIImpl = HWCreator::create(HWCreator::DISPLAY_HDMI,
+            me->mUsageScenario,
+            me->mHDMIWidth,
+            me->mHDMIHeight,
+            me->mScreenInfo.width,
+            me->mScreenInfo.height,
+            me->mScaleFactor);
     if (!me->mHDMIImpl) {
-        ALOGE("failed to create hdmi implementor: scenario %d", scenario);
+        ALOGE("failed to create hdmi implementor: scenario %d", me->mUsageScenario);
         goto error_out;
     }
 
-    me->mHDMIAlternateImpl = HWCreator::create(HWCreator::DISPLAY_HDMI_ALTERNATE, scenario,
-            me->mHDMIWidth, me->mHDMIHeight,
-            me->mScreenInfo.width, me->mScreenInfo.height, 1);
+    me->mHDMIAlternateImpl = HWCreator::create(HWCreator::DISPLAY_HDMI_ALTERNATE,
+            me->mUsageScenario,
+            me->mHDMIWidth,
+            me->mHDMIHeight,
+            me->mScreenInfo.width,
+            me->mScreenInfo.height,
+            me->mScaleFactor);
     me->mUseHDMIAlternate = 0;
     ALOGD("mHDMIAlternateImpl %p", me->mHDMIAlternateImpl);
 
@@ -836,6 +1029,7 @@ static int hwc_open(const struct hw_module_t *module, const char *name, struct h
     }
 
     me->mChangingScenario = 0;
+    me->mChangingImpl = false;
 
     android_nxp_v4l2_init();
 
@@ -891,8 +1085,6 @@ error_out:
 #if 0
     if (me->mVsyncCtlFd > 0)
         close(me->mVsyncCtlFd);
-    if (me->mHDMIStateFd > 0)
-        close(me->mHDMIStateFd);
     if (me->mVsyncMonFd > 0)
         close(me->mVsyncMonFd);
     if (me->mLCDImpl)

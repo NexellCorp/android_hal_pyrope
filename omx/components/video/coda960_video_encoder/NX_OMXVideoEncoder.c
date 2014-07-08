@@ -1233,6 +1233,10 @@ static OMX_S32 EncoderOpen(NX_VIDENC_COMP_TYPE *pEncComp)
 	pEncComp->encHeight = pInPortDef->format.video.nFrameHeight;
 	NX_VID_ENC_INIT_PARAM encInitParam;
 
+	// add by kshblue (14.07.04)
+	if ( pEncComp->encWidth == 0 || pEncComp->encHeight == 0)
+		pEncComp->encWidth = 1280, pEncComp->encHeight = 720;
+
 	TRACE( "==============================================\n" );
 	TRACE( "  encWidth       = %d\n", pEncComp->encWidth       );
 	TRACE( "  encHeight      = %d\n", pEncComp->encHeight      );
