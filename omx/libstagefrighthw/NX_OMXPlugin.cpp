@@ -142,7 +142,7 @@ OMX_ERRORTYPE NX_OMXPlugin::getRolesOfComponent(const char *name,Vector<String8>
             array[i] = new OMX_U8[OMX_MAX_STRINGNAME_SIZE];
         }
 
-        OMX_U32 numRoles2;
+        OMX_U32 numRoles2 = numRoles;     // modified by kshblue(14.07.04)
         err = (*mGetRolesOfComponentHandle)(
                 const_cast<OMX_STRING>(name), &numRoles2, array);
 
