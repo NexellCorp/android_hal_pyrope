@@ -59,11 +59,9 @@
 #define HWC_SCALE_PROPERTY_KEY       "hwc.scale"
 #define HWC_RESOLUTION_PROPERTY_KEY  "hwc.resolution"
 #define HWC_HDMIMODE_PROPERTY_KEY    "hwc.hdmimode"
+#define HWC_SCREEN_DOWNSIZING_PROPERTY_KEY "hwc.screendownsizing"
 
-#define DEFAULT_SCALE_FACTOR    0
 #define MAX_SCALE_FACTOR        3
-
-#define MAX_CHANGE_COUNT        2
 
 enum {
     HDMI_MODE_PRIMARY = 0,
@@ -119,10 +117,11 @@ public:
 
     /* properties */
     uint32_t mUsageScenario;
+    uint32_t mOriginalUsageScenario;
     uint32_t mHDMIPreset;
     uint32_t mScaleFactor;
-    /* hdmi mode : primary 0, secondary 1 */
     uint32_t mHDMIMode;
+    bool     mScreenDownSizing;
 
 
     /* interface to SurfaceFlinger */
@@ -157,6 +156,7 @@ public:
     void handleUsageScenarioChanged(uint32_t usageScenario);
     void handleResolutionChanged(uint32_t reolution);
     void handleRescScaleFactorChanged(uint32_t factor);
+    void handleScreenDownSizingChanged(int downsizing);
 
     void changeUsageScenario();
     void changeHDMIImpl();
@@ -164,6 +164,8 @@ public:
     void getHWCProperty();
     void checkHDMIModeAndSetProperty();
     void setHDMIPreset(uint32_t preset);
+
+    void determineUsageScenario();
 };
 
 /**
@@ -274,10 +276,12 @@ static void *hwc_vsync_thread(void *data)
             if (fds[0].revents & POLLPRI) {
                 me->handleVsyncEvent();
             } else if (fds[1].revents & POLLIN) {
-                int len = uevent_next_event(uevent_desc, sizeof(uevent_desc) - 2);
-                bool hdmi = !strcmp(uevent_desc, "change@/devices/virtual/switch/hdmi");
-                if (hdmi)
-                    me->handleHDMIEvent(uevent_desc, len);
+                if (me->mHDMIMode == HDMI_MODE_SECONDARY) {
+                    int len = uevent_next_event(uevent_desc, sizeof(uevent_desc) - 2);
+                    bool hdmi = !strcmp(uevent_desc, "change@/devices/virtual/switch/hdmi");
+                    if (hdmi)
+                        me->handleHDMIEvent(uevent_desc, len);
+                }
             }
         } else if (err == -1) {
             if (errno == EINTR) break;
@@ -303,6 +307,9 @@ void NXHWC::HWCPropertyChangeListener::onPropertyChanged(int code, int val)
         break;
     case INXHWCService::HWC_RESC_SCALE_FACTOR_CHANGED:
         mParent->handleRescScaleFactorChanged(val);
+        break;
+    case INXHWCService::HWC_SCREEN_DOWNSIZING_CHANGED:
+        mParent->handleScreenDownSizingChanged(val);
         break;
     }
 }
@@ -347,10 +354,6 @@ void NXHWC::handleHDMIEvent(const char *buf, int len)
         if (s - buf >= len)
             break;
     }
-
-    //Mutex::Autolock l(mChangeImplLock);
-    //while (mChangingImpl)
-        //mChangeImplSignal.wait(mChangeImplLock);
 
     if (hpd) {
         if (!mHDMIPlugged) {
@@ -404,7 +407,7 @@ void NXHWC::changeUsageScenario()
     ALOGD("hdmi wxh(%dx%d), srcwxh(%dx%d)", mHDMIWidth, mHDMIHeight, mScreenInfo.width, mScreenInfo.height);
     newHDMIImpl = HWCreator::create(HWCreator::DISPLAY_HDMI, mUsageScenario,
             mHDMIWidth, mHDMIHeight,
-            mScreenInfo.width, mScreenInfo.height, DEFAULT_SCALE_FACTOR);
+            mScreenInfo.width, mScreenInfo.height, mScaleFactor);
     if (!newHDMIImpl) {
         ALOGE("failed to create hdmi implementor: scenario %d", mUsageScenario);
     }
@@ -440,6 +443,9 @@ void NXHWC::changeHDMIImpl()
     ALOGD("changeHDMIImpl entered");
 
     // 1. check hdmi connected, disable hdmi
+    //mHDMIImpl->disable();
+    //if (mHDMIAlternateImpl)
+        //mHDMIAlternateImpl->disable();
     if (mHDMIPlugged) {
         mHDMIPlugged = false;
         mHDMIImpl->disable();
@@ -502,6 +508,40 @@ void NXHWC::changeHDMIImpl()
 void NXHWC::handleRescScaleFactorChanged(uint32_t factor)
 {
     ALOGD("handleRescScaleFactorChanged: %d", factor);
+
+    // this is not used
+#if 0
+    uint32_t scaleFactor = MAX_SCALE_FACTOR - factor;
+
+    if (scaleFactor == mScaleFactor)
+        return;
+
+    mScaleFactor = scaleFactor;
+    determineUsageScenario();
+
+    {
+        Mutex::Autolock l(mChangeImplLock);
+        mChangingImpl = true;
+    }
+#endif
+}
+
+void NXHWC::handleScreenDownSizingChanged(int downsizing)
+{
+    ALOGD("handleScreenDownSizingChanged: %d", downsizing);
+
+    bool isDownSizing = (bool)downsizing;
+
+    if (isDownSizing == mScreenDownSizing)
+        return;
+
+    mScreenDownSizing = isDownSizing;
+    determineUsageScenario();
+
+    {
+        Mutex::Autolock l(mChangeImplLock);
+        mChangingImpl = true;
+    }
 }
 
 void NXHWC::handleResolutionChanged(uint32_t preset)
@@ -533,6 +573,7 @@ void NXHWC::getHWCProperty()
         ALOGW("invalid hwc scenario %d", mUsageScenario);
         mUsageScenario = HWCreator::LCD_USE_ONLY_GL_HDMI_USE_ONLY_MIRROR;
     }
+    mOriginalUsageScenario = mUsageScenario;
 
     len = property_get((const char *)HWC_RESOLUTION_PROPERTY_KEY, buf, "18"); // default - 1920x1080
     if (len <= 0)
@@ -540,11 +581,21 @@ void NXHWC::getHWCProperty()
     else
         setHDMIPreset(atoi(buf));
 
+#if 0
     len = property_get((const char *)HWC_SCALE_PROPERTY_KEY, buf, "3"); // default - no down scale
     if (len <= 0)
         mScaleFactor = 0;
     else
         mScaleFactor = MAX_SCALE_FACTOR - atoi(buf);
+#else
+    mScaleFactor = 0;
+#endif
+
+    len = property_get((const char *)HWC_SCREEN_DOWNSIZING_PROPERTY_KEY, buf, "0"); // default - no downsizing
+    if (len <= 0)
+        mScreenDownSizing = false;
+    else
+        mScreenDownSizing = buf[0] == '1' ? true : false;
 }
 
 void NXHWC::checkHDMIModeAndSetProperty()
@@ -599,6 +650,43 @@ void NXHWC::setHDMIPreset(uint32_t preset)
     }
 }
 
+void NXHWC::determineUsageScenario()
+{
+    //if (mScaleFactor > 0) {
+    if (mScreenDownSizing) {
+        switch (mUsageScenario) {
+        case HWCreator::LCD_USE_ONLY_GL_HDMI_USE_ONLY_MIRROR:
+            mUsageScenario = HWCreator::LCD_USE_ONLY_GL_HDMI_USE_MIRROR_RESC;
+            break;
+
+        case HWCreator::LCD_USE_ONLY_GL_HDMI_USE_ONLY_GL:
+            mUsageScenario = HWCreator::LCD_USE_ONLY_GL_HDMI_USE_GL_RESC;
+            break;
+
+        case HWCreator::LCD_USE_ONLY_GL_HDMI_USE_GL_AND_VIDEO:
+            mUsageScenario = HWCreator::LCD_USE_ONLY_GL_HDMI_USE_GL_AND_VIDEO_RESC;
+            break;
+
+        case HWCreator::LCD_USE_ONLY_GL_HDMI_USE_MIRROR_AND_VIDEO:
+            mUsageScenario = HWCreator::LCD_USE_ONLY_GL_HDMI_USE_MIRROR_AND_VIDEO_RESC;
+            break;
+
+        case HWCreator::LCD_USE_GL_AND_VIDEO_HDMI_USE_ONLY_GL:
+            mUsageScenario = HWCreator::LCD_USE_GL_AND_VIDEO_HDMI_USE_GL_RESC;
+            break;
+
+        case HWCreator::LCD_USE_GL_AND_VIDEO_HDMI_USE_GL_AND_VIDEO:
+            mUsageScenario = HWCreator::LCD_USE_GL_AND_VIDEO_HDMI_USE_GL_AND_VIDEO_RESC;
+            break;
+
+        case HWCreator::LCD_USE_GL_AND_VIDEO_HDMI_USE_MIRROR_AND_VIDEO:
+            mUsageScenario = HWCreator::LCD_USE_GL_AND_VIDEO_HDMI_USE_MIRROR_AND_VIDEO_RESC;
+            break;
+        }
+    } else {
+        mUsageScenario = mOriginalUsageScenario;
+    }
+}
 
 /**********************************************************************************************
  * Android HWComposer Callback Funcs
@@ -681,7 +769,6 @@ static int hwc_set(struct hwc_composer_device_1 *dev,
         rgbHandle = me->mLCDImpl->getRgbHandle();
     }
 
-    //if (hdmiContents) {
     if (hdmiContents && me->mHDMIPlugged) {
         if (me->mChangeHDMIImpl) {
             if (me->mUseHDMIAlternate) {
@@ -782,17 +869,10 @@ static int hwc_blank(struct hwc_composer_device_1 *dev, int disp, int blank)
         break;
 
     case HWC_DISPLAY_EXTERNAL:
-#if 0
-        if (blank)
-            return me->mHDMIImpl->disable();
-        else
-            return me->mHDMIImpl->enable();
-#else
         if (blank)
             v4l2_set_ctrl(nxp_v4l2_hdmi, V4L2_CID_HDMI_ON_OFF, 0);
         else
             v4l2_set_ctrl(nxp_v4l2_hdmi, V4L2_CID_HDMI_ON_OFF, 1);
-#endif
         break;
 
     default:
@@ -951,27 +1031,12 @@ static int hwc_open(const struct hw_module_t *module, const char *name, struct h
         return -ENOMEM;
     }
 
-    //me->mCpuVersion = getNXCpuVersion();
-    //ALOGD("cpu version: %u", me->mCpuVersion);
-    //if (me->mCpuVersion) {
-        //me->mHDMIWidth = 1920;
-        //me->mHDMIHeight = 1080;
-    //} else {
-        //me->mHDMIWidth = 1280;
-        //me->mHDMIHeight = 720;
-    //}
-
     int fd = open(VSYNC_CTL_FILE, O_RDWR);
     if (fd < 0) {
         ALOGE("failed to open vsync ctl fd: %s", VSYNC_CTL_FILE);
         goto error_out;
     }
     me->mVsyncCtlFd = fd;
-
-    if (hdmi_connected()) {
-        me->mHDMIPlugged = true;
-        ALOGD("HDMI Plugged boot!!!");
-    }
 
     fd = open(VSYNC_MON_FILE, O_RDONLY);
     if (fd < 0) {
@@ -986,10 +1051,13 @@ static int hwc_open(const struct hw_module_t *module, const char *name, struct h
         goto error_out;
     }
 
-    //get_hwc_property(me);
     me->getHWCProperty();
-    //check_hdmi_mode_and_set_property(me);
     me->checkHDMIModeAndSetProperty();
+
+    if (me->mHDMIMode == HDMI_MODE_SECONDARY && hdmi_connected()) {
+        me->mHDMIPlugged = true;
+        ALOGD("HDMI Plugged boot!!!");
+    }
 
     me->mLCDImpl = HWCreator::create(HWCreator::DISPLAY_LCD,
             me->mUsageScenario,

@@ -19,12 +19,14 @@ public:
     enum {
         HWC_SCENARIO_PROPERTY_CHANGED = IBinder::FIRST_CALL_TRANSACTION,
         HWC_RESOLUTION_CHANGED,
-        HWC_RESC_SCALE_FACTOR_CHANGED
+        HWC_RESC_SCALE_FACTOR_CHANGED,
+        HWC_SCREEN_DOWNSIZING_CHANGED,
     };
 
     virtual void hwcScenarioChanged(int32_t scenario) = 0;
     virtual void hwcResolutionChanged(int32_t resolution) = 0;
     virtual void hwcRescScaleFactorChanged(int32_t factor) = 0;
+    virtual void hwcScreenDownSizingChanged(int32_t downsizing) = 0;
 
     DECLARE_META_INTERFACE(NXHWCService);
 };
@@ -63,6 +65,15 @@ public:
         ALOGD("transact %d", resolution);
         remote()->transact(HWC_RESOLUTION_CHANGED, data, NULL);
     }
+
+    virtual void hwcScreenDownSizingChanged(int32_t downsizing) {
+        Parcel data;
+        data.writeInterfaceToken(INXHWCService::getInterfaceDescriptor());
+        data.writeInt32(downsizing);
+
+        ALOGD("transact %d", downsizing);
+        remote()->transact(HWC_SCREEN_DOWNSIZING_CHANGED, data, NULL);
+    }
 };
 
 IMPLEMENT_META_INTERFACE(NXHWCService, "NXHWCService");
@@ -90,6 +101,7 @@ public:
     virtual void hwcScenarioChanged(int32_t scenario);
     virtual void hwcRescScaleFactorChanged(int32_t factor);
     virtual void hwcResolutionChanged(int32_t resolution);
+    virtual void hwcScreenDownSizingChanged(int32_t downsizing);
 
 private:
     sp<PropertyChangeListener> mListener;

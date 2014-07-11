@@ -31,6 +31,10 @@ status_t BnNXHWCService::onTransact(uint32_t code, const Parcel &data, Parcel *r
         hwcResolutionChanged(val);
         break;
 
+    case HWC_SCREEN_DOWNSIZING_CHANGED:
+        hwcScreenDownSizingChanged(val);
+        break;
+
     default:
         return BBinder::onTransact(code, data, reply, flags);
     }
@@ -60,6 +64,12 @@ void NXHWCService::hwcResolutionChanged(int32_t resolution)
 {
     if (mListener != NULL)
         mListener->onPropertyChanged(HWC_RESOLUTION_CHANGED, resolution);
+}
+
+void NXHWCService::hwcScreenDownSizingChanged(int32_t downsizing)
+{
+    if (mListener != NULL)
+        mListener->onPropertyChanged(HWC_SCREEN_DOWNSIZING_CHANGED, downsizing);
 }
 
 sp<INXHWCService> getNXHWCService()
