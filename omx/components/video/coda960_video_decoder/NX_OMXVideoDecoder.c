@@ -1786,6 +1786,7 @@ int processEOS(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 	NX_VID_RET ret;
 	NX_VID_DEC_IN decIn;
 	NX_VID_DEC_OUT decOut;
+
 	if( pDecComp->hVpuCodec )
 	{
 		decIn.strmBuf = 0;
@@ -1795,53 +1796,82 @@ int processEOS(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, &decIn, &decOut );
 		if( ret==0 && decOut.outImgIdx >= 0 && ( decOut.outImgIdx < NX_OMX_MAX_BUF ) )
 		{
-			//	Native Window Buffer Mode
-			//	Get Output Buffer Pointer From Output Buffer Pool
-			pOutBuf = pDecComp->pOutputBuffers[decOut.outImgIdx];
+      		pOutBuf = pDecComp->pOutputBuffers[decOut.outImgIdx];
 
-			if( pDecComp->outBufferUseFlag[decOut.outImgIdx] == 0 )
+			if( pDecComp->bEnableThumbNailMode == OMX_TRUE )
 			{
+				//	Thumbnail Mode
+				NX_VID_MEMORY_INFO *pImg = &decOut.outImg;
+				NX_PopQueue( pDecComp->pOutputPortQueue, (void**)&pOutBuf );
+				CopySurfaceToBufferYV12( (OMX_U8*)pImg->luVirAddr, (OMX_U8*)pImg->cbVirAddr, (OMX_U8*)pImg->crVirAddr,
+					pOutBuf->pBuffer, pImg->luStride, pImg->cbStride, pDecComp->width, pDecComp->height );
+
 				NX_VidDecClrDspFlag( pDecComp->hVpuCodec, NULL, decOut.outImgIdx );
-				ErrMsg("Unexpected Buffer Handling!!!! Goto Exit\n");
+				pOutBuf->nFilledLen = pDecComp->width * pDecComp->height * 3 / 2;
 			}
 			else
 			{
-				pDecComp->outBufferUseFlag[decOut.outImgIdx] = 0;
-				pDecComp->curOutBuffers --;
-
-				pOutBuf->nFilledLen = sizeof(struct private_handle_t);
-				if( 0 != PopVideoTimeStamp(pDecComp, &pOutBuf->nTimeStamp, &pOutBuf->nFlags )  )
+				//	Native Window Buffer Mode
+				//	Get Output Buffer Pointer From Output Buffer Pool
+				if( pDecComp->outBufferUseFlag[decOut.outImgIdx] == 0 )
 				{
-					pOutBuf->nTimeStamp = -1;
-					pOutBuf->nFlags     = 0x10;	//	Frame Flag
+					NX_VidDecClrDspFlag( pDecComp->hVpuCodec, NULL, decOut.outImgIdx );
+					ErrMsg("Unexpected Buffer Handling!!!! Goto Exit\n");
+					return 0;
 				}
-				DbgMsg("[%6ld]Send Buffer after EOS Receive( Delayed Frame. )\n", pDecComp->outFrameCount);
-				pDecComp->outFrameCount++;
-				pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
+				else
+				{
+					pDecComp->outBufferUseFlag[decOut.outImgIdx] = 0;
+					pDecComp->curOutBuffers --;
+
+					pOutBuf->nFilledLen = sizeof(struct private_handle_t);
+				}
 			}
+
+			if( 0 != PopVideoTimeStamp(pDecComp, &pOutBuf->nTimeStamp, &pOutBuf->nFlags )  )
+			{
+				pOutBuf->nTimeStamp = -1;
+				pOutBuf->nFlags     = 0x10;	//	Frame Flag
+			}
+			DbgMsg("[%6ld]Send Buffer after EOS Receive( Delayed Frame. )\n", pDecComp->outFrameCount);
+			pDecComp->outFrameCount++;
+			pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
+
 			return 0;
 		}
 	}
 
 	//	Real EOS Send
-	for( i=0 ; i<NX_OMX_MAX_BUF ; i++ )
+	if ( pDecComp->bEnableThumbNailMode == OMX_TRUE )
 	{
-		if( pDecComp->outBufferUseFlag[i] )
+		if( NX_GetQueueCnt(pDecComp->pOutputPortQueue) > 0)
 		{
-			pOutBuf = pDecComp->pOutputBuffers[i];
-			break;
+			if (NX_PopQueue( pDecComp->pOutputPortQueue, (void**)&pOutBuf ) == 0)
+			{
+				pOutBuf->nTimeStamp = 0;
+				pOutBuf->nFlags = OMX_BUFFERFLAG_EOS;
+				pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
+			}
 		}
 	}
-	if( pOutBuf )
+	else
 	{
-		pDecComp->outBufferUseFlag[i] = 0;
-		pDecComp->curOutBuffers --;
-		pOutBuf->nFilledLen = 0;
-		pOutBuf->nTimeStamp = 0;
-		pOutBuf->nFlags     = OMX_BUFFERFLAG_EOS;
-		pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
-		DbgMsg("~~~~ Send EOS Message ~~~~");
+		for( i=0 ; i<NX_OMX_MAX_BUF ; i++ )
+		{
+			if( pDecComp->outBufferUseFlag[i] )
+			{
+				pOutBuf = pDecComp->pOutputBuffers[i];
+				pDecComp->outBufferUseFlag[i] = 0;
+				pDecComp->curOutBuffers --;
+				pOutBuf->nFilledLen = 0;
+				pOutBuf->nTimeStamp = 0;
+				pOutBuf->nFlags     = OMX_BUFFERFLAG_EOS;
+				pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
+				break;
+			}
+		}
 	}
+
 	return 0;
 }
 
