@@ -22,6 +22,7 @@
 #include <expat.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <cutils/properties.h>
 #include <cutils/log.h>
@@ -29,10 +30,10 @@
 #include <tinyalsa/asoundlib.h>
 
 #define BUF_SIZE 1024
-#define	MIXER_XML_PATH		"/system/etc"
+#define MIXER_XML_PATH		"/system/etc"
 #define	MIXER_XML_NAME		"tiny_hw"
 #define	MIXER_MAX_CARD		3
-#define MIXER_PATH_SIZE		8
+#define INITIAL_MIXER_PATH_SIZE 8
 
 #if	(0)
 #define LOGD(msg...)	ALOGI(msg)
@@ -46,22 +47,16 @@ struct mixer_state {
     int *old_value;
     int *new_value;
     int *reset_value;
-    /* If linked is true, only the first element in each array is valid */
-    bool old_linked;
-    bool new_linked;
-    bool reset_linked;
 };
 
 struct mixer_setting {
-    struct mixer_ctl *ctl;
+    unsigned int ctl_index;
     unsigned int num_values;
     int *value;
-    /* If linked is true, only the first element in each array is valid */
-    bool linked;
 };
 
 struct mixer_value {
-    struct mixer_ctl *ctl;
+    unsigned int ctl_index;
     int index;
     int value;
 };
@@ -91,16 +86,22 @@ struct config_parse_state {
 
 /* path functions */
 
-static void path_print(struct mixer_path *path)
+static inline struct mixer_ctl *index_to_ctl(struct audio_route *ar,
+                                             unsigned int ctl_index)
+{
+    return ar->mixer_state[ctl_index].ctl;
+}
+
+static void path_print(struct audio_route *ar, struct mixer_path *path)
 {
     unsigned int i;
     unsigned int j;
 
     ALOGE("Path: %s, length: %d", path->name, path->length);
     for (i = 0; i < path->length; i++) {
-        ALOGE("  id=%d: ctl=%s linked=%c", i,
-              mixer_ctl_get_name(path->setting[i].ctl),
-              path->setting[i].linked ? 'y' : 'n');
+        struct mixer_ctl *ctl = index_to_ctl(ar, path->setting[i].ctl_index);
+
+        ALOGE("  id=%d: ctl=%s", i, mixer_ctl_get_name(ctl));
         for (j = 0; j < path->setting[i].num_values; j++)
             ALOGE("    id=%d value=%d", j, path->setting[i].value[j]);
     }
@@ -146,7 +147,7 @@ static struct mixer_path *path_create(struct audio_route *ar, const char *name)
     /* check if we need to allocate more space for mixer paths */
     if (ar->mixer_path_size <= ar->num_mixer_paths) {
         if (ar->mixer_path_size == 0)
-            ar->mixer_path_size = MIXER_PATH_SIZE;
+            ar->mixer_path_size = INITIAL_MIXER_PATH_SIZE;
         else
             ar->mixer_path_size *= 2;
 
@@ -170,12 +171,13 @@ static struct mixer_path *path_create(struct audio_route *ar, const char *name)
     return &ar->mixer_path[ar->num_mixer_paths++];
 }
 
-static int find_ctl_in_path(struct mixer_path *path, struct mixer_ctl *ctl)
+static int find_ctl_index_in_path(struct mixer_path *path,
+                                  unsigned int ctl_index)
 {
     unsigned int i;
 
     for (i = 0; i < path->length; i++)
-        if (path->setting[i].ctl == ctl)
+        if (path->setting[i].ctl_index == ctl_index)
             return i;
 
     return -1;
@@ -189,7 +191,7 @@ static int alloc_path_setting(struct mixer_path *path)
     /* check if we need to allocate more space for path settings */
     if (path->size <= path->length) {
         if (path->size == 0)
-            path->size = MIXER_PATH_SIZE;
+            path->size = INITIAL_MIXER_PATH_SIZE;
         else
             path->size *= 2;
 
@@ -209,15 +211,16 @@ static int alloc_path_setting(struct mixer_path *path)
     return path_index;
 }
 
-static int path_add_setting(struct mixer_path *path,
+static int path_add_setting(struct audio_route *ar, struct mixer_path *path,
                             struct mixer_setting *setting)
 {
-    unsigned int i;
     int path_index;
 
-    if (find_ctl_in_path(path, setting->ctl) != -1) {
+    if (find_ctl_index_in_path(path, setting->ctl_index) != -1) {
+        struct mixer_ctl *ctl = index_to_ctl(ar, setting->ctl_index);
+
         ALOGE("Control '%s' already exists in path '%s'",
-              mixer_ctl_get_name(setting->ctl), path->name);
+              mixer_ctl_get_name(ctl), path->name);
         return -1;
     }
 
@@ -225,36 +228,34 @@ static int path_add_setting(struct mixer_path *path,
     if (path_index < 0)
         return -1;
 
-    path->setting[path_index].ctl = setting->ctl;
+    path->setting[path_index].ctl_index = setting->ctl_index;
     path->setting[path_index].num_values = setting->num_values;
     path->setting[path_index].value = malloc(setting->num_values * sizeof(int));
-    path->setting[path_index].linked = setting->linked;
-    if (setting->linked) {
-        path->setting[path_index].value[0] = setting->value[0];
-    } else {
-        for (i = 0; i < setting->num_values; i++)
-            path->setting[path_index].value[i] = setting->value[i];
-    }
+    /* copy all values */
+    memcpy(path->setting[path_index].value, setting->value,
+           setting->num_values * sizeof(int));
 
     return 0;
 }
 
-static int path_add_value(struct mixer_path *path,
+static int path_add_value(struct audio_route *ar, struct mixer_path *path,
                           struct mixer_value *mixer_value)
 {
     unsigned int i;
     int path_index;
     unsigned int num_values;
+    struct mixer_ctl *ctl;
 
     /* Check that mixer value index is within range */
-    num_values = mixer_ctl_get_num_values(mixer_value->ctl);
+    ctl = index_to_ctl(ar, mixer_value->ctl_index);
+    num_values = mixer_ctl_get_num_values(ctl);
     if (mixer_value->index >= (int)num_values) {
         ALOGE("mixer index %d is out of range for '%s'", mixer_value->index,
-              mixer_ctl_get_name(mixer_value->ctl));
+              mixer_ctl_get_name(ctl));
         return -1;
     }
 
-    path_index = find_ctl_in_path(path, mixer_value->ctl);
+    path_index = find_ctl_index_in_path(path, mixer_value->ctl_index);
     if (path_index < 0) {
         /* New path */
 
@@ -263,36 +264,31 @@ static int path_add_value(struct mixer_path *path,
             return -1;
 
         /* initialise the new path setting */
-        path->setting[path_index].ctl = mixer_value->ctl;
+        path->setting[path_index].ctl_index = mixer_value->ctl_index;
         path->setting[path_index].num_values = num_values;
         path->setting[path_index].value = malloc(num_values * sizeof(int));
+        path->setting[path_index].value[0] = mixer_value->value;
     }
 
     if (mixer_value->index == -1) {
-        /* Linked, so only set the first value */
-        path->setting[path_index].linked = true;
-        path->setting[path_index].value[0] = mixer_value->value;
+        /* set all values the same */
+        for (i = 0; i < num_values; i++)
+            path->setting[path_index].value[i] = mixer_value->value;
     } else {
-        if (path->setting[path_index].linked && (num_values > 1)) {
-            /* Unlinking the values, so duplicate them across */
-            for (i = 1; i < num_values; i++) {
-                path->setting[path_index].value[i] =
-                        path->setting[path_index].value[0];
-            }
-            path->setting[path_index].linked = false;
-        }
+        /* set only one value */
         path->setting[path_index].value[mixer_value->index] = mixer_value->value;
     }
 
     return 0;
 }
 
-static int path_add_path(struct mixer_path *path, struct mixer_path *sub_path)
+static int path_add_path(struct audio_route *ar, struct mixer_path *path,
+                         struct mixer_path *sub_path)
 {
     unsigned int i;
 
     for (i = 0; i < sub_path->length; i++)
-        if (path_add_setting(path, &sub_path->setting[i]) < 0)
+        if (path_add_setting(ar, path, &sub_path->setting[i]) < 0)
             return -1;
 
     return 0;
@@ -301,24 +297,32 @@ static int path_add_path(struct mixer_path *path, struct mixer_path *sub_path)
 static int path_apply(struct audio_route *ar, struct mixer_path *path)
 {
     unsigned int i;
+    unsigned int ctl_index;
+
+    for (i = 0; i < path->length; i++) {
+        ctl_index = path->setting[i].ctl_index;
+
+        /* apply the new value(s) */
+        memcpy(ar->mixer_state[ctl_index].new_value, path->setting[i].value,
+               path->setting[i].num_values * sizeof(int));
+    }
+
+    return 0;
+}
+
+static int path_reset(struct audio_route *ar, struct mixer_path *path)
+{
+    unsigned int i;
     unsigned int j;
     unsigned int ctl_index;
 
     for (i = 0; i < path->length; i++) {
-        struct mixer_ctl *ctl = path->setting[i].ctl;
+        ctl_index = path->setting[i].ctl_index;
 
-        /* locate the mixer ctl in the list */
-        for (ctl_index = 0; ctl_index < ar->num_mixer_ctls; ctl_index++)
-            if (ar->mixer_state[ctl_index].ctl == ctl)
-                break;
-
-        /* apply the new value(s) */
-        for (j = 0; j < ar->mixer_state[ctl_index].num_values; j++) {
-            ar->mixer_state[ctl_index].new_value[j] = path->setting[i].value[j];
-            if (path->setting[i].linked)
-                break;
-        }
-        ar->mixer_state[ctl_index].new_linked = path->setting[i].linked;
+        /* reset the value(s) */
+        memcpy(ar->mixer_state[ctl_index].new_value,
+               ar->mixer_state[ctl_index].reset_value,
+               ar->mixer_state[ctl_index].num_values * sizeof(int));
     }
 
     return 0;
@@ -375,13 +379,19 @@ static void start_tag(void *data, const XML_Char *tag_name,
             } else {
                 /* nested path */
                 struct mixer_path *sub_path = path_get_by_name(ar, attr_name);
-                path_add_path(state->path, sub_path);
+                path_add_path(ar, state->path, sub_path);
             }
         }
-    } else
-   	if (strcmp(tag_name, "ctl") == 0 && attr_value) {
+    }
+
+    else if (strcmp(tag_name, "ctl") == 0) {
         /* Obtain the mixer ctl and value */
         ctl = mixer_get_ctl_by_name(ar->mixer, attr_name);
+        if (ctl == NULL) {
+            ALOGE("Control '%s' doesn't exist - skipping", attr_name);
+            goto done;
+        }
+
         switch (mixer_ctl_get_type(ctl)) {
         case MIXER_CTL_TYPE_BOOL:
         case MIXER_CTL_TYPE_INT:
@@ -391,55 +401,46 @@ static void start_tag(void *data, const XML_Char *tag_name,
             value = mixer_enum_string_to_value(ctl, (char *)attr_value);
             break;
         default:
-            return;
+            value = 0;
+            break;
+        }
+
+        /* locate the mixer ctl in the list */
+        for (ctl_index = 0; ctl_index < ar->num_mixer_ctls; ctl_index++) {
+            if (ar->mixer_state[ctl_index].ctl == ctl)
+                break;
         }
 
         if (state->level == 1) {
             /* top level ctl (initial setting) */
 
-            /* locate the mixer ctl in the list */
-            for (ctl_index = 0; ctl_index < ar->num_mixer_ctls; ctl_index++) {
-                if (ar->mixer_state[ctl_index].ctl == ctl)
-                    break;
-            }
-
             /* apply the new value */
             if (attr_id) {
                 /* set only one value */
                 id = atoi((char *)attr_id);
-                if (id < ar->mixer_state[ctl_index].num_values) {
-                    if (ar->mixer_state[ctl_index].new_linked) {
-                        /*
-                         * We're unlinking the values, so copy old_value[0] into
-                         * all the new_value elements.
-                         */
-                        for (i = 0; i < ar->mixer_state[ctl_index].num_values; i++) {
-                            ar->mixer_state[ctl_index].new_value[i] =
-                                    ar->mixer_state[ctl_index].old_value[0];
-                        }
-                        ar->mixer_state[ctl_index].new_linked = false;
-                    }
+                if (id < ar->mixer_state[ctl_index].num_values)
                     ar->mixer_state[ctl_index].new_value[id] = value;
-                } else {
+                else
                     ALOGE("value id out of range for mixer ctl '%s'",
                           mixer_ctl_get_name(ctl));
-                }
             } else {
-                ar->mixer_state[ctl_index].new_value[0] = value;
-                ar->mixer_state[ctl_index].new_linked = true;
+                /* set all values the same */
+                for (i = 0; i < ar->mixer_state[ctl_index].num_values; i++)
+                    ar->mixer_state[ctl_index].new_value[i] = value;
             }
         } else {
             /* nested ctl (within a path) */
-            mixer_value.ctl = ctl;
+            mixer_value.ctl_index = ctl_index;
             mixer_value.value = value;
             if (attr_id)
                 mixer_value.index = atoi((char *)attr_id);
             else
                 mixer_value.index = -1;
-            path_add_value(state->path, &mixer_value);
+            path_add_value(ar, state->path, &mixer_value);
         }
     }
 
+done:
     state->level++;
 }
 
@@ -456,7 +457,7 @@ static int alloc_mixer_state(struct audio_route *ar)
     unsigned int j;
     unsigned int num_values;
     struct mixer_ctl *ctl;
-    bool linked;
+    enum mixer_ctl_type type;
 
     ar->num_mixer_ctls = mixer_get_num_ctls(ar->mixer);
     ar->mixer_state = malloc(ar->num_mixer_ctls * sizeof(struct mixer_state));
@@ -467,32 +468,25 @@ static int alloc_mixer_state(struct audio_route *ar)
         ctl = mixer_get_ctl(ar->mixer, i);
         num_values = mixer_ctl_get_num_values(ctl);
 
+        ar->mixer_state[i].ctl = ctl;
+        ar->mixer_state[i].num_values = num_values;
+
+        /* Skip unsupported types that are not supported yet in XML */
+        type = mixer_ctl_get_type(ctl);
+        if ((type != MIXER_CTL_TYPE_BOOL) && (type != MIXER_CTL_TYPE_INT) &&
+            (type != MIXER_CTL_TYPE_ENUM))
+            continue;
+
         ar->mixer_state[i].old_value = malloc(num_values * sizeof(int));
         ar->mixer_state[i].new_value = malloc(num_values * sizeof(int));
         ar->mixer_state[i].reset_value = malloc(num_values * sizeof(int));
 
-        /*
-         * Get all mixer values for controls with multiple values. If all
-         * values are the same, set the linked flag.
-         */
-        linked = true;
-        for (j = 0; j < num_values; j++) {
-            ar->mixer_state[i].old_value[j] = mixer_ctl_get_value(ctl, j);
-            ar->mixer_state[i].new_value[j] = ar->mixer_state[i].old_value[j];
-
-            /*
-             * If the next value is different from the last, set linked to
-             * false.
-             */
-            if ((j > 0) && (ar->mixer_state[i].old_value[j - 1] !=
-                            ar->mixer_state[i].old_value[j])) {
-                linked = false;
-            }
-        }
-        ar->mixer_state[i].ctl = ctl;
-        ar->mixer_state[i].old_linked = linked;
-        ar->mixer_state[i].new_linked = linked;
-        ar->mixer_state[i].num_values = num_values;
+        if (type == MIXER_CTL_TYPE_ENUM)
+            ar->mixer_state[i].old_value[0] = mixer_ctl_get_value(ctl, 0);
+        else
+            mixer_ctl_get_array(ctl, ar->mixer_state[i].old_value, num_values);
+        memcpy(ar->mixer_state[i].new_value, ar->mixer_state[i].old_value,
+               num_values * sizeof(int));
     }
 
     return 0;
@@ -512,112 +506,124 @@ static void free_mixer_state(struct audio_route *ar)
     ar->mixer_state = NULL;
 }
 
-void update_mixer_state(struct audio_route *ar)
+/* Update the mixer with any changed values */
+int audio_route_update_mixer(struct audio_route *ar)
 {
     unsigned int i;
     unsigned int j;
+    struct mixer_ctl *ctl;
 
     for (i = 0; i < ar->num_mixer_ctls; i++) {
         unsigned int num_values = ar->mixer_state[i].num_values;
+        enum mixer_ctl_type type;
+
+        ctl = ar->mixer_state[i].ctl;
+
+        /* Skip unsupported types */
+        type = mixer_ctl_get_type(ctl);
+        if ((type != MIXER_CTL_TYPE_BOOL) && (type != MIXER_CTL_TYPE_INT) &&
+            (type != MIXER_CTL_TYPE_ENUM))
+            continue;
 
         /* if the value has changed, update the mixer */
-        if (ar->mixer_state[i].new_linked) {
-            if (ar->mixer_state[i].old_value[0] != ar->mixer_state[i].new_value[0]) {
-                /* linked ctl, so set all ctl values the same */
-                for (j = 0; j < num_values; j++)
-                    mixer_ctl_set_value(ar->mixer_state[i].ctl, j,
-                                        ar->mixer_state[i].new_value[0]);
-                ar->mixer_state[i].old_value[0] = ar->mixer_state[i].new_value[0];
-            }
-        } else {
-            for (j = 0; j < num_values; j++) {
-                /*
-                 * unlinked ctl, so set each value if necessary.
-                 * Note that if the new value is unlinked but the old is
-                 * linked, only value 0 is valid, so we always have to
-                 * update the mixer for the other values.
-                 */
-                if (ar->mixer_state[i].old_linked ||
-                    (ar->mixer_state[i].old_value[j] !=
-                            ar->mixer_state[i].new_value[j])) {
-                    mixer_ctl_set_value(ar->mixer_state[i].ctl, j,
-                                        ar->mixer_state[i].new_value[j]);
-                    ar->mixer_state[i].old_value[j] = ar->mixer_state[i].new_value[j];
-                }
+        bool changed = false;
+        for (j = 0; j < num_values; j++) {
+            if (ar->mixer_state[i].old_value[j] != ar->mixer_state[i].new_value[j]) {
+                changed = true;
+                break;
             }
         }
-        ar->mixer_state[i].old_linked = ar->mixer_state[i].new_linked;
+        if (changed) {
+            if (type == MIXER_CTL_TYPE_ENUM)
+                mixer_ctl_set_value(ctl, 0, ar->mixer_state[i].new_value[0]);
+            else
+                mixer_ctl_set_array(ctl, ar->mixer_state[i].new_value, num_values);
+            memcpy(ar->mixer_state[i].old_value, ar->mixer_state[i].new_value,
+                   num_values * sizeof(int));
+        }
     }
+
+    return 0;
 }
 
 /* saves the current state of the mixer, for resetting all controls */
 static void save_mixer_state(struct audio_route *ar)
 {
     unsigned int i;
-    unsigned int j;
 
     for (i = 0; i < ar->num_mixer_ctls; i++) {
-        for (j = 0; j < ar->mixer_state[i].num_values; j++) {
-            ar->mixer_state[i].reset_value[j] = ar->mixer_state[i].new_value[j];
-
-            /* if the values are linked, only need to save value 0 */
-            if (ar->mixer_state[i].new_linked)
-                break;
-        }
-        ar->mixer_state[i].reset_linked = ar->mixer_state[i].new_linked;
+        memcpy(ar->mixer_state[i].reset_value, ar->mixer_state[i].new_value,
+               ar->mixer_state[i].num_values * sizeof(int));
     }
 }
 
-/* this resets all mixer settings to the saved values */
-void reset_mixer_state(struct audio_route *ar)
+/* Reset the audio routes back to the initial state */
+void audio_route_reset(struct audio_route *ar)
 {
     unsigned int i;
-    unsigned int j;
 
     /* load all of the saved values */
     for (i = 0; i < ar->num_mixer_ctls; i++) {
-        for (j = 0; j < ar->mixer_state[i].num_values; j++) {
-            ar->mixer_state[i].new_value[j] = ar->mixer_state[i].reset_value[j];
-
-            /* if the values are linked, only need to save value 0 */
-            if (ar->mixer_state[i].reset_linked)
-                break;
-        }
-        ar->mixer_state[i].new_linked = ar->mixer_state[i].reset_linked;
+        memcpy(ar->mixer_state[i].new_value, ar->mixer_state[i].reset_value,
+               ar->mixer_state[i].num_values * sizeof(int));
     }
 }
 
-void audio_route_apply_path(struct audio_route *ar, const char *name)
+/* Apply an audio route path by name */
+int audio_route_apply_path(struct audio_route *ar, const char *name)
 {
     struct mixer_path *path;
 
     if (!ar) {
         ALOGE("invalid audio_route");
-        return;
+        return -1;
     }
 
     path = path_get_by_name(ar, name);
     if (!path) {
         ALOGE("unable to find path '%s'", name);
-        return;
+        return -1;
     }
 
     path_apply(ar, path);
+
+    return 0;
 }
 
-struct audio_route *audio_route_init(void)
+/* Reset an audio route path by name */
+int audio_route_reset_path(struct audio_route *ar, const char *name)
 {
-    FILE *fd;
+    struct mixer_path *path;
+
+    if (!ar) {
+        ALOGE("invalid audio_route");
+        return -1;
+    }
+
+    path = path_get_by_name(ar, name);
+    if (!path) {
+        ALOGE("unable to find path '%s'", name);
+        return -1;
+    }
+
+    path_reset(ar, path);
+
+    return 0;
+}
+
+struct audio_route *audio_route_init(unsigned int card, const char *xml_path)
+{
+    struct config_parse_state state;
+    XML_Parser parser;
+    FILE *file;
+    int bytes_read;
     char prop[PATH_MAX];
     char path[PATH_MAX];
     char name[PATH_MAX];
     void *buf;
-    int len, i = 0, card = 0;
+    int len, i = 0;
 
     struct audio_route *ar;
-    struct config_parse_state state;
-    XML_Parser parser;
-	bool eof = false;
 
     property_get("ro.product.device", prop, NULL);
 	snprintf(name, PATH_MAX, "%s/%s", MIXER_XML_PATH, MIXER_XML_NAME);
@@ -649,12 +655,6 @@ struct audio_route *audio_route_init(void)
 	card = i;
 	ALOGI("Reading configuration from %s sound card %d\n", path, card);
 
-    fd = fopen(path, "r");
-    if (!fd) {
-    	ALOGE("Failed to open %s\n", path);
-    	return NULL;
-    }
-
     ar = calloc(1, sizeof(struct audio_route));
     if (!ar)
         goto err_calloc;
@@ -673,6 +673,17 @@ struct audio_route *audio_route_init(void)
     if (alloc_mixer_state(ar) < 0)
         goto err_mixer_state;
 
+    /* use the default XML path if none is provided */
+    if (xml_path == NULL)
+        xml_path = path;
+
+    file = fopen(xml_path, "r");
+
+    if (!file) {
+        ALOGE("Failed to open %s", xml_path);
+        goto err_fopen;
+    }
+
     parser = XML_ParserCreate(NULL);
     if (!parser) {
         ALOGE("Failed to create XML parser");
@@ -685,38 +696,37 @@ struct audio_route *audio_route_init(void)
     XML_SetElementHandler(parser, start_tag, end_tag);
 
     for (;;) {
-        buf = XML_GetBuffer(parser, sizeof(buf));
+        buf = XML_GetBuffer(parser, BUF_SIZE);
         if (buf == NULL)
+            goto err_parse;
+
+        bytes_read = fread(buf, 1, BUF_SIZE, file);
+        if (bytes_read < 0)
+            goto err_parse;
+
+        if (XML_ParseBuffer(parser, bytes_read,
+                            bytes_read == 0) == XML_STATUS_ERROR) {
+            ALOGE("Error in mixer xml (%s)", xml_path);
+            goto err_parse;
+        }
+
+        if (bytes_read == 0)
             break;
-
-        len = fread(buf, 1, sizeof(buf), fd);
-    	if (ferror(fd)) {
-        	ALOGE("I/O error reading config\n");
-	        goto err_parse;
-    	}
-
-		eof = feof(fd);
-    	if (XML_Parse(parser, buf, len, eof) == XML_STATUS_ERROR) {
-        	ALOGE("Parse error at line %u:\n%s\n",
-         		(unsigned int)XML_GetCurrentLineNumber(parser),
-         		XML_ErrorString(XML_GetErrorCode(parser)));
-        	goto err_parse;
-    	}
     }
 
     /* apply the initial mixer values, and save them so we can reset the
        mixer to the original values */
-    update_mixer_state(ar);
+    audio_route_update_mixer(ar);
     save_mixer_state(ar);
 
     XML_ParserFree(parser);
-    fclose(fd);
+    fclose(file);
     return ar;
 
 err_parse:
     XML_ParserFree(parser);
 err_parser_create:
-    fclose(fd);
+    fclose(file);
 err_fopen:
     free_mixer_state(ar);
 err_mixer_state:
