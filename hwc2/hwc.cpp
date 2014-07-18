@@ -41,6 +41,8 @@
 
 #include <gralloc_priv.h>
 
+#include "libcec.h"
+
 #include "HWCRenderer.h"
 #include "HWCImpl.h"
 #include "HWCreator.h"
@@ -108,6 +110,7 @@ public:
 
     /* threads */
     pthread_t mVsyncThread;
+    pthread_t mHDMICECThread;
 
     /* screeninfo */
     struct FBScreenInfo mScreenInfo;
@@ -293,6 +296,268 @@ static void *hwc_vsync_thread(void *data)
 }
 
 /**********************************************************************************************
+ * HDMI CEC Thread
+ */
+static void *hdmi_cec_thread(void *data)
+{
+    struct NXHWC *me = (struct NXHWC *)data;
+
+    ALOGD("=============> CEC THREAD Start");
+    if (!CECOpen()) {
+        ALOGE("failed to CECOpen()\n");
+        return NULL;
+    }
+
+    unsigned int paddr;
+    if (!CECGetTargetCECPhysicalAddress(&paddr)) {
+        ALOGE("failed to CECGetTargetCECPhysicalAddress()");
+        CECClose();
+        return NULL;
+    }
+
+    ALOGD("Device physical address is %X.%X.%X.%X",
+          (paddr & 0xF000) >> 12, (paddr & 0x0F00) >> 8,
+          (paddr & 0x00F0) >> 4, paddr & 0x000F);
+
+    enum CECDeviceType devtype = CEC_DEVICE_PLAYER;
+    int laddr = CECAllocLogicalAddress(paddr, devtype);
+    if (!laddr) {
+        ALOGE("CECAllocLogicalAddress() failed!!!\n");
+        CECClose();
+        return NULL;
+    }
+
+    unsigned char *buffer = (unsigned char *)malloc(CEC_MAX_FRAME_SIZE);
+
+    int size;
+    unsigned char lsrc, ldst, opcode;
+
+    while (me->mHDMIPlugged) {
+    //while (1) {
+
+        size = CECReceiveMessage(buffer, CEC_MAX_FRAME_SIZE, 100000);
+
+        if (!size) { // no data available
+            continue;
+        }
+
+        if (size == 1) continue; // "Polling Message"
+
+        lsrc = buffer[0] >> 4;
+
+        /* ignore messages with src address == laddr */
+        if (lsrc == laddr) continue;
+
+        opcode = buffer[1];
+
+        if (opcode == CEC_OPCODE_REQUEST_ACTIVE_SOURCE) {
+            ALOGD("### ignore message...");
+            continue;
+        }
+
+        if (CECIgnoreMessage(opcode, lsrc)) {
+            ALOGD("### ignore message coming from address 15 (unregistered) or ...");
+            continue;
+        }
+
+        if (!CECCheckMessageSize(opcode, size)) {
+            ALOGD("### invalid message size ###");
+            continue;
+        }
+
+        /* check if message broadcast/directly addressed */
+        if (!CECCheckMessageMode(opcode, (buffer[0] & 0x0F) == CEC_MSG_BROADCAST ? 1 : 0)) {
+            ALOGD("### invalid message mode (directly addressed/broadcast) ###");
+            continue;
+        }
+
+        ldst = lsrc;
+
+//TODO: macroses to extract src and dst logical addresses
+//TODO: macros to extract opcode
+
+        switch (opcode) {
+
+            case CEC_OPCODE_GIVE_PHYSICAL_ADDRESS:
+            {
+                /* responce with "Report Physical Address" */
+                buffer[0] = (laddr << 4) | CEC_MSG_BROADCAST;
+                buffer[1] = CEC_OPCODE_REPORT_PHYSICAL_ADDRESS;
+                buffer[2] = (paddr >> 8) & 0xFF;
+                buffer[3] = paddr & 0xFF;
+                buffer[4] = devtype;
+                size = 5;
+                break;
+            }
+
+#if 0
+            case CEC_OPCODE_SET_MENU_LANGUAGE:
+            {
+                printf("the menu language will be changed!!!\n");
+                continue;
+            }
+#endif
+
+            case CEC_OPCODE_REPORT_PHYSICAL_ADDRESS: // TV
+            case CEC_OPCODE_ACTIVE_SOURCE:           // TV, CEC Switches
+            case CEC_OPCODE_ROUTING_CHANGE:          // CEC Switches
+            case CEC_OPCODE_ROUTING_INFORMATION:     // CEC Switches
+            case CEC_OPCODE_SET_STREAM_PATH:         // CEC Switches
+            case CEC_OPCODE_SET_SYSTEM_AUDIO_MODE:   // TV
+            case CEC_OPCODE_DEVICE_VENDOR_ID:        // ???
+
+            // messages we want to ignore
+            case CEC_OPCODE_SET_MENU_LANGUAGE:
+            {
+                ALOGD("### ignore message!!! ###");
+                continue;
+            }
+
+            case CEC_OPCODE_DECK_CONTROL:
+                if (buffer[2] == CEC_DECK_CONTROL_MODE_STOP) {
+                    ALOGD("### DECK CONTROL : STOP ###");
+                }
+                continue;
+
+            case CEC_OPCODE_PLAY:
+                if (buffer[2] == CEC_PLAY_MODE_PLAY_FORWARD) {
+                    ALOGD("### PLAY MODE : PLAY ###");
+                }
+                continue;
+
+            case CEC_OPCODE_STANDBY:
+                ALOGD("### switching device into standby... ###");
+                continue;
+
+            case CEC_OPCODE_GIVE_DEVICE_POWER_STATUS:
+            {
+                /* responce with "Report Power Status" */
+                buffer[0] = (laddr << 4) | ldst;
+                buffer[1] = CEC_OPCODE_REPORT_POWER_STATUS;
+                buffer[2] = 0x00; // "On"
+                size = 3;
+                break;
+            }
+
+//TODO: check
+#if 0
+            case CEC_OPCODE_REQUEST_ACTIVE_SOURCE:
+            {
+                /* responce with "Active Source" */
+                buffer[0] = (laddr << 4) | CEC_MSG_BROADCAST;
+                buffer[1] = CEC_OPCODE_ACTIVE_SOURCE;
+                buffer[2] = (paddr >> 8) & 0xFF;
+                buffer[3] = paddr & 0xFF;
+                size = 4;
+                break;
+            }
+#endif
+
+            case CEC_OPCODE_REQUEST_ARC_INITIATION:
+            {
+		        // CTS: ignore request from non-adjacent device
+		        if (paddr & 0x0F00) {
+			        continue;
+                }
+
+                /* activate ARC Rx functionality */
+                ALOGD("info: enable ARC Rx channel!!!");
+//TODO: implement
+                /* responce with "Initiate ARC" */
+                buffer[0] = (laddr << 4) | ldst;
+                buffer[1] = CEC_OPCODE_INITIATE_ARC;
+                size = 2;
+                break;
+            }
+
+            case CEC_OPCODE_REPORT_ARC_INITIATED:
+                continue;
+
+            case CEC_OPCODE_REQUEST_ARC_TERMINATION:
+            {
+                /* de-activate ARC Rx functionality */
+                ALOGD("info: disable ARC Rx channel!!!\n");
+//TODO: implement
+                /* responce with "Terminate ARC" */
+                buffer[0] = (laddr << 4) | ldst;
+                buffer[1] = CEC_OPCODE_TERMINATE_ARC;
+                size = 2;
+                break;
+            }
+
+            case CEC_REPORT_ARC_TERMINATED:
+                continue;
+
+            case CEC_OPCODE_USER_CONTROL_PRESSED:
+                {
+                    char cec_key = buffer[2];
+                    char android_key = 0;
+                    char *event_name = NULL;
+                    switch (cec_key) {
+                    case 0x3: // left
+                        android_key = 21;
+                        event_name = (char *)"LEFT";
+                        break;
+                    case 0x4: // right
+                        android_key = 22;
+                        event_name = (char *)"RIGHT";
+                        break;
+                    case 0x1: // up
+                        android_key = 19;
+                        event_name = (char *)"UP";
+                        break;
+                    case 0x2: // down
+                        android_key = 20;
+                        event_name = (char *)"DOWN";
+                        break;
+                    case 0xd: // back
+                        android_key = 4;
+                        event_name = (char *)"BACK";
+                        break;
+                    case 0x0: // enter
+                        android_key = 66;
+                        event_name = (char *)"ENTER";
+                        break;
+                    }
+                    if (android_key != 0) {
+                        ALOGD("KEY Event: %s\n", event_name);
+                        char command_buffer[128] = {0, };
+                        sprintf(command_buffer, "input keyevent %d", android_key);
+                        system(command_buffer);
+                    }
+                }
+                continue;
+
+            default:
+            {
+                /* send "Feature Abort" */
+                buffer[0] = (laddr << 4) | ldst;
+                buffer[1] = CEC_OPCODE_FEATURE_ABORT;
+                buffer[2] = CEC_OPCODE_ABORT;
+                buffer[3] = 0x04; // "refused"
+                size = 4;
+            }
+        }
+
+//TODO: protect with mutex
+        if (CECSendMessage(buffer, size) != size) {
+            ALOGE("CECSendMessage() failed!!!\n");
+        }
+    }
+
+    if (buffer) {
+        free(buffer);
+    }
+
+    if (!CECClose()) {
+        ALOGE("CECClose() failed!\n");
+    }
+
+    ALOGD("<=============== CECTHREAD Exit");
+    return NULL;
+}
+
+/**********************************************************************************************
  * NXHWC Member Functions
  */
 void NXHWC::HWCPropertyChangeListener::onPropertyChanged(int code, int val)
@@ -362,6 +627,11 @@ void NXHWC::handleHDMIEvent(const char *buf, int len)
             mHDMIPlugged = true;
             mHDMIImpl->enable();
             mProcs->hotplug(mProcs, HWC_DISPLAY_EXTERNAL, mHDMIPlugged);
+
+            usleep(300000);
+            int ret = pthread_create(&mHDMICECThread, NULL, hdmi_cec_thread, this);
+            if (ret)
+                ALOGE("failed to start hdmi cec thread: %s", strerror(ret));
         }
     } else {
         if (mHDMIPlugged) {

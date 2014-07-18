@@ -44,12 +44,14 @@ include $(CLEAR_VARS)
 LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
 LOCAL_SHARED_LIBRARIES := liblog libsync libEGL libcutils libhardware libhardware_legacy libnxhwcservice libutils libbinder libion-nexell libv4l2-nexell libion libnxutil
+LOCAL_STATIC_LIBRARIES := libcec
 LOCAL_CFLAGS += -DLOG_TAG=\"hwcomposer\"
 
 LOCAL_C_INCLUDES += \
 	frameworks/native/include \
 	system/core/include \
 	hardware/libhardware/include \
+	linux/pyrope/library/src/libcec \
 	$(LOCAL_PATH)/include \
 	$(LOCAL_PATH)/../include
 
