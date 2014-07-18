@@ -36,6 +36,7 @@ int openVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp);
 void closeVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp);
 int decodeVideoFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, NX_QUEUE *pOutQueue);
 int processEOS(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp);
+int SendEvent( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_EVENTTYPE eEvent, OMX_U32 param1, OMX_U32 param2, OMX_PTR pEventData );
 
 static OMX_S32		gstNumInstance = 0;
 static OMX_S32		gstMaxInstance = 2;
@@ -261,8 +262,16 @@ static OMX_ERRORTYPE NX_VidDec_GetConfig(OMX_HANDLETYPE hComp, OMX_INDEXTYPE nCo
 		    }
 		    pRect->nTop = 0;
 		    pRect->nLeft = 0;
-			pRect->nWidth = pDecComp->pInputPort->stdPortDef.format.video.nFrameWidth;
-			pRect->nHeight = pDecComp->pInputPort->stdPortDef.format.video.nFrameHeight;
+			if( pRect->nPortIndex == 0 )
+			{
+				pRect->nWidth = pDecComp->pInputPort->stdPortDef.format.video.nFrameWidth;
+				pRect->nHeight = pDecComp->pInputPort->stdPortDef.format.video.nFrameHeight;
+			}
+			else
+			{
+				pRect->nWidth = pDecComp->pOutputPort->stdPortDef.format.video.nFrameWidth;
+				pRect->nHeight = pDecComp->pOutputPort->stdPortDef.format.video.nFrameHeight;
+			}
 			TRACE("%s() : width(%ld), height(%ld)\n ", __func__, pRect->nWidth, pRect->nHeight );
 			break;
 		}
@@ -388,7 +397,7 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 	OMX_COMPONENTTYPE *pStdComp = (OMX_COMPONENTTYPE *)hComp;
 	NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp = (NX_VIDDEC_VIDEO_COMP_TYPE *)pStdComp->pComponentPrivate;
 
-	TRACE("%s(0x%08x) In\n", __FUNCTION__, nParamIndex);
+	DBG_PARAM("%s(0x%08x) In\n", __FUNCTION__, nParamIndex);
 
 	switch( nParamIndex )
 	{
@@ -495,7 +504,7 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 		case OMX_IndexParamVideoAvc:
 		{
 			OMX_VIDEO_PARAM_AVCTYPE *pAvcParam = (OMX_VIDEO_PARAM_AVCTYPE *)ComponentParamStruct;
-			TRACE("%s(): In, (nParamIndex=0x%08x)OMX_IndexParamVideoAvc\n", __FUNCTION__, nParamIndex );
+			DBG_PARAM("%s(): In, (nParamIndex=0x%08x)OMX_IndexParamVideoAvc\n", __FUNCTION__, nParamIndex );
 			if( pAvcParam->eProfile > OMX_VIDEO_AVCProfileHigh )
 			{
 				ErrMsg("NX_VidDec_SetParameter() : OMX_IndexParamVideoAvc failed!! Cannot support profile(%d)\n", pAvcParam->eProfile);
@@ -512,7 +521,7 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 		case OMX_IndexParamVideoMpeg2:
 		{
 			OMX_VIDEO_PARAM_MPEG2TYPE *pMpeg2Param = (OMX_VIDEO_PARAM_MPEG2TYPE *)ComponentParamStruct;
-			TRACE("%s(): In, (nParamIndex=0x%08x)OMX_IndexParamVideoMpeg2\n", __FUNCTION__, nParamIndex );
+			DBG_PARAM("%s(): In, (nParamIndex=0x%08x)OMX_IndexParamVideoMpeg2\n", __FUNCTION__, nParamIndex );
 			if( pMpeg2Param->eProfile != OMX_VIDEO_MPEG2ProfileSimple || pMpeg2Param->eProfile != OMX_VIDEO_MPEG2ProfileMain || pMpeg2Param->eProfile != OMX_VIDEO_MPEG2ProfileHigh )
 			{
 				ErrMsg("NX_VidDec_SetParameter() : OMX_IndexParamVideoMpeg2 failed!! Cannot support profile(%d)\n", pMpeg2Param->eProfile);
@@ -529,7 +538,7 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 		case OMX_IndexParamVideoMpeg4:
 		{
 			OMX_VIDEO_PARAM_MPEG4TYPE *pMpeg4Param = (OMX_VIDEO_PARAM_MPEG4TYPE *)ComponentParamStruct;
-			TRACE("%s(): In, (nParamIndex=0x%08x)OMX_VIDEO_PARAM_MPEG4TYPE\n", __FUNCTION__, nParamIndex );
+			DBG_PARAM("%s(): In, (nParamIndex=0x%08x)OMX_VIDEO_PARAM_MPEG4TYPE\n", __FUNCTION__, nParamIndex );
 			if( pMpeg4Param->eProfile >  OMX_VIDEO_MPEG4ProfileAdvancedSimple )
 			{
 				ErrMsg("NX_VidDec_SetParameter() : OMX_IndexParamVideoMpeg4 failed!! Cannot support profile(%d)\n", pMpeg4Param->eProfile);
@@ -546,7 +555,7 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 		case OMX_IndexParamVideoH263:     // modified by kshblue (14.07.04)
 		{
 			OMX_VIDEO_PARAM_H263TYPE *pH263Param = (OMX_VIDEO_PARAM_H263TYPE *)ComponentParamStruct;
-			TRACE("%s(): In, (nParamIndex=0x%08x)OMX_VIDEO_PARAM_H263TYPE\n", __FUNCTION__, nParamIndex );
+			DBG_PARAM("%s(): In, (nParamIndex=0x%08x)OMX_VIDEO_PARAM_H263TYPE\n", __FUNCTION__, nParamIndex );
 			if( pH263Param->eProfile != OMX_VIDEO_H263ProfileBaseline || pH263Param->eProfile != OMX_VIDEO_H263ProfileISWV2 )
 			{
 				ErrMsg("NX_VidDec_SetParameter() : OMX_IndexParamVideoH263 failed!! Cannot support profile(%d)\n", pH263Param->eProfile);
@@ -563,7 +572,7 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 		case OMX_IndexParamVideoWmv:
 		{
 			OMX_VIDEO_PARAM_WMVTYPE *pWmvParam = (OMX_VIDEO_PARAM_WMVTYPE *)ComponentParamStruct;
-			DbgMsg("%s(): In, (nParamIndex=0x%08x)OMX_VIDEO_PARAM_WMVTYPE\n", __FUNCTION__, nParamIndex );
+			DBG_PARAM("%s(): In, (nParamIndex=0x%08x)OMX_VIDEO_PARAM_WMVTYPE\n", __FUNCTION__, nParamIndex );
 			if( pWmvParam->eFormat > OMX_VIDEO_WMVFormat9 )
 			{
 				ErrMsg("NX_VidDec_SetParameter() : OMX_IndexParamVideoWmv failed!! Cannot support format(%d)\n", pWmvParam->eFormat);
@@ -576,7 +585,7 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 		case OMX_IndexParamVideoRv:
 		{
 			OMX_VIDEO_PARAM_RVTYPE *pRvParam = (OMX_VIDEO_PARAM_RVTYPE *)ComponentParamStruct;
-			TRACE("%s(): In, (nParamIndex=0x%08x)OMX_VIDEO_PARAM_RVTYPE\n", __FUNCTION__, nParamIndex );
+			DBG_PARAM("%s(): In, (nParamIndex=0x%08x)OMX_VIDEO_PARAM_RVTYPE\n", __FUNCTION__, nParamIndex );
 			if( pRvParam->eFormat > OMX_VIDEO_RVFormatG2 )
 			{
 				ErrMsg("NX_VidDec_SetParameter() : OMX_IndexParamVideoRv failed!! Cannot support format(%d)\n", pRvParam->eFormat);
@@ -695,13 +704,13 @@ static OMX_ERRORTYPE NX_VidDec_UseBuffer (OMX_HANDLETYPE hComponent, OMX_BUFFERH
 	OMX_BUFFERHEADERTYPE         **pPortBuf = NULL;
 	OMX_U32 i=0;
 
-	DbgBuffer( "%s() In.(PortNo=%ld)\n", __FUNCTION__, nPortIndex );
+	DbgBuffer( "%s() In.(PortNo=%ld), state(%d)\n", __FUNCTION__, nPortIndex , pDecComp->eNewState);
 
 	if( nPortIndex >= pDecComp->nNumPort ){
 		return OMX_ErrorBadPortIndex;
 	}
 
-	if( OMX_StateLoaded != pDecComp->eCurState || OMX_StateIdle != pDecComp->eNewState )
+	if( OMX_StateIdle != pDecComp->eNewState && OMX_StateExecuting != pDecComp->eNewState )
 		return OMX_ErrorIncorrectStateTransition;
 
 	if( 0 ==nPortIndex ){
@@ -819,10 +828,14 @@ static OMX_ERRORTYPE NX_VidDec_FreeBuffer (OMX_HANDLETYPE hComponent, OMX_U32 nP
 	OMX_U32 i=0;
 
 	if( nPortIndex >= pDecComp->nNumPort )
+	{
 		return OMX_ErrorBadPortIndex;
+	}
 
-	if( OMX_StateLoaded != pDecComp->eNewState )
-		return OMX_ErrorIncorrectStateTransition;
+	if( OMX_StateLoaded != pDecComp->eNewState && OMX_StateExecuting != pDecComp->eNewState )
+	{
+		SendEvent( pDecComp, OMX_EventError, OMX_ErrorPortUnpopulated, nPortIndex, NULL );
+	}
 
 	if( 0 == nPortIndex ){
 		pPort = pDecComp->pInputPort;
@@ -879,7 +892,7 @@ static OMX_ERRORTYPE NX_VidDec_EmptyThisBuffer (OMX_HANDLETYPE hComp, OMX_BUFFER
 		}
 	}
 
-	DbgBuffer("%s() : pBuffer = %p", __FUNCTION__, pBuffer);
+	DbgBuffer("%s() : pBuffer = %p, nFilledLen = %d", __FUNCTION__, pBuffer, pBuffer->nFilledLen);
 
 	if( 0 != NX_PushQueue( pDecComp->pInputPortQueue, pBuffer ) )
 	{
@@ -1218,14 +1231,7 @@ static void FlushVideoInputPort( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_PTR pC
 			break;
 		}
 	}while(1);
-
-	pDecComp->pCallbacks->EventHandler(
-		(OMX_HANDLETYPE)pStdComp,
-		pDecComp->pCallbackData,
-		OMX_EventCmdComplete,
-		OMX_CommandFlush,
-		VPUDEC_VID_INPORT_INDEX,
-		pCmdData );
+	SendEvent( pDecComp, OMX_EventCmdComplete, OMX_CommandFlush, VPUDEC_VID_INPORT_INDEX, pCmdData );
 }
 
 static void FlushVideoOutputPort( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_PTR pCmdData )
@@ -1262,7 +1268,7 @@ static void FlushVideoOutputPort( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_PTR p
 		}
 		DBG_FLUSH("-- pDecComp->curOutBuffers = %ld\n", pDecComp->curOutBuffers);
 	}
-	pDecComp->pCallbacks->EventHandler( (OMX_HANDLETYPE)pStdComp, pDecComp->pCallbackData, OMX_EventCmdComplete, OMX_CommandFlush, VPUDEC_VID_OUTPORT_INDEX, pCmdData );
+	SendEvent( pDecComp, OMX_EventCmdComplete, OMX_CommandFlush, VPUDEC_VID_OUTPORT_INDEX, pCmdData );
 }
 
 
@@ -1314,7 +1320,7 @@ static void NX_VidDec_CommandProc( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_COMM
 			}
 			if( nParam1 == OMX_ALL )	//	Output Port Flushing
 			{
-				pDecComp->pCallbacks->EventHandler( (OMX_HANDLETYPE)pStdComp, pDecComp->pCallbackData, OMX_EventCmdComplete, OMX_CommandFlush, OMX_ALL, pCmdData );
+				SendEvent( pDecComp, OMX_EventCmdComplete, OMX_CommandFlush, OMX_ALL, pCmdData );
 			}
 
 			pDecComp->bNeedKey = OMX_TRUE;
@@ -1328,7 +1334,7 @@ static void NX_VidDec_CommandProc( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_COMM
 		case OMX_CommandPortDisable: // Disable a port on a component.
 		{
 			//	Check Parameter
-			if( OMX_ALL != nParam1 || VPUDEC_VID_NUM_PORT>=nParam1 ){
+			if( OMX_ALL != nParam1 && nParam1>=VPUDEC_VID_NUM_PORT ){
 				//	Bad parameter
 				eEvent = OMX_EventError;
 				nData1 = OMX_ErrorBadPortIndex;
@@ -1337,30 +1343,91 @@ static void NX_VidDec_CommandProc( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_COMM
 			}
 
 			//	Step 1. The component shall return the buffers with a call to EmptyBufferDone/FillBufferDone,
-			NX_PendSem( pDecComp->hBufCtrlSem );
-			if( OMX_ALL == nParam1 ){
-				//	Disable all ports
-			}else{
+			//NX_PendSem( pDecComp->hBufCtrlSem );
+			if( 0 == nParam1 )
+			{
 				pDecComp->pInputPort->stdPortDef.bEnabled = OMX_FALSE;
-				//	Specific port
+				FlushVideoInputPort(pDecComp, pCmdData );
 			}
-			TRACE("%s : OMX_CommandPortDisable \n", __FUNCTION__);
-			NX_PostSem( pDecComp->hBufCtrlSem );
+			else if ( 1 == nParam1 )
+			{
+				OMX_BUFFERHEADERTYPE *pBuf;
+				if(OMX_TRUE == pDecComp->bEnableThumbNailMode)
+				{
+					do{
+						if(NX_GetQueueCnt(pDecComp->pOutputPortQueue) > 0){
+							//	Flush buffer
+							NX_PopQueue(pDecComp->pOutputPortQueue,(void**)&pBuf);
+							pDecComp->pCallbacks->FillBufferDone(pStdComp,pStdComp->pApplicationPrivate,pBuf);
+						}
+						else{
+							break;
+						}
+					} while(1);
+				}
+				else
+				{
+					OMX_S32 i;
+					DBG_FLUSH("++ pDecComp->curOutBuffers = %ld\n",pDecComp->curOutBuffers);
+					for(i=0 ; i<NX_OMX_MAX_BUF ; i++)
+					{
+						//	Find Matching Buffer Pointer
+						if(pDecComp->outBufferUseFlag[i])
+						{
+							pDecComp->pOutputBuffers[i]->nFilledLen = 0;
+							pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp,pDecComp->hComp->pApplicationPrivate,pDecComp->pOutputBuffers[i]);
+							pDecComp->outBufferUseFlag[i] = 0;
+							pDecComp->curOutBuffers -- ;
+							DBG_FLUSH("pDecComp->pOutputBuffers[%2ld] = %p\n",i,pDecComp->pOutputBuffers[i]);
+						}
+					}
+					DBG_FLUSH("-- pDecComp->curOutBuffers = %ld\n",pDecComp->curOutBuffers);
+				}
+				pDecComp->pOutputPort->stdPortDef.bEnabled = OMX_FALSE;
+				pDecComp->outUsableBuffers = 0;
+
+			}
+			else if( OMX_ALL == nParam1 ){
+				//	Disable all ports
+				FlushVideoInputPort(pDecComp, pCmdData );
+				FlushVideoOutputPort(pDecComp, pCmdData );
+				pDecComp->pInputPort->stdPortDef.bEnabled = OMX_FALSE;
+				pDecComp->pOutputPort->stdPortDef.bEnabled = OMX_FALSE;
+			}
+			eEvent = OMX_EventCmdComplete;
+			nData1 = OMX_CommandPortDisable;
+			nData2 = nParam1;
+			//NX_PostSem( pDecComp->hBufCtrlSem );
+
 			break;
 		}
 		case OMX_CommandPortEnable:  // Enable a port on a component.
 		{
-			NX_PendSem( pDecComp->hBufCtrlSem );
-			TRACE("%s : OMX_CommandPortEnable \n", __FUNCTION__);
-			pDecComp->pInputPort->stdPortDef.bEnabled = OMX_FALSE;
-			NX_PostSem( pDecComp->hBufCtrlSem );
+			//NX_PendSem( pDecComp->hBufCtrlSem );
+			if( nParam1 == 0 )
+				pDecComp->pInputPort->stdPortDef.bEnabled = OMX_TRUE;
+			else if( nParam1 == 1 )
+				pDecComp->pOutputPort->stdPortDef.bEnabled = OMX_TRUE;
+			else if( nParam1 == OMX_ALL )
+			{
+				pDecComp->pInputPort->stdPortDef.bEnabled = OMX_TRUE;
+				pDecComp->pOutputPort->stdPortDef.bEnabled = OMX_TRUE;
+			}
+			eEvent = OMX_EventCmdComplete;
+			nData1 = OMX_CommandPortEnable;
+			nData2 = nParam1;
+
+			if( pDecComp->eNewState == OMX_StateExecuting ){
+				//openVideoCodec(pDecComp);
+			}
+			//NX_PostSem( pDecComp->hBufCtrlSem );
 			break;
 		}
 		case OMX_CommandMarkBuffer:  // Mark a component/buffer for observation
 		{
-			NX_PendSem( pDecComp->hBufCtrlSem );
+			//NX_PendSem( pDecComp->hBufCtrlSem );
 			TRACE("%s : OMX_CommandMarkBuffer \n", __FUNCTION__);
-			NX_PostSem( pDecComp->hBufCtrlSem );
+			//NX_PostSem( pDecComp->hBufCtrlSem );
 			break;
 		}
 		default:
@@ -1370,13 +1437,7 @@ static void NX_VidDec_CommandProc( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_COMM
 		}
 	}
 
-	pDecComp->pCallbacks->EventHandler(
-		(OMX_HANDLETYPE)pStdComp,
-		pDecComp->pCallbackData,
-		eEvent,
-		nData1,
-		nData2,
-		pCmdData );
+	SendEvent( pDecComp, eEvent, nData1, nData2, pCmdData );
 }
 
 
@@ -1515,7 +1576,7 @@ ERROR_EXIT:
 	TRACE("exit buffer management thread.\n");
 	if( err != 0 )
 	{
-		pDecComp->pCallbacks->EventHandler( (OMX_HANDLETYPE)pDecComp->hComp, pDecComp->pCallbackData, OMX_EventError, 0, 0, NULL );
+		SendEvent( pDecComp, OMX_EventError, 0, 0, NULL );
 	}
 }
 
@@ -1786,6 +1847,7 @@ int processEOS(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 	NX_VID_RET ret;
 	NX_VID_DEC_IN decIn;
 	NX_VID_DEC_OUT decOut;
+
 	if( pDecComp->hVpuCodec )
 	{
 		decIn.strmBuf = 0;
@@ -1795,53 +1857,106 @@ int processEOS(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, &decIn, &decOut );
 		if( ret==0 && decOut.outImgIdx >= 0 && ( decOut.outImgIdx < NX_OMX_MAX_BUF ) )
 		{
-			//	Native Window Buffer Mode
-			//	Get Output Buffer Pointer From Output Buffer Pool
-			pOutBuf = pDecComp->pOutputBuffers[decOut.outImgIdx];
+      		pOutBuf = pDecComp->pOutputBuffers[decOut.outImgIdx];
 
-			if( pDecComp->outBufferUseFlag[decOut.outImgIdx] == 0 )
+			if( pDecComp->bEnableThumbNailMode == OMX_TRUE )
 			{
+				//	Thumbnail Mode
+				NX_VID_MEMORY_INFO *pImg = &decOut.outImg;
+				NX_PopQueue( pDecComp->pOutputPortQueue, (void**)&pOutBuf );
+				CopySurfaceToBufferYV12( (OMX_U8*)pImg->luVirAddr, (OMX_U8*)pImg->cbVirAddr, (OMX_U8*)pImg->crVirAddr,
+					pOutBuf->pBuffer, pImg->luStride, pImg->cbStride, pDecComp->width, pDecComp->height );
+
 				NX_VidDecClrDspFlag( pDecComp->hVpuCodec, NULL, decOut.outImgIdx );
-				ErrMsg("Unexpected Buffer Handling!!!! Goto Exit\n");
+				pOutBuf->nFilledLen = pDecComp->width * pDecComp->height * 3 / 2;
 			}
 			else
 			{
-				pDecComp->outBufferUseFlag[decOut.outImgIdx] = 0;
-				pDecComp->curOutBuffers --;
-
-				pOutBuf->nFilledLen = sizeof(struct private_handle_t);
-				if( 0 != PopVideoTimeStamp(pDecComp, &pOutBuf->nTimeStamp, &pOutBuf->nFlags )  )
+				//	Native Window Buffer Mode
+				//	Get Output Buffer Pointer From Output Buffer Pool
+				if( pDecComp->outBufferUseFlag[decOut.outImgIdx] == 0 )
 				{
-					pOutBuf->nTimeStamp = -1;
-					pOutBuf->nFlags     = 0x10;	//	Frame Flag
+					NX_VidDecClrDspFlag( pDecComp->hVpuCodec, NULL, decOut.outImgIdx );
+					ErrMsg("Unexpected Buffer Handling!!!! Goto Exit\n");
+					return 0;
 				}
-				DbgMsg("[%6ld]Send Buffer after EOS Receive( Delayed Frame. )\n", pDecComp->outFrameCount);
-				pDecComp->outFrameCount++;
-				pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
+				else
+				{
+					pDecComp->outBufferUseFlag[decOut.outImgIdx] = 0;
+					pDecComp->curOutBuffers --;
+
+					pOutBuf->nFilledLen = sizeof(struct private_handle_t);
+				}
 			}
+
+			if( 0 != PopVideoTimeStamp(pDecComp, &pOutBuf->nTimeStamp, &pOutBuf->nFlags )  )
+			{
+				pOutBuf->nTimeStamp = -1;
+				pOutBuf->nFlags     = 0x10;	//	Frame Flag
+			}
+			DbgMsg("[%6ld]Send Buffer after EOS Receive( Delayed Frame. )\n", pDecComp->outFrameCount);
+			pDecComp->outFrameCount++;
+			pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
+
 			return 0;
 		}
 	}
 
 	//	Real EOS Send
-	for( i=0 ; i<NX_OMX_MAX_BUF ; i++ )
+	if ( pDecComp->bEnableThumbNailMode == OMX_TRUE )
 	{
-		if( pDecComp->outBufferUseFlag[i] )
+		if( NX_GetQueueCnt(pDecComp->pOutputPortQueue) > 0)
 		{
-			pOutBuf = pDecComp->pOutputBuffers[i];
-			break;
+			if (NX_PopQueue( pDecComp->pOutputPortQueue, (void**)&pOutBuf ) == 0)
+			{
+				pOutBuf->nTimeStamp = 0;
+				pOutBuf->nFlags = OMX_BUFFERFLAG_EOS;
+				pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
+			}
 		}
 	}
-	if( pOutBuf )
+	else
 	{
-		pDecComp->outBufferUseFlag[i] = 0;
-		pDecComp->curOutBuffers --;
-		pOutBuf->nFilledLen = 0;
-		pOutBuf->nTimeStamp = 0;
-		pOutBuf->nFlags     = OMX_BUFFERFLAG_EOS;
-		pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
-		DbgMsg("~~~~ Send EOS Message ~~~~");
+		for( i=0 ; i<NX_OMX_MAX_BUF ; i++ )
+		{
+			if( pDecComp->outBufferUseFlag[i] )
+			{
+				pOutBuf = pDecComp->pOutputBuffers[i];
+				pDecComp->outBufferUseFlag[i] = 0;
+				pDecComp->curOutBuffers --;
+				pOutBuf->nFilledLen = 0;
+				pOutBuf->nTimeStamp = 0;
+				pOutBuf->nFlags     = OMX_BUFFERFLAG_EOS;
+				pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
+				break;
+			}
+		}
 	}
+	return 0;
+}
+
+
+static char *EventCodeToString( OMX_EVENTTYPE eEvent )
+{
+	switch(eEvent)
+	{
+		case OMX_EventCmdComplete:              return "OMX_EventCmdComplete";
+		case OMX_EventError:                    return "OMX_EventError";
+		case OMX_EventMark:						return "OMX_EventMark";
+		case OMX_EventPortSettingsChanged:		return "OMX_EventPortSettingsChanged";
+		case OMX_EventBufferFlag:				return "OMX_EventBufferFlag";
+		case OMX_EventResourcesAcquired:		return "OMX_EventResourcesAcquired";
+		case OMX_EventComponentResumed:			return "OMX_EventComponentResumed";
+		case OMX_EventDynamicResourcesAvailable:return "OMX_EventDynamicResourcesAvailable";
+		case OMX_EventPortFormatDetected:		return "OMX_EventPortFormatDetected";
+		default:								return "Unknown";
+	}
+}
+
+int SendEvent( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_EVENTTYPE eEvent, OMX_U32 param1, OMX_U32 param2, OMX_PTR pEventData )
+{
+	TRACE("Event : %s, param1=%ld, param2=%ld\n", EventCodeToString(eEvent), param1, param2);
+	(*(pDecComp->pCallbacks->EventHandler)) (pDecComp->hComp, pDecComp->pCallbackData, eEvent, param1, param2, pEventData);
 	return 0;
 }
 

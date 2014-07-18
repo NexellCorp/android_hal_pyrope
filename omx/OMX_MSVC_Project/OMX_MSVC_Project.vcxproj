@@ -30,6 +30,7 @@
     <ClCompile Include="..\components\base\NX_OMXBasePort.c" />
     <ClCompile Include="..\components\base\NX_OMXCommon.c" />
     <ClCompile Include="..\components\video\coda960_video_decoder\NX_AVCDecoder.c" />
+    <ClCompile Include="..\components\video\coda960_video_decoder\NX_AVCUtil.c" />
     <ClCompile Include="..\components\video\coda960_video_decoder\NX_DecoderUtil.c" />
     <ClCompile Include="..\components\video\coda960_video_decoder\NX_Div3Decoder.c" />
     <ClCompile Include="..\components\video\coda960_video_decoder\NX_MPEG4Decoder.c" />
@@ -44,6 +45,7 @@
     <ClInclude Include="..\components\base\NX_OMXBaseComponent.h" />
     <ClInclude Include="..\components\base\NX_OMXBasePort.h" />
     <ClInclude Include="..\components\base\NX_OMXCommon.h" />
+    <ClInclude Include="..\components\video\coda960_video_decoder\NX_AVCUtil.h" />
     <ClInclude Include="..\components\video\coda960_video_decoder\NX_DecoderUtil.h" />
     <ClInclude Include="..\components\video\coda960_video_decoder\NX_OMXVideoDecoder.h" />
     <ClInclude Include="..\components\video\coda960_video_encoder\NX_OMXVideoEncoder.h" />

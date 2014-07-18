@@ -7,6 +7,10 @@
 #include "NX_OMXVideoDecoder.h"
 #include "NX_DecoderUtil.h"
 
+//	From NX_AVCUtil
+int avc_get_video_size(unsigned char *buf, int buf_size, int *width, int *height);
+
+
 int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, NX_QUEUE *pOutQueue)
 {
 	OMX_BUFFERHEADERTYPE* pInBuf = NULL, *pOutBuf = NULL;
@@ -61,6 +65,36 @@ int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 			}
 			memcpy( pDecComp->codecSpecificData + pDecComp->codecSpecificDataSize, inData, inSize );
 			pDecComp->codecSpecificDataSize += inSize;
+
+			if( ( inSize>4 && inData[0]==0 && inData[1]==0 && inData[2]==0 && inData[3]==1 && ((inData[4]&0x0F)==0x07) ) ||
+				( inSize>4 && inData[0]==0 && inData[1]==0 && inData[2]==1 && ((inData[3]&0x0F)==0x07) ) )
+			{
+				int w,h;	//	width, height, left, top, right, bottom
+				if( avc_get_video_size( pDecComp->codecSpecificData, pDecComp->codecSpecificDataSize, &w, &h ) )
+				{
+					if( pDecComp->width != w || pDecComp->height != h )
+					{
+						//	Need Port Reconfiguration
+						SendEvent( pDecComp, OMX_EventPortSettingsChanged, OMX_DirOutput, 0, NULL );
+
+						// Change Port Format
+						pDecComp->pOutputPort->stdPortDef.format.video.nFrameWidth = w;
+						pDecComp->pOutputPort->stdPortDef.format.video.nFrameHeight = h;
+
+						//	Native Mode
+						if( pDecComp->bUseNativeBuffer )
+						{
+							pDecComp->pOutputPort->stdPortDef.nBufferSize = 4096;
+						}
+						else
+						{
+							pDecComp->pOutputPort->stdPortDef.nBufferSize = ((((w+15)>>4)<<4) * (((h+15)>>4)<<4))*3/2;
+						}
+						goto Exit;
+					}
+				}
+			}
+
 			goto Exit;
 		}
 	}
@@ -101,9 +135,13 @@ int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 		ret = InitializeCodaVpu(pDecComp, initBuf, initBufSize );
 		free( initBuf );
 
-		if( 0 != ret )
+		if( 0 > ret )
 		{
 			ErrMsg("VPU initialized Failed!!!!\n");
+			goto Exit;
+		}else if( ret > 0  )
+		{
+			ret = 0;
 			goto Exit;
 		}
 
