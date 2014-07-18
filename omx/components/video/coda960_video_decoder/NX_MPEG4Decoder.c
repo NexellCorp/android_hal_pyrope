@@ -92,9 +92,12 @@ int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue,
 		ret = InitializeCodaVpu(pDecComp, initBuf, initBufSize );
 		free( initBuf );
 
-		if( 0 != ret )
+		if( 0 > ret )
 		{
 			ErrMsg("VPU initialized Failed!!!!\n");
+			goto Exit;
+		}else if( ret > 0  )
+		{
 			goto Exit;
 		}
 

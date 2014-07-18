@@ -114,6 +114,9 @@
     <ClCompile Include="..\libstagefrighthw\NX_OMXPlugin.cpp">
       <Filter>libstagefrighthw</Filter>
     </ClCompile>
+    <ClCompile Include="..\components\video\coda960_video_decoder\NX_AVCUtil.c">
+      <Filter>components\video\coda960_video_decoder</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\components\base\NX_OMXCommon.h">
@@ -208,6 +211,9 @@
     </ClInclude>
     <ClInclude Include="..\libstagefrighthw\NX_OMXPlugin.h">
       <Filter>libstagefrighthw</Filter>
+    </ClInclude>
+    <ClInclude Include="..\components\video\coda960_video_decoder\NX_AVCUtil.h">
+      <Filter>components\video\coda960_video_decoder</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

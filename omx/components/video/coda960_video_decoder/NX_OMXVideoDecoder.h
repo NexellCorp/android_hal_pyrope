@@ -41,7 +41,7 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent);
 
 //	Default Native Buffer Mode's buffers & buffer size
 #define	VID_OUTPORT_MIN_BUF_CNT_THUMB	4
-#define	VID_OUTPORT_MIN_BUF_CNT		12					//	Max Avaiable Frames
+#define	VID_OUTPORT_MIN_BUF_CNT		16					//	Max Avaiable Frames
 #define	VID_OUTPORT_MIN_BUF_SIZE	(4*1024)			//	Video Memory Structure Size
 
 #define	VID_TEMP_IN_BUF_SIZE		(4*1024*1024)
@@ -61,6 +61,7 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent);
 #define	TRACE_ON		0
 #define	DEBUG_FLUSH		0
 #define	DEBUG_STATE		0
+#define	DEBUG_PARAM		0
 
 #if DEBUG_BUFFER
 #define	DbgBuffer(fmt,...)	DbgMsg(fmt, ##__VA_ARGS__)
@@ -94,7 +95,11 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent);
 #define	DBG_FLUSH(fmt,...)		do{}while(0)
 #endif
 
-
+#if DEBUG_PARAM
+#define	DBG_PARAM(fmt,...)		DbgMsg(fmt, ##__VA_ARGS__)
+#else
+#define	DBG_PARAM(fmt,...)		do{}while(0)
+#endif
 
 struct OutBufferTimeInfo{
 	OMX_TICKS			timestamp;
@@ -194,5 +199,7 @@ int PopVideoTimeStamp(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_TICKS *timestamp,
 int flushVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp);
 int openVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp);
 void closeVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp);
+
+int SendEvent( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_EVENTTYPE eEvent, OMX_U32 param1, OMX_U32 param2, OMX_PTR pEventData );
 
 #endif	//	__NX_OMXVideoDecoder_h__
