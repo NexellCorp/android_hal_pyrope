@@ -37,7 +37,7 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent);
 #define	NX_OMX_MAX_BUF				32
 
 #define	VID_INPORT_MIN_BUF_CNT		6					//	Max 6 Avaliable
-#define	VID_INPORT_MIN_BUF_SIZE		(1024*1024*1)		//	32 Mbps( 32Mbps, 4fps )
+#define	VID_INPORT_MIN_BUF_SIZE		(1024*1024*4)		//	32 Mbps( 32Mbps, 1 fps )
 
 //	Default Native Buffer Mode's buffers & buffer size
 #define	VID_OUTPORT_MIN_BUF_CNT_THUMB	4
@@ -45,8 +45,6 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent);
 #define	VID_OUTPORT_MIN_BUF_SIZE	(4*1024)			//	Video Memory Structure Size
 
 #define	VID_TEMP_IN_BUF_SIZE		(4*1024*1024)
-
-#define	MAX_DEC_SPECIFIC_DATA		(1024)
 
 #ifndef UNUSED_PARAM
 #define	UNUSED_PARAM(X)		X=X
@@ -175,7 +173,7 @@ struct tNX_VIDDEC_VIDEO_COMP_TYPE{
 	OMX_BOOL					bMetaDataInBuffers;
 
 	//	Extra Informations &
-	OMX_U8						codecSpecificData[MAX_DEC_SPECIFIC_DATA];
+	OMX_U8						*codecSpecificData;
 	OMX_S32						codecSpecificDataSize;
 
 	//	FFMPEG Parser Data
@@ -190,6 +188,8 @@ struct tNX_VIDDEC_VIDEO_COMP_TYPE{
 	//	for Debugging
 	OMX_S32						inFrameCount;
 	OMX_S32						outFrameCount;
+
+	OMX_BOOL					bNeedSequenceData;
 };
 
 

@@ -34,6 +34,12 @@
     <Filter Include="libstagefrighthw">
       <UniqueIdentifier>{f836433b-117f-43fb-8cbd-52068fd402e1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="components\audio">
+      <UniqueIdentifier>{19ba3efa-ef58-4ac6-b099-5e8df2eb3989}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="extractor">
+      <UniqueIdentifier>{80229fae-b7c3-4bb4-9b29-1d97f4a6cfa3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Android.mk" />
@@ -63,6 +69,12 @@
     </None>
     <None Include="..\libstagefrighthw\Android.mk">
       <Filter>libstagefrighthw</Filter>
+    </None>
+    <None Include="..\components\audio\audio_decoder_ffmpeg\Android.mk">
+      <Filter>components\audio</Filter>
+    </None>
+    <None Include="..\extractor\ffmpeg\Android.mk">
+      <Filter>extractor</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -116,6 +128,18 @@
     </ClCompile>
     <ClCompile Include="..\components\video\coda960_video_decoder\NX_AVCUtil.c">
       <Filter>components\video\coda960_video_decoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\components\audio\audio_decoder_ffmpeg\NX_OMXAudioDecoderFFMpeg.c">
+      <Filter>components\audio</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extractor\ffmpeg\ffmpeg_source.cpp">
+      <Filter>extractor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extractor\ffmpeg\ffmpeg_utils.cpp">
+      <Filter>extractor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\extractor\ffmpeg\FFmpegExtractor.cpp">
+      <Filter>extractor</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -214,6 +238,18 @@
     </ClInclude>
     <ClInclude Include="..\components\video\coda960_video_decoder\NX_AVCUtil.h">
       <Filter>components\video\coda960_video_decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\components\audio\audio_decoder_ffmpeg\NX_OMXAudioDecoderFFMpeg.h">
+      <Filter>components\audio</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extractor\ffmpeg\ffmpeg_source.h">
+      <Filter>extractor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extractor\ffmpeg\ffmpeg_utils.h">
+      <Filter>extractor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\extractor\ffmpeg\FFmpegExtractor.h">
+      <Filter>extractor</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,4 +1,4 @@
-#define	LOG_TAG				"NX_MP4DEC"
+#define	LOG_TAG				"NX_MP2DEC"
 
 #include <assert.h>
 #include <OMX_AndroidTypes.h>
@@ -7,7 +7,7 @@
 #include "NX_OMXVideoDecoder.h"
 #include "NX_DecoderUtil.h"
 
-int NX_DecodeMpeg4Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, NX_QUEUE *pOutQueue)
+int NX_DecodeMpeg2Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, NX_QUEUE *pOutQueue)
 {
 	OMX_BUFFERHEADERTYPE* pInBuf = NULL, *pOutBuf = NULL;
 	int inSize = 0;

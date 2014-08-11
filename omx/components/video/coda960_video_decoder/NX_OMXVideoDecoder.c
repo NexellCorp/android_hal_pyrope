@@ -39,7 +39,7 @@ int processEOS(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp);
 int SendEvent( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_EVENTTYPE eEvent, OMX_U32 param1, OMX_U32 param2, OMX_PTR pEventData );
 
 static OMX_S32		gstNumInstance = 0;
-static OMX_S32		gstMaxInstance = 2;
+static OMX_S32		gstMaxInstance = 3;
 
 
 #ifdef NX_DYNAMIC_COMPONENTS
@@ -57,6 +57,8 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent)
 	NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp;
 
 	FUNC_IN;
+
+	DbgMsg("%s()++ gstNumInstance = %ld, gstMaxInstance = %ld\n", __func__, gstNumInstance, gstMaxInstance);
 
 	if( gstNumInstance >= gstMaxInstance )
 	{
@@ -162,6 +164,7 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent)
 	pDecComp->bNeedKey = OMX_FALSE;
 	pDecComp->frameDelay = 0;
 	pDecComp->bStartEoS = OMX_FALSE;
+	pDecComp->codecSpecificData = NULL;
 	pDecComp->codecSpecificDataSize = 0;
 	pDecComp->outBufferable = 1;
 	pDecComp->outUsableBuffers = 0;
@@ -181,10 +184,12 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent)
 	//	Debugging Tool
 	pDecComp->inFrameCount = 0;
 	pDecComp->outFrameCount = 0;
+	pDecComp->bNeedSequenceData = OMX_TRUE;
 
 	gstNumInstance ++;
 
 	FUNC_OUT;
+	DbgMsg("%s()-- gstNumInstance = %ld, gstMaxInstance = %ld\n", __func__, gstNumInstance, gstMaxInstance);
 
 	return OMX_ErrorNone;
 }
@@ -195,6 +200,8 @@ static OMX_ERRORTYPE NX_VidDec_ComponentDeInit(OMX_HANDLETYPE hComponent)
 	NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp = (NX_VIDDEC_VIDEO_COMP_TYPE *)pComp->pComponentPrivate;
 	OMX_U32 i=0;
 	FUNC_IN;
+
+	DbgMsg("%s()++ gstNumInstance = %ld, gstMaxInstance = %ld\n", __func__, gstNumInstance, gstMaxInstance);
 
 	//	prevent duplacation
 	if( NULL == pComp->pComponentPrivate )
@@ -228,6 +235,11 @@ static OMX_ERRORTYPE NX_VidDec_ComponentDeInit(OMX_HANDLETYPE hComponent)
 	pthread_mutex_destroy( &pDecComp->hBufMutex );
 	NX_DestroySem(pDecComp->hBufAllocSem);
 
+	if( pDecComp->codecSpecificData )
+	{
+		free( pDecComp->codecSpecificData );
+	}
+
 	//
 	if( pDecComp->compName )
 		free(pDecComp->compName);
@@ -241,6 +253,7 @@ static OMX_ERRORTYPE NX_VidDec_ComponentDeInit(OMX_HANDLETYPE hComponent)
 
 	gstNumInstance --;
 	FUNC_OUT;
+	DbgMsg("%s()-- gstNumInstance = %ld, gstMaxInstance = %ld\n", __func__, gstNumInstance, gstMaxInstance);
 	return OMX_ErrorNone;
 }
 
@@ -827,6 +840,8 @@ static OMX_ERRORTYPE NX_VidDec_FreeBuffer (OMX_HANDLETYPE hComponent, OMX_U32 nP
 	OMX_BUFFERHEADERTYPE **pPortBuf = NULL;
 	OMX_U32 i=0;
 
+	DbgBuffer("%s() IN\n", __FUNCTION__ );
+
 	if( nPortIndex >= pDecComp->nNumPort )
 	{
 		return OMX_ErrorBadPortIndex;
@@ -866,6 +881,9 @@ static OMX_ERRORTYPE NX_VidDec_FreeBuffer (OMX_HANDLETYPE hComponent, OMX_U32 nP
 			return OMX_ErrorNone;
 		}
 	}
+
+	DbgBuffer("%s() OUT\n", __FUNCTION__ );
+
 	return OMX_ErrorInsufficientResources;
 }
 static OMX_ERRORTYPE NX_VidDec_EmptyThisBuffer (OMX_HANDLETYPE hComp, OMX_BUFFERHEADERTYPE* pBuffer)
@@ -892,13 +910,13 @@ static OMX_ERRORTYPE NX_VidDec_EmptyThisBuffer (OMX_HANDLETYPE hComp, OMX_BUFFER
 		}
 	}
 
-	DbgBuffer("%s() : pBuffer = %p, nFilledLen = %d", __FUNCTION__, pBuffer, pBuffer->nFilledLen);
+	TRACE("%s() : pBuffer = %p, nFilledLen = %d", __FUNCTION__, pBuffer, pBuffer->nFilledLen);
 
 	if( 0 != NX_PushQueue( pDecComp->pInputPortQueue, pBuffer ) )
 	{
 		return OMX_ErrorUndefined;
 	}
-	DbgBuffer("%s() : pBuffer = %p --", __FUNCTION__, pBuffer);
+	TRACE("%s() : pBuffer = %p --", __FUNCTION__, pBuffer);
 	NX_PostSem( pDecComp->hBufChangeSem );
 	FUNC_OUT;
 	return OMX_ErrorNone;
@@ -1644,7 +1662,7 @@ int openVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 			pDecComp->DecodeFrame = NX_DecodeAvcFrame;
 			break;
 		case NX_MP2_DEC:
-			pDecComp->DecodeFrame = NX_DecodeAvcFrame;
+			pDecComp->DecodeFrame = NX_DecodeMpeg2Frame;
 			break;
 		case NX_MP4_DEC:
 		case NX_H263_DEC:
@@ -1686,13 +1704,15 @@ int openVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 void closeVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 {
 	FUNC_IN;
-	if( pDecComp->hVpuCodec ){
+	if( NULL != pDecComp->hVpuCodec ){
 		NX_VidDecFlush( pDecComp->hVpuCodec );
 		NX_VidDecClose( pDecComp->hVpuCodec );
 		pDecComp->bInitialized = OMX_FALSE;
 		pDecComp->bNeedKey = OMX_TRUE;
 		pDecComp->hVpuCodec = NULL;
 		pDecComp->isOutIdr = OMX_FALSE;
+		pDecComp->codecSpecificDataSize = 0;
+		pDecComp->bNeedSequenceData = 0;
 		FUNC_OUT;
 	}
 	FUNC_OUT;
@@ -1702,7 +1722,7 @@ int flushVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 {
 	FUNC_IN;
 	InitVideoTimeStamp(pDecComp);
-	if( pDecComp->hVpuCodec )
+	if( NULL != pDecComp->hVpuCodec )
 	{
 		NX_VidDecFlush( pDecComp->hVpuCodec );
 		pDecComp->isOutIdr = OMX_FALSE;
@@ -1894,7 +1914,7 @@ int processEOS(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 				pOutBuf->nTimeStamp = -1;
 				pOutBuf->nFlags     = 0x10;	//	Frame Flag
 			}
-			DbgMsg("[%6ld]Send Buffer after EOS Receive( Delayed Frame. )\n", pDecComp->outFrameCount);
+			TRACE("[%6ld]Send Buffer after EOS Receive( Delayed Frame. )\n", pDecComp->outFrameCount);
 			pDecComp->outFrameCount++;
 			pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
 

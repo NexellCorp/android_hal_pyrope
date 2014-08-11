@@ -15,17 +15,20 @@
     <None Include="..\codec\Android.mk" />
     <None Include="..\common\Android.mk" />
     <None Include="..\components\Android.mk" />
+    <None Include="..\components\audio\audio_decoder_ffmpeg\Android.mk" />
     <None Include="..\components\base\Android.mk" />
     <None Include="..\components\video\coda960_video_decoder\Android.mk" />
     <None Include="..\components\video\coda960_video_encoder\Android.mk" />
     <None Include="..\core\Android.mk" />
     <None Include="..\core\content.pkg" />
+    <None Include="..\extractor\ffmpeg\Android.mk" />
     <None Include="..\libstagefrighthw\Android.mk" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\common\NX_OMXDebugMsg.c" />
     <ClCompile Include="..\common\NX_OMXQueue.c" />
     <ClCompile Include="..\common\NX_OMXSemaphore.c" />
+    <ClCompile Include="..\components\audio\audio_decoder_ffmpeg\NX_OMXAudioDecoderFFMpeg.c" />
     <ClCompile Include="..\components\base\NX_OMXBaseComponent.c" />
     <ClCompile Include="..\components\base\NX_OMXBasePort.c" />
     <ClCompile Include="..\components\base\NX_OMXCommon.c" />
@@ -39,9 +42,13 @@
     <ClCompile Include="..\components\video\coda960_video_decoder\NX_VC1Decoder.c" />
     <ClCompile Include="..\components\video\coda960_video_encoder\NX_OMXVideoEncoder.c" />
     <ClCompile Include="..\core\NX_OMXCore.c" />
+    <ClCompile Include="..\extractor\ffmpeg\FFmpegExtractor.cpp" />
+    <ClCompile Include="..\extractor\ffmpeg\ffmpeg_source.cpp" />
+    <ClCompile Include="..\extractor\ffmpeg\ffmpeg_utils.cpp" />
     <ClCompile Include="..\libstagefrighthw\NX_OMXPlugin.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\components\audio\audio_decoder_ffmpeg\NX_OMXAudioDecoderFFMpeg.h" />
     <ClInclude Include="..\components\base\NX_OMXBaseComponent.h" />
     <ClInclude Include="..\components\base\NX_OMXBasePort.h" />
     <ClInclude Include="..\components\base\NX_OMXCommon.h" />
@@ -64,6 +71,9 @@
     <ClInclude Include="..\core\inc\OMX_Types.h" />
     <ClInclude Include="..\core\inc\OMX_Video.h" />
     <ClInclude Include="..\core\inc\OMX_VideoExt.h" />
+    <ClInclude Include="..\extractor\ffmpeg\FFmpegExtractor.h" />
+    <ClInclude Include="..\extractor\ffmpeg\ffmpeg_source.h" />
+    <ClInclude Include="..\extractor\ffmpeg\ffmpeg_utils.h" />
     <ClInclude Include="..\include\nxvpu_coda960.h" />
     <ClInclude Include="..\include\nxvpu_ffmpeg.h" />
     <ClInclude Include="..\include\NX_MediaTypes.h" />

@@ -14,6 +14,7 @@ OMX_TOP := $(TOP)/hardware/nexell/pyrope/omx
 
 LOCAL_SRC_FILES:= \
 	NX_AVCDecoder.c \
+	NX_MPEG2Decoder.c \
 	NX_MPEG4Decoder.c \
 	NX_Div3Decoder.c \
 	NX_RVDecoder.c \

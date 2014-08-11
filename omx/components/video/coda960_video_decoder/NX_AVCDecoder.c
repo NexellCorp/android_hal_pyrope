@@ -10,6 +10,53 @@
 //	From NX_AVCUtil
 int avc_get_video_size(unsigned char *buf, int buf_size, int *width, int *height);
 
+static int AVCCheckPortReconfiguration( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_BYTE inBuf, OMX_S32 inSize )
+{
+	int w,h;	//	width, height, left, top, right, bottom
+
+	if( ( inSize>4 && inBuf[0]==0 && inBuf[1]==0 && inBuf[2]==0 && inBuf[3]==1 && ((inBuf[4]&0x0F)==0x07) ) ||
+		( inSize>4 && inBuf[0]==0 && inBuf[1]==0 && inBuf[2]==1 && ((inBuf[3]&0x0F)==0x07) ) )
+	{
+		if( avc_get_video_size( inBuf, inSize, &w, &h ) )
+		{
+			if( pDecComp->width != w || pDecComp->height != h )
+			{
+				DbgMsg("New Video Resolution = %ld x %ld --> %d x %d\n",
+						pDecComp->width, pDecComp->height, w, h);
+
+				//	Change Port Format & Resolution Information
+				pDecComp->pOutputPort->stdPortDef.format.video.nFrameWidth  = pDecComp->width  = w;
+				pDecComp->pOutputPort->stdPortDef.format.video.nFrameHeight = pDecComp->height = h;
+
+				//	Native Mode
+				if( pDecComp->bUseNativeBuffer )
+				{
+					pDecComp->pOutputPort->stdPortDef.nBufferSize = 4096;
+				}
+				else
+				{
+					pDecComp->pOutputPort->stdPortDef.nBufferSize = ((((w+15)>>4)<<4) * (((h+15)>>4)<<4))*3/2;
+				}
+
+				//	Need Port Reconfiguration
+				SendEvent( pDecComp, OMX_EventPortSettingsChanged, OMX_DirOutput, 0, NULL );
+				if( OMX_TRUE == pDecComp->bInitialized )
+				{
+					pDecComp->bInitialized = OMX_FALSE;
+					InitVideoTimeStamp(pDecComp);
+					closeVideoCodec(pDecComp);
+					openVideoCodec(pDecComp);
+				}
+			}
+			else
+			{
+				DbgMsg("Video Resolution = %ld x %ld --> %d x %d\n", pDecComp->width, pDecComp->height, w, h);
+			}
+			return 1;
+		}
+	}
+	return 0;
+}
 
 int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, NX_QUEUE *pOutQueue)
 {
@@ -28,6 +75,7 @@ int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 		pDecComp->bFlush = OMX_FALSE;
 	}
 
+	//	Get Next Queue Information
 	NX_PopQueue( pInQueue, (void**)&pInBuf );
 	if( pInBuf == NULL ){
 		return 0;
@@ -39,6 +87,8 @@ int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 
 	TRACE("pInBuf->nFlags = 0x%08x, size = %ld\n", (int)pInBuf->nFlags, pInBuf->nFilledLen );
 
+
+	//	Check End Of Stream
 	if( pInBuf->nFlags & OMX_BUFFERFLAG_EOS )
 	{
 		DbgMsg("=========================> Receive Endof Stream Message (%ld)\n", pInBuf->nFilledLen);
@@ -46,23 +96,21 @@ int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 		pDecComp->bStartEoS = OMX_TRUE;
 		if( inSize <= 0)
 		{
-			pInBuf->nFilledLen = 0;
-			pDecComp->pCallbacks->EmptyBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pInBuf);
-			return 0;
+			goto Exit;
 		}
 	}
 
 	//	Step 1. Found Sequence Information
-	if( OMX_FALSE == pDecComp->bInitialized )
+	if( OMX_TRUE == pDecComp->bNeedSequenceData && pInBuf->nFlags & OMX_BUFFERFLAG_CODECCONFIG )
 	{
 		if( pInBuf->nFlags & OMX_BUFFERFLAG_CODECCONFIG )
 		{
+			pDecComp->bNeedSequenceData = OMX_FALSE;
 			DbgMsg("Copy Extra Data (%d)\n", inSize );
-			if( pDecComp->codecSpecificDataSize + inSize > MAX_DEC_SPECIFIC_DATA )
-			{
-				ErrMsg("Too Short Codec Config Buffer!!!!\n");
-				goto Exit;
-			}
+			AVCCheckPortReconfiguration( pDecComp, inData, inSize );
+			if( pDecComp->codecSpecificData )
+				free( pDecComp->codecSpecificData );
+			pDecComp->codecSpecificData = malloc(inSize);
 			memcpy( pDecComp->codecSpecificData + pDecComp->codecSpecificDataSize, inData, inSize );
 			pDecComp->codecSpecificDataSize += inSize;
 
@@ -131,6 +179,25 @@ int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 			memcpy( initBuf, pDecComp->codecSpecificData, pDecComp->codecSpecificDataSize );
 			memcpy( initBuf + pDecComp->codecSpecificDataSize, inData, inSize );
 		}
+
+		if( OMX_TRUE == pDecComp->bNeedSequenceData )
+		{
+			if( AVCCheckPortReconfiguration( pDecComp, initBuf, initBufSize ) )
+			{
+				pDecComp->bNeedSequenceData = OMX_FALSE;
+				if( pDecComp->codecSpecificData )
+					free( pDecComp->codecSpecificData );
+				pDecComp->codecSpecificData = malloc(initBufSize);
+				memcpy( pDecComp->codecSpecificData, initBuf, initBufSize );
+				pDecComp->codecSpecificDataSize = initBufSize;
+				goto Exit;
+			}
+			else
+			{
+				goto Exit;
+			}
+		}
+
 		//	Initialize VPU
 		ret = InitializeCodaVpu(pDecComp, initBuf, initBufSize );
 		free( initBuf );

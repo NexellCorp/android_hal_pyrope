@@ -385,10 +385,16 @@ static int decode_nal_units(SPS *sps, uint8_t *buf, int buf_size)
     return ret;
 }
 
+#if 1
+
 int avc_get_video_size(unsigned char *buf, int buf_size, int *width, int *height)
 {
 	SPS sps;
 	memset(&sps, 0, sizeof(SPS));
+
+	if( buf_size > 64*1024 )
+		buf_size = 64*1024;
+
 	if ( decode_nal_units(&sps, buf, buf_size) )
 	{
 		*width      = sps.mb_width * 16;
@@ -413,3 +419,51 @@ int avc_get_video_size(unsigned char *buf, int buf_size, int *width, int *height
 	}
 	return 0;
 }
+
+#else	//	Simple find SPS
+
+int avc_get_video_size(unsigned char *buf, int buf_size, int *width, int *height)
+{
+	int i=0;
+	int zero_count = 0;
+	for( i=0 ; i<buf_size-4 ; i++ )
+	{
+		if( buf[i] ){
+			zero_count = 0;
+			continue;
+		}
+		if( (zero_count>2) && (buf[i]==1) && ((buf[i+1]&0x1f)==0x07) )
+		{
+			GetBitContext gb;
+			SPS sps;
+            init_get_bits(&gb, buf+i-2, buf_size-i+2);
+            if( 0 == decode_seq_parameter_set(&sps, &gb) )
+			{
+				*width      = sps.mb_width * 16;
+				*height     = sps.mb_height * 16;
+				if( sps.crop )
+				{
+					unsigned int cropUnitX, cropUnitY;
+					if (sps.chroma_format_idc == 0  /* monochrome */) {
+						cropUnitX = 1;
+						cropUnitY = 2 - sps.frame_mbs_only_flag;
+					} else {
+						unsigned subWidthC = (sps.chroma_format_idc == 3) ? 1 : 2;
+						unsigned subHeightC = (sps.chroma_format_idc == 1) ? 2 : 1;
+
+						cropUnitX = subWidthC;
+						cropUnitY = subHeightC * (2 - sps.frame_mbs_only_flag);
+					}
+					*width  -= (sps.crop_left + sps.crop_right) * cropUnitX;
+					*height -= (sps.crop_top + sps.crop_bottom) * cropUnitY;
+				}
+				return 1;
+			}
+		}
+		if( buf[i] == 0 )
+			zero_count ++;
+	}
+	return 0;
+}
+
+#endif

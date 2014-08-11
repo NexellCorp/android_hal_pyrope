@@ -128,12 +128,45 @@ int NX_DecodeVC1Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 		}
 	}
 
+	if( OMX_FALSE == pDecComp->bInitialized )
+	{
+		if( pInBuf->nFlags & OMX_BUFFERFLAG_CODECCONFIG )
+		{
+			if( pDecComp->nExtraDataSize <= 0 )
+			{
+				pDecComp->nExtraDataSize = inSize;
+			}
+			if( pDecComp->pExtraData != NULL )
+			{
+				free(pDecComp->pExtraData);
+			}
+			pDecComp->pExtraData = malloc(pDecComp->nExtraDataSize);
+			memcpy(pDecComp->pExtraData, inData, inSize);
+			DbgMsg("Copy Extra Data (%d)\n", inSize );
+
+			{
+				OMX_U8 *buf = pDecComp->pExtraData;
+				DbgMsg("DumpData (%6d) : 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x, 0x%02x%02x%02x%02x\n",
+					inSize,
+					buf[ 0],buf[ 1],buf[ 2],buf[ 3],buf[ 4],buf[ 5],buf[ 6],buf[ 7],
+					buf[ 8],buf[ 9],buf[10],buf[11],buf[12],buf[13],buf[14],buf[15],
+					buf[16],buf[17],buf[18],buf[19],buf[20],buf[21],buf[22],buf[23] );
+			}
+
+
+			goto Exit;
+		}
+	}
+
 	//	Push Input Time Stamp
 	PushVideoTimeStamp(pDecComp, pInBuf->nTimeStamp, pInBuf->nFlags );
 
 	if( OMX_FALSE == pDecComp->bInitialized )
 	{
 		int size;
+		if( pDecComp->codecSpecificData )
+			free(pDecComp->codecSpecificData);
+		pDecComp->codecSpecificData = malloc(pDecComp->nExtraDataSize + 128);
 		size = MakeVC1DecodeSpecificInfo( pDecComp );
 		memcpy( pDecComp->tmpInputBuffer, pDecComp->codecSpecificData, size );
 		size += MakeVC1PacketData( pDecComp->codecType.wmvType.eFormat, inData, inSize, pDecComp->tmpInputBuffer+size, key, (int)(pInBuf->nTimeStamp/1000ll) );

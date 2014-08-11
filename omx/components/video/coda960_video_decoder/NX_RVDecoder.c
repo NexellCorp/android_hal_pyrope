@@ -116,6 +116,10 @@ int NX_DecodeRVFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, NX
 	//	Step 1. Found Sequence Information
 	if( OMX_FALSE == pDecComp->bInitialized )
 	{
+		if( pDecComp->codecSpecificData )
+			free(pDecComp->codecSpecificData);
+		//	RV Sequence Need Addtional 26 bytes but we allocate 128 bytes additionally.
+		pDecComp->codecSpecificData = malloc(pDecComp->nExtraDataSize + 128);
 		MakeRVDecodeSpecificInfo( pDecComp );
 	}
 

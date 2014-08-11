@@ -8,7 +8,8 @@ NX_HW_TOP 		:= $(TOP)/hardware/nexell/pyrope
 OMX_TOP			:= $(NX_HW_TOP)/omx
 FFMPEG_PATH		:= $(OMX_TOP)/codec/ffmpeg
 
-LOCAL_MODULE:= libNX_FFMpegExtractor
+LOCAL_MODULE	:= libNX_FFMpegExtractor
+LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES :=			\
         FFmpegExtractor.cpp	\
