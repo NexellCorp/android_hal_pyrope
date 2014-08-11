@@ -75,21 +75,21 @@ LOOP_NWIDTH16:
     vmov.u16 d12,d0
     vmov.u16 d13,d4
 
-    vand.u16 q4,#0x00FF  @R
+    vand.u16 q4,#0x00FF  @B
     vand.u16 q5,#0x00FF  @G
-    vand.u16 q6,#0x00FF  @B
+    vand.u16 q6,#0x00FF  @R
 
-    vmov.u16 q8,q9   @ CalcU()
-    vmla.u16 q8,q6,q13  @112 * B[k]
-    vmls.u16 q8,q4,q11  @q0:U -(38 * R[k]) @128<<6+ 32 + u>>2
-    vmls.u16 q8,q5,q12  @-(74 * G[k])
-    vshr.u16 q8,q8, #8  @(128<<8+ 128 + u)>>8
+    vmov.u16 q7,q9   @ CalcU()
+    vmla.u16 q7,q4,q13  @112 * B[k]
+    vmls.u16 q7,q6,q11  @q0:U -(38 * R[k]) @128<<6+ 32 + u>>2
+    vmls.u16 q7,q5,q12  @-(74 * G[k])
+    vshr.u16 q7,q7, #8  @(128<<8+ 128 + u)>>8
 
-    vmov.u16 q7,q9      @CalcV()
-    vmla.u16 q7,q4,q13  @112 * R[k]
-    vmls.u16 q7,q5,q14  @q0:U -(94 * G[k])  @128<<6+ 32 + v>>2
-    vmls.u16 q7,q6,q15  @-(18 * B[k])
-    vshr.u16 q7,q7, #8  @(128<<8+ 128 + v)>>8
+    vmov.u16 q8,q9      @CalcV()
+    vmla.u16 q8,q6,q13  @112 * R[k]
+    vmls.u16 q8,q5,q14  @q0:U -(94 * G[k])  @128<<6+ 32 + v>>2
+    vmls.u16 q8,q4,q15  @-(18 * B[k])
+    vshr.u16 q8,q8, #8  @(128<<8+ 128 + v)>>8
 
 
     vtrn.8 q7,q8
@@ -103,9 +103,9 @@ LOOP_NWIDTH16:
 
     @CalcY_Y()
 
-    vmul.u16 q7,q4,q14  @q0 = 66 *R[k]
+    vmul.u16 q7,q6,q14  @q0 = 66 *R[k]
     vmla.u16 q7,q5,q15  @q0 += 129 *G[k]
-    vmla.u16 q7,q6,q8  @q0 += 25 *B[k]
+    vmla.u16 q7,q4,q8  @q0 += 25 *B[k]
 
     vadd.u16 q7,q7,q10
     vshr.u16 q7,q7, #8
@@ -117,13 +117,13 @@ LOOP_NWIDTH16:
     vmov.u16 d12,d0
     vmov.u16 d13,d4
 
-    vshr.u16 q4,q4,#8  @R
+    vshr.u16 q4,q4,#8  @B
     vshr.u16 q5,q5,#8  @G
-    vshr.u16 q6,q6,#8  @B
+    vshr.u16 q6,q6,#8  @R
 
-    vmul.u16 q0,q4,q14  @q0 = 66 *R[k]
+    vmul.u16 q0,q6,q14  @q0 = 66 *R[k]
     vmla.u16 q0,q5,q15  @q0 += 129 *G[k]
-    vmla.u16 q0,q6,q8  @q0 += 25 *B[k]
+    vmla.u16 q0,q4,q8  @q0 += 25 *B[k]
     vadd.u16 q0,q0,q10
     vshr.u16 q0,q0, #8
 
@@ -148,15 +148,15 @@ LOOP_NWIDTH16:
     vmov.u16 d13,d4
 
 
-    vand.u16 q4,#0x00FF  @R
+    vand.u16 q4,#0x00FF  @B
     vand.u16 q5,#0x00FF  @G
-    vand.u16 q6,#0x00FF  @B
+    vand.u16 q6,#0x00FF  @R
 
 
 
-    vmul.u16 q7,q4,q14  @q0 = 66 *R[k]
+    vmul.u16 q7,q6,q14  @q0 = 66 *R[k]
     vmla.u16 q7,q5,q15  @q0 += 129 *G[k]
-    vmla.u16 q7,q6,q8  @q0 += 25 *B[k]
+    vmla.u16 q7,q4,q8  @q0 += 25 *B[k]
     vadd.u16 q7,q7,q10
     vshr.u16 q7,q7, #8
 
@@ -167,13 +167,13 @@ LOOP_NWIDTH16:
     vmov.u16 d12,d0
     vmov.u16 d13,d4
 
-    vshr.u16 q4,q4,#8  @R
+    vshr.u16 q4,q4,#8  @B
     vshr.u16 q5,q5,#8  @G
-    vshr.u16 q6,q6,#8  @B
+    vshr.u16 q6,q6,#8  @R
 
-    vmul.u16 q0,q4,q14  @q0 = 66 *R[k]
+    vmul.u16 q0,q6,q14  @q0 = 66 *R[k]
     vmla.u16 q0,q5,q15  @q0 += 129 *G[k]
-    vmla.u16 q0,q6,q8  @q0 += 25 *B[k]
+    vmla.u16 q0,q4,q8  @q0 += 25 *B[k]
     vadd.u16 q0,q0,q10
     vshr.u16 q0,q0, #8
 
@@ -191,11 +191,11 @@ LOOP_NWIDTH2:
     @stmfd sp!, {r14} @backup r14
 
 
-    ldr r9,  [r2], #4 @loadRGB  int
-    ldr r12,  [r2], #4 @loadRGB  int
+    ldr r9,  [r2], #4 @loadBGR  int
+    ldr r12,  [r2], #4 @loadBGR  int
 
-    mov r10, r9,lsr #16    @copy to r10
-    mov r14, r12    @copy to r10
+    mov r10, r9    @copy to r10
+    mov r14, r12,lsl #16    @copy to r10
 
     ldr r6, =0x000000FF
     and r10, r10, r6 @R: (rgbIn[k] & 0xF800) >> 10;
@@ -218,8 +218,8 @@ LOOP_NWIDTH2:
     mov r11, #129 @accumilator += G *129
     mla r7, r10, r11, r7
 
-    mov r10, r9    @copy to r10
-    mov r14, r12,lsl #16    @copy to r10
+    mov r10, r9,lsr #16    @copy to r10
+    mov r14, r12    @copy to r10
 
     ldr r6, =0x000000FF
     and r10, r10, r6 @B
@@ -247,29 +247,25 @@ LOOP_NWIDTH2:
     mov  r12,r7
 
     ldr r6, =0x000000FF
-    and r10, r10, r6 @B:
+    and r10, r10, r6 @R:
 
-    mov r11, #112 @accumilator += B*112
-    mla r7, r10, r11, r7
-
-
-    mov r11, #18 @accumilator -= B*18
-    mul r11, r10, r11
-    sub r12, r12, r11
-
-
-
-
-    mov r10, r9, lsr #16    @copy to r10
-    ldr r6, =0x000000FF
-    and r10, r10, r6 @R: (rgbIn[k] & 0xF800) >> 10;
-
-    mov r11, #38 @accumilator -= R *38
+    mov r11, #38 @accumilator -= R*38
     mul r11, r10, r11
     sub r7, r7, r11
 
-    mov r11, #112 @accumilator  = R *112
+    mov r11, #112 @accumilator += R*112
     mla r12, r10, r11, r12
+
+    mov r10, r9, lsr #16    @copy to r10
+    ldr r6, =0x000000FF
+    and r10, r10, r6 @B: (rgbIn[k] & 0xF800) >> 10;
+
+    mov r11, #112 @accumilator += B *112
+    mla r7, r10, r11, r7
+
+    mov r11, #18 @accumilator  -= B *18
+    mul r11, r10, r11
+    sub r12, r12, r11
 
     mov r10, r9,lsr #8    @copy to r10
     ldr r6, =0x000000FF
@@ -292,11 +288,11 @@ LOOP_NWIDTH2:
     @stmfd sp!, {r14} @backup r14
 
 
-    ldr r9,  [r5], #4 @loadRGB  int
-    ldr r12,  [r5], #4 @loadRGB  int
+    ldr r9,  [r5], #4 @loadBGR  int
+    ldr r12,  [r5], #4 @loadBGR  int
 
-    mov r10, r9,lsr #16    @copy to r10
-    mov r14, r12    @copy to r10
+    mov r10, r9    @copy to r10
+    mov r14, r12,lsl #16    @copy to r10    
 
     ldr r6, =0x000000FF
     and r10, r10, r6 @R: (rgbIn[k] & 0xF800) >> 10;
@@ -319,8 +315,8 @@ LOOP_NWIDTH2:
     mov r11, #129 @accumilator += G *129
     mla r7, r10, r11, r7
 
-    mov r10, r9    @copy to r10
-    mov r14, r12,lsl #16    @copy to r10
+    mov r10, r9,lsr #16    @copy to r10
+    mov r14, r12    @copy to r10
 
     ldr r6, =0x000000FF
     and r10, r10, r6 @B
@@ -353,9 +349,9 @@ NO_UNALIGNED: @in case that nWidht is multiple of 16
     @-----------------------------------------------------------------------------
     sub         r8, r3, #16                @r8: nWidthTmp = nWidth -16
     add r0, r0,  r3   @pDstY +  nwidth
-    add r2, r2, r3, lsl #2    @pSrcRGB +  nwidthx4
+    add r2, r2, r3, lsl #2    @pSrcBGR +  nwidthx4
     add r4, r4,  r3   @pDstY2 +  nwidth
-    add r5, r5, r3, lsl #2   @pSrcRGB2 +  nwidthx4
+    add r5, r5, r3, lsl #2   @pSrcBGR2 +  nwidthx4
 
     ldmfd sp!, {r12}
     subs r12,r12,#2                       @nHeight -=2
