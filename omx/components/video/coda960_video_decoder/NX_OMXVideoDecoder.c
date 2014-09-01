@@ -186,6 +186,8 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent)
 	pDecComp->outFrameCount = 0;
 	pDecComp->bNeedSequenceData = OMX_TRUE;
 
+	pDecComp->instanceId = gstNumInstance;
+
 	gstNumInstance ++;
 
 	FUNC_OUT;
@@ -717,7 +719,7 @@ static OMX_ERRORTYPE NX_VidDec_UseBuffer (OMX_HANDLETYPE hComponent, OMX_BUFFERH
 	OMX_BUFFERHEADERTYPE         **pPortBuf = NULL;
 	OMX_U32 i=0;
 
-	DbgBuffer( "%s() In.(PortNo=%ld), state(%d)\n", __FUNCTION__, nPortIndex , pDecComp->eNewState);
+	DbgBuffer( "[%ld] %s() In.(PortNo=%ld), state(%d)\n", pDecComp->instanceId, __FUNCTION__, nPortIndex , pDecComp->eNewState);
 
 	if( nPortIndex >= pDecComp->nNumPort ){
 		return OMX_ErrorBadPortIndex;
@@ -758,7 +760,8 @@ static OMX_ERRORTYPE NX_VidDec_UseBuffer (OMX_HANDLETYPE hComponent, OMX_BUFFERH
 			}else{
 				pPortBuf[i]->nOutputPortIndex = pPort->stdPortDef.nPortIndex;
 				pDecComp->outUsableBuffers ++;
-				DbgBuffer( "%s() : outUsableBuffers= %ld, pPort->nAllocatedBuf = %ld\n", __FUNCTION__, pDecComp->outUsableBuffers, pPort->nAllocatedBuf);
+				DbgBuffer( "[%ld] %s() : outUsableBuffers(%ld), pPort->nAllocatedBuf(%ld), pBuffer(0x%08x)\n",
+					pDecComp->instanceId, __FUNCTION__, pDecComp->outUsableBuffers, nSizeBytes, pBuffer);
 			}
 			pPort->nAllocatedBuf ++;
 			if( pPort->nAllocatedBuf == pPort->stdPortDef.nBufferCountActual ){
@@ -840,7 +843,7 @@ static OMX_ERRORTYPE NX_VidDec_FreeBuffer (OMX_HANDLETYPE hComponent, OMX_U32 nP
 	OMX_BUFFERHEADERTYPE **pPortBuf = NULL;
 	OMX_U32 i=0;
 
-	DbgBuffer("%s() IN\n", __FUNCTION__ );
+	DbgBuffer("[%ld] %s() IN\n", pDecComp->instanceId, __FUNCTION__ );
 
 	if( nPortIndex >= pDecComp->nNumPort )
 	{
@@ -882,7 +885,7 @@ static OMX_ERRORTYPE NX_VidDec_FreeBuffer (OMX_HANDLETYPE hComponent, OMX_U32 nP
 		}
 	}
 
-	DbgBuffer("%s() OUT\n", __FUNCTION__ );
+	DbgBuffer("[%ld] %s() OUT\n", pDecComp->instanceId, __FUNCTION__ );
 
 	return OMX_ErrorInsufficientResources;
 }
@@ -1359,7 +1362,7 @@ static void NX_VidDec_CommandProc( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_COMM
 				ErrMsg(" Errror : OMX_ErrorBadPortIndex(%ld) : %s: %d", nParam1, __FILE__, __LINE__);
 				break;
 			}
-
+			pthread_mutex_lock( &pDecComp->hBufMutex );
 			//	Step 1. The component shall return the buffers with a call to EmptyBufferDone/FillBufferDone,
 			//NX_PendSem( pDecComp->hBufCtrlSem );
 			if( 0 == nParam1 )
@@ -1416,6 +1419,7 @@ static void NX_VidDec_CommandProc( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_COMM
 			nData1 = OMX_CommandPortDisable;
 			nData2 = nParam1;
 			//NX_PostSem( pDecComp->hBufCtrlSem );
+			pthread_mutex_unlock( &pDecComp->hBufMutex );
 
 			break;
 		}
@@ -1438,7 +1442,7 @@ static void NX_VidDec_CommandProc( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_COMM
 			if( pDecComp->eNewState == OMX_StateExecuting ){
 				//openVideoCodec(pDecComp);
 			}
-			//NX_PostSem( pDecComp->hBufCtrlSem );
+			NX_PostSem( pDecComp->hBufCtrlSem );
 			break;
 		}
 		case OMX_CommandMarkBuffer:  // Mark a component/buffer for observation
@@ -1542,10 +1546,19 @@ static void NX_VidDec_BufferMgmtThread( void *arg )
 	NX_PostSem( pDecComp->hBufCtrlSem );					//	Thread Creation Semaphore
 	while( NX_THREAD_CMD_EXIT != pDecComp->eCmdBufThread )
 	{
+		TRACE("[%ld] ========================> Wait Buffer Control Signal!!!\n", pDecComp->instanceId);
 		NX_PendSem( pDecComp->hBufCtrlSem );				//	Thread Control Semaphore
+		TRACE("[%ld] ========================> Released Buffer Control Signal!!!\n", pDecComp->instanceId);
 		while( NX_THREAD_CMD_RUN == pDecComp->eCmdBufThread ){
 			NX_PendSem( pDecComp->hBufChangeSem );			//	wait buffer management command
 			if( NX_THREAD_CMD_RUN != pDecComp->eCmdBufThread ){
+				break;
+			}
+
+			if( pDecComp->pOutputPort->stdPortDef.bEnabled != OMX_TRUE || pDecComp->pInputPort->stdPortDef.bEnabled != OMX_TRUE )
+			{
+				//	Break Out & Wait Thread Control Signal
+				NX_PostSem( pDecComp->hBufChangeSem );
 				break;
 			}
 
@@ -1583,8 +1596,6 @@ static void NX_VidDec_BufferMgmtThread( void *arg )
 					processEOS( pDecComp );
 				}
 			}
-
-
 			pthread_mutex_unlock( &pDecComp->hBufMutex );
 		}
 	}
@@ -1751,13 +1762,27 @@ int InitializeCodaVpu(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, unsigned char *buf, i
 
 		if( pDecComp->bUseNativeBuffer == OMX_TRUE )
 		{
-			DbgMsg("Native Buffer Mode : pDecComp->outUsableBuffers=%ld, ExtraSize = %ld, MAX_DEC_FRAME_BUFFERS = %d\n", pDecComp->outUsableBuffers, pDecComp->codecSpecificDataSize, MAX_DEC_FRAME_BUFFERS );
+			DbgMsg("[%ld] Native Buffer Mode : pDecComp->outUsableBuffers=%ld, ExtraSize = %ld, MAX_DEC_FRAME_BUFFERS = %d\n",
+				pDecComp->instanceId, pDecComp->outUsableBuffers, pDecComp->codecSpecificDataSize, MAX_DEC_FRAME_BUFFERS );
 			//	Translate Gralloc Memory Buffer Type To Nexell Video Memory Type
 			for( i=0 ; i<pDecComp->outUsableBuffers ; i++ )
 			{
+				int vstride;
+				struct private_handle_t const *handle;
                 int ion_fd = ion_open();
-				struct private_handle_t const *handle = (struct private_handle_t const *)pDecComp->pOutputBuffers[i]->pBuffer;
-                int vstride = ALIGN(handle->height, 16);
+				TRACE("[%d] Trace 0, pOutputBuffers[i](0x%08x)\n", pDecComp->instanceId, pDecComp->pOutputBuffers[i]);
+
+				if( pDecComp->pOutputBuffers[i] == NULL )
+				{
+					ALOGE("%s(Line=%d): Invalid Buffer!!!!", __func__, __LINE__);
+					return -1;
+				}
+				handle = (struct private_handle_t const *)pDecComp->pOutputBuffers[i]->pBuffer;
+				if( handle == NULL )
+				{
+					ALOGE("%s: Invalid Buffer!!!\n", __func__);
+				}
+                vstride = ALIGN(handle->height, 16);
                 if( ion_fd<0 )
                 {
 					ALOGE("%s: failed to ion_open", __func__);
@@ -1788,7 +1813,8 @@ int InitializeCodaVpu(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, unsigned char *buf, i
 		ret = NX_VidDecInit( pDecComp->hVpuCodec, &seqIn, &seqOut );
 		pDecComp->minRequiredFrameBuffer = seqOut.nimBuffers;
 		pDecComp->outBufferable = seqOut.numBuffers - seqOut.nimBuffers;
-		DbgMsg("<<<<<<<<<< InitializeCodaVpu(Min=%ld) >>>>>>>>>>\n", pDecComp->minRequiredFrameBuffer );
+		DbgMsg("[%ld] <<<<<<<<<< InitializeCodaVpu(Min=%ld, %dx%d) >>>>>>>>>>\n",
+			pDecComp->instanceId, pDecComp->minRequiredFrameBuffer, seqOut.width, seqOut.height );
 	}
 	FUNC_OUT;
 	return ret;

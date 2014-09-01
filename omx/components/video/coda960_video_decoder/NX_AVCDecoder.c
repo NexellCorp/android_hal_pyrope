@@ -1,5 +1,7 @@
 #define	LOG_TAG				"NX_AVCDEC"
 
+#include <utils/Log.h>
+
 #include <assert.h>
 #include <OMX_AndroidTypes.h>
 #include <system/graphics.h>
@@ -47,6 +49,7 @@ static int AVCCheckPortReconfiguration( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX
 					closeVideoCodec(pDecComp);
 					openVideoCodec(pDecComp);
 				}
+				pDecComp->pOutputPort->stdPortDef.bEnabled = OMX_FALSE;
 			}
 			else
 			{

@@ -188,6 +188,7 @@ struct tNX_VIDDEC_VIDEO_COMP_TYPE{
 	//	for Debugging
 	OMX_S32						inFrameCount;
 	OMX_S32						outFrameCount;
+	OMX_S32						instanceId;
 
 	OMX_BOOL					bNeedSequenceData;
 };
