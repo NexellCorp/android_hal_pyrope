@@ -89,7 +89,8 @@ int NX_DecodeDiv3Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, 
 	}
 
 	//	Push Input Time Stamp
-	PushVideoTimeStamp(pDecComp, pInBuf->nTimeStamp, pInBuf->nFlags );
+	if( !(pInBuf->nFlags & OMX_BUFFERFLAG_CODECCONFIG) )
+		PushVideoTimeStamp(pDecComp, pInBuf->nTimeStamp, pInBuf->nFlags );
 
 
 	//	Step 2. Find First Key Frame & Do Initialize VPU
