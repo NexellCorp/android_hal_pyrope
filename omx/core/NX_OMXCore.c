@@ -68,10 +68,10 @@ static OMX_ERRORTYPE RegisterAllComponents()
 static OMX_ERRORTYPE RegisterAllComponents()
 {
 #ifdef USE_AUDIO_COMPONENT
-	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mpeg",NULL);
-	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mp1",NULL);
-	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mp2",NULL);
-	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mp3",NULL);
+	//NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mpeg",NULL);
+	//NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mp1",NULL);
+	//NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mp2",NULL);
+	//NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mp3",NULL);
 	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.ac3",NULL);
 	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.ra",NULL);
 	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.x-ms-wma",NULL);
@@ -87,7 +87,7 @@ static OMX_ERRORTYPE RegisterAllComponents()
 	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.x-ms-wmv",NULL);
 	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.x-pn-realvideo",NULL);
 
-	NX_OMXRegisterComponent("OMX.NX.VIDEO_ENCODER",			"video_decoder.avc",NULL);
+	NX_OMXRegisterComponent("OMX.NX.VIDEO_ENCODER",			"video_encoder.avc",NULL);			// modified by kshblue(14.07.04)
 	return OMX_ErrorNone;
 }
 #endif
@@ -421,8 +421,10 @@ OMX_API OMX_ERRORTYPE NX_OMX_GetRolesOfComponent (
 		}
 	}
 
-	if( numMatch == 0 )
+	if( numMatch == 0 ){
+		pthread_mutex_unlock( &gstOMXCoreMutex );
 		return OMX_ErrorComponentNotFound;
+	}
 
 	if( roles == NULL ){
 		*pNumRoles = numMatch;

@@ -115,28 +115,16 @@ int HDMIUseOnlyGLImpl::prepare(hwc_display_contents_1_t *contents)
 
 int HDMIUseOnlyGLImpl::set(hwc_display_contents_1_t *contents, void *unused)
 {
-    mRGBHandle = NULL;
-    mRGBLayerIndex = -1;
-
-    for (size_t i = 0; i < contents->numHwLayers; i++) {
-        hwc_layer_1_t &layer = contents->hwLayers[i];
-
-        if (layer.compositionType == HWC_FRAMEBUFFER_TARGET) {
-            mRGBLayerIndex = i;
-            break;
-        }
-    }
-
-    if (mRGBLayerIndex >= 0) {
+    int framebufferTargetIndex = contents->numHwLayers - 1;
+    if (framebufferTargetIndex > 0) {
+        hwc_layer_1_t *framebufferHWCLayer = &contents->hwLayers[framebufferTargetIndex];
         configHDMI(mWidth, mHeight);
-        configRgb(contents->hwLayers[mRGBLayerIndex]);
-        mRGBHandle = reinterpret_cast<private_handle_t const *>(contents->hwLayers[mRGBLayerIndex].handle);
+        //configRgb(contents->hwLayers[framebufferTargetIndex]);
+        configRgb(*framebufferHWCLayer);
+        mRGBHandle = reinterpret_cast<private_handle_t const *>(framebufferHWCLayer->handle);
         mRGBRenderer->setHandle(mRGBHandle);
-        ALOGV("set: handle %p", mRGBHandle);
     } else {
-        unConfigRgb();
-        unConfigHDMI();
-        mRGBRenderer->stop();
+        mRGBHandle = NULL;
     }
 
     return 0;

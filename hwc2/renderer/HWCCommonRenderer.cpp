@@ -48,13 +48,23 @@ HWCCommonRenderer::~HWCCommonRenderer()
 {
 }
 
-int HWCCommonRenderer::render()
+int HWCCommonRenderer::render(int *fenceFd)
 {
     if (mHandle) {
         int ret;
         private_handle_t const *hnd = mHandle;
 
-        ret = v4l2_qbuf(mID, mPlaneNum, mOutIndex, hnd, -1, NULL);
+        if (mOutCount > 1) {
+            int dqIdx;
+            ret = v4l2_dqbuf(mID, mPlaneNum, &dqIdx, NULL);
+            if (ret < 0) {
+                ALOGE("failed to v4l2_dqbuf()");
+                return ret;
+            }
+            mOutCount--;
+        }
+
+        ret = v4l2_qbuf(mID, mPlaneNum, mOutIndex, hnd, -1, NULL, fenceFd, NULL);
         if (ret < 0) {
             ALOGE("failed to v4l2_qbuf()");
             return ret;
@@ -74,17 +84,9 @@ int HWCCommonRenderer::render()
         mOutIndex++;
         mOutIndex %= mMaxBufferCount;
 
-        if (mOutCount >= mMaxBufferCount) {
-            int dqIdx;
-            ret = v4l2_dqbuf(mID, mPlaneNum, &dqIdx, NULL);
-            if (ret < 0) {
-                ALOGE("failed to v4l2_dqbuf()");
-                return ret;
-            }
-            mOutCount--;
-        }
         mHandle = NULL;
     }
+
     return 0;
 }
 
@@ -93,6 +95,8 @@ int HWCCommonRenderer::stop()
     if (mStarted) {
         v4l2_streamoff(mID);
         mStarted = false;
+        mOutCount = 0;
+        mOutIndex = 0;
         ALOGD("Stop");
     }
     return 0;

@@ -752,40 +752,65 @@ bool NXCommandThread::processCommand()
             return true;
         }
 
-#if 0
-        sort_camera_metadata(request);
-        ret = handleRequest(request);
-#else
-        // camera_metadata_entry_t jpegEntry;
-        // ret = find_camera_metadata_entry(request, ANDROID_JPEG_ORIENTATION, &jpegEntry);
-        // if (ret == NO_ERROR) {
-        //     ALOGD("jpeg orientation: %d", jpegEntry.data.i32[0]);
-        // }
-#endif
+        camera_metadata_entry_t entry;
+
+        /* for ae exposure */
+        ret = find_camera_metadata_entry(request, ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION, &entry);
+        if (ret == NO_ERROR) {
+            Sensor->setExposure(entry.data.i32[0]);
+        }
+
+        /* for awb mode */
+        ret = find_camera_metadata_entry(request, ANDROID_CONTROL_AWB_MODE, &entry);
+        if (ret == NO_ERROR) {
+            Sensor->setAwbMode(entry.data.u8[0]);
+        }
+
+        /* for af mode */
+        ret = find_camera_metadata_entry(request, ANDROID_CONTROL_AF_MODE, &entry);
+        if (ret == NO_ERROR) {
+            Sensor->setAfMode(entry.data.u8[0]);
+        }
+
+        /* for scene mode */
+        ret = find_camera_metadata_entry(request, ANDROID_CONTROL_SCENE_MODE, &entry);
+        if (ret == NO_ERROR) {
+            Sensor->setSceneMode(entry.data.u8[0]);
+        }
+
+        /* for effect mode */
+        ret = find_camera_metadata_entry(request, ANDROID_CONTROL_EFFECT_MODE, &entry);
+        if (ret == NO_ERROR) {
+            Sensor->setEffectMode(entry.data.u8[0]);
+        }
+
+        /* for antibanding mode */
+        ret = find_camera_metadata_entry(request, ANDROID_CONTROL_AE_ANTIBANDING_MODE, &entry);
+        if (ret == NO_ERROR) {
+            Sensor->setAntibandingMode(entry.data.u8[0]);
+        }
 
         /* for zoom */
-        camera_metadata_entry_t zoomEntry;
-        ret = find_camera_metadata_entry(request, ANDROID_SCALER_CROP_REGION, &zoomEntry);
-        if (CropWidth != (unsigned int)zoomEntry.data.i32[2]) {
-            CropWidth = zoomEntry.data.i32[2];
+        ret = find_camera_metadata_entry(request, ANDROID_SCALER_CROP_REGION, &entry);
+        if (ret == NO_ERROR && CropWidth != (unsigned int)entry.data.i32[2]) {
+            CropWidth = entry.data.i32[2];
             CropHeight = (Sensor->getSensorH()*CropWidth)/Sensor->getSensorW();
-            CropLeft = zoomEntry.data.i32[0];
-            CropTop = zoomEntry.data.i32[1];
-            ALOGD("CROP===> left %d, top %d, w %d, h %d",
-                    CropLeft, CropTop, CropWidth, CropHeight);
-            // Sensor->setZoomCrop(left, top, CropWidth, cropHeight);
+            CropLeft = entry.data.i32[0];
+            CropTop = entry.data.i32[1];
+            ALOGV("CROP===> left %d, top %d, w %d, h %d", CropLeft, CropTop, CropWidth, CropHeight);
             doZoomChanged(CropLeft, CropTop, CropWidth, CropHeight, Sensor->getSensorW(), Sensor->getSensorH());
         }
 
+        /* for exif */
         if (handleExif(request))
             doExifChanged();
 
-        camera_metadata_entry_t streams;
-        ret = find_camera_metadata_entry(request, ANDROID_REQUEST_OUTPUT_STREAMS, &streams);
+        /* for streams */
+        ret = find_camera_metadata_entry(request, ANDROID_REQUEST_OUTPUT_STREAMS, &entry);
         if (ret != NO_ERROR)
             ALOGE("can't find streams request");
         else
-            doListenersCallback(streams, request);
+            doListenersCallback(entry, request);
 
         RequestQueueSrcOps->free_request(RequestQueueSrcOps, request);
     }

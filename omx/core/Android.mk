@@ -12,6 +12,7 @@ LOCAL_SRC_FILES:= \
 LOCAL_C_INCLUDES += \
 	$(TOP)/system/core/include \
 	$(TOP)/hardware/nexell/pyrope/omx/include \
+	$(TOP)/hardware/nexell/pyrope/omx/core/inc \
 	$(TOP)/frameworks/base/include \
 	$(NX_OMX_INCLUDES)
 
@@ -25,7 +26,7 @@ LOCAL_CFLAGS := $(NX_OMX_CFLAGS)
 
 LOCAL_CFLAGS += -DNO_OPENCORE
 
-ifeq ($(EN_FFMPEG_EXTRACTOR),true)
+ifeq ($(EN_FFMPEG_AUDIO_DEC),true)
 LOCAL_CFLAGS += -DUSE_AUDIO_COMPONENT=1
 endif
 

@@ -70,13 +70,13 @@ void LCDUseOnlyGLImpl::init()
 
 int LCDUseOnlyGLImpl::prepare(hwc_display_contents_1_t *contents)
 {
-    mRGBLayerIndex = -1;
+    //mRGBLayerIndex = -1;
 
     for (size_t i = 0; i < contents->numHwLayers; i++) {
         hwc_layer_1_t &layer = contents->hwLayers[i];
 
         if (layer.compositionType == HWC_FRAMEBUFFER_TARGET) {
-            mRGBLayerIndex = i;
+            //mRGBLayerIndex = i;
             continue;
         }
 
@@ -91,11 +91,8 @@ int LCDUseOnlyGLImpl::prepare(hwc_display_contents_1_t *contents)
 
 int LCDUseOnlyGLImpl::set(hwc_display_contents_1_t *contents, void *unused)
 {
-    mRGBHandle = NULL;
-    if (mRGBLayerIndex >= 0) {
-        mRGBHandle = reinterpret_cast<private_handle_t const *>(contents->hwLayers[mRGBLayerIndex].handle);
-        return mRGBRenderer->setHandle(mRGBHandle);
-    }
+    mRGBHandle = reinterpret_cast<private_handle_t const *>(contents->hwLayers[contents->numHwLayers - 1].handle);
+    return mRGBRenderer->setHandle(mRGBHandle);
     return 0;
 }
 

@@ -212,8 +212,7 @@ status_t NXCameraSensor::constructStaticInfo(camera_metadata_t **info,
     };
     ADD_OR_SIZE(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES, jpegThumnailSizes, sizeof(jpegThumnailSizes)/sizeof(int32_t));
 
-    //static const int32_t jpegMaxSize = 10 * 1024 * 1024; // 10M
-    static const int32_t jpegMaxSize = 1600*1200;
+    static const int32_t jpegMaxSize = 10 * 1024 * 1024; // 10M
     ADD_OR_SIZE(ANDROID_JPEG_MAX_SIZE, &jpegMaxSize, 1);
 
     // android.stats

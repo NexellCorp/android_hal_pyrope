@@ -20,6 +20,7 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent);
 #include <hardware/gralloc.h>
 #include <cutils/native_handle.h>
 #include <gralloc_priv.h>
+#include <media/hardware/MetadataBufferType.h>
 
 #include <nx_fourcc.h>
 #include <nx_video_api.h>
@@ -35,29 +36,30 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent);
 
 #define	NX_OMX_MAX_BUF				32
 
-#define	VID_INPORT_MIN_BUF_CNT		10					//	Max 6 Avaliable
-#define	VID_INPORT_MIN_BUF_SIZE		(1024*1024*4)		//	32 Mbps( 32Mbps, 1fps )
+#define	VID_INPORT_MIN_BUF_CNT		6					//	Max 6 Avaliable
+#define	VID_INPORT_MIN_BUF_SIZE		(1024*1024*4)		//	32 Mbps( 32Mbps, 1 fps )
 
 //	Default Native Buffer Mode's buffers & buffer size
 #define	VID_OUTPORT_MIN_BUF_CNT_THUMB	4
-#define	VID_OUTPORT_MIN_BUF_CNT		12					//	Max Avaiable Frames
+#define	VID_OUTPORT_MIN_BUF_CNT		16					//	Max Avaiable Frames
 #define	VID_OUTPORT_MIN_BUF_SIZE	(4*1024)			//	Video Memory Structure Size
 
 #define	VID_TEMP_IN_BUF_SIZE		(4*1024*1024)
-
-#define	MAX_DEC_SPECIFIC_DATA		(1024)
 
 #ifndef UNUSED_PARAM
 #define	UNUSED_PARAM(X)		X=X
 #endif
 
-
+//
+//	DEBUG FLAGS
+//
 #define	DEBUG_ANDROID	1
 #define	DEBUG_BUFFER	0
 #define	DEBUG_FUNC		0
 #define	TRACE_ON		0
 #define	DEBUG_FLUSH		0
 #define	DEBUG_STATE		0
+#define	DEBUG_PARAM		0
 
 #if DEBUG_BUFFER
 #define	DbgBuffer(fmt,...)	DbgMsg(fmt, ##__VA_ARGS__)
@@ -91,7 +93,11 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent);
 #define	DBG_FLUSH(fmt,...)		do{}while(0)
 #endif
 
-
+#if DEBUG_PARAM
+#define	DBG_PARAM(fmt,...)		DbgMsg(fmt, ##__VA_ARGS__)
+#else
+#define	DBG_PARAM(fmt,...)		do{}while(0)
+#endif
 
 struct OutBufferTimeInfo{
 	OMX_TICKS			timestamp;
@@ -164,9 +170,10 @@ struct tNX_VIDDEC_VIDEO_COMP_TYPE{
 
 	OMX_BOOL					bUseNativeBuffer;
 	OMX_BOOL					bEnableThumbNailMode;
+	OMX_BOOL					bMetaDataInBuffers;
 
 	//	Extra Informations &
-	OMX_U8						codecSpecificData[MAX_DEC_SPECIFIC_DATA];
+	OMX_U8						*codecSpecificData;
 	OMX_S32						codecSpecificDataSize;
 
 	//	FFMPEG Parser Data
@@ -181,6 +188,9 @@ struct tNX_VIDDEC_VIDEO_COMP_TYPE{
 	//	for Debugging
 	OMX_S32						inFrameCount;
 	OMX_S32						outFrameCount;
+	OMX_S32						instanceId;
+
+	OMX_BOOL					bNeedSequenceData;
 };
 
 
@@ -190,5 +200,7 @@ int PopVideoTimeStamp(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_TICKS *timestamp,
 int flushVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp);
 int openVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp);
 void closeVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp);
+
+int SendEvent( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_EVENTTYPE eEvent, OMX_U32 param1, OMX_U32 param2, OMX_PTR pEventData );
 
 #endif	//	__NX_OMXVideoDecoder_h__

@@ -125,6 +125,16 @@ static const struct sensor_t sSensorSupportList[] = {
           0.20f, 10, 0, 0,
           { (void*)"mma7660" }    // reserved[0] --> input device name
         },
+	{
+          "MMA8653 3-axis Accelerometer",
+          "Freescale Semi",
+          1, SENSORS_ACCELERATION_HANDLE,
+          SENSOR_TYPE_ACCELEROMETER,
+          (4.0f * GRAVITY_EARTH),
+          (4.0f * GRAVITY_EARTH) / 1024.0f,     // -2G ~ +2G, 10 bit
+          0.20f, 10, 0, 0,
+          { (void*)"mma8653" }    // reserved[0] --> input device name
+        },
         {
           "MMA8452 3-axis Accelerometer",
           "Freescale Semi",
@@ -252,7 +262,8 @@ static const struct sensor_t sSensorSupportList[] = {
           1, SENSORS_GYROSCOPE_HANDLE,
           SENSOR_TYPE_GYROSCOPE, 
           (4000.0f*(float)M_PI/180.0f),         // -2000dps ~ +2000dps
-          ((1.0f / 16.4f) * ((float)M_PI / 180.0f)),    // 1/16.4 dps/LSB
+//          ((1.0f / 16.4f) * ((float)M_PI / 180.0f)),    // 1/16.4 dps/LSB
+          ((4.0f / 16.4f) * ((float)M_PI / 180.0f)),    // 1/16.4 dps/LSB
           6.1f, 10, 0, 0,
           { (void*)"bmg160" }    // reserved[0] --> input device name
         },

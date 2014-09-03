@@ -17,7 +17,8 @@ LOCAL_SRC_FILES:= \
 LOCAL_C_INCLUDES += \
 	$(TOP)/system/core/include \
 	$(TOP)/hardware/libhardware/include \
-	$(TOP)/hardware/nexell/pyrope/include
+	$(TOP)/hardware/nexell/pyrope/include \
+	$(TOP)/hardware/nexell/pyrope/nxutil
 
 LOCAL_C_INCLUDES += \
 	$(OMX_TOP)/include \
@@ -35,10 +36,10 @@ LOCAL_SHARED_LIBRARIES := \
 	libhardware \
 	libnx_vpu \
 	libion \
-	libion-nexell
+	libion-nexell \
+	libnxutil
 
-LOCAL_CFLAGS := $(NX_OMX_CFLAGS)
-
+LOCAL_CFLAGS += $(NX_OMX_CFLAGS)
 LOCAL_CFLAGS += -DNX_DYNAMIC_COMPONENTS
 
 LOCAL_MODULE := libNX_OMX_VIDEO_ENCODER

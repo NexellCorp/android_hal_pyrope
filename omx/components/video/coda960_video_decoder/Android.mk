@@ -14,10 +14,13 @@ OMX_TOP := $(TOP)/hardware/nexell/pyrope/omx
 
 LOCAL_SRC_FILES:= \
 	NX_AVCDecoder.c \
+	NX_MPEG2Decoder.c \
 	NX_MPEG4Decoder.c \
 	NX_Div3Decoder.c \
 	NX_RVDecoder.c \
 	NX_VC1Decoder.c \
+	NX_DecoderUtil.c \
+	NX_AVCUtil.c \
 	NX_OMXVideoDecoder.c
 
 LOCAL_C_INCLUDES += \
@@ -42,8 +45,7 @@ LOCAL_SHARED_LIBRARIES := \
 	libion \
 	libion-nexell
 
-LOCAL_CFLAGS := $(NX_OMX_CFLAGS)
-
+LOCAL_CFLAGS += $(NX_OMX_CFLAGS)
 LOCAL_CFLAGS += -DNX_DYNAMIC_COMPONENTS
 
 LOCAL_MODULE:= libNX_OMX_VIDEO_DECODER

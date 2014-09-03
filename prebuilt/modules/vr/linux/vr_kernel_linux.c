@@ -239,9 +239,9 @@ struct file_operations vr_fops = {
 #define VR_PM_DBG PM_DBGOUT
 #define VR_IOCTL_DBG printk
 #else
-#define VR_DBG 
+#define VR_DBG
 #define VR_PM_DBG PM_DBGOUT
-#define VR_IOCTL_DBG 
+#define VR_IOCTL_DBG
 #endif
 
 #if defined( VR_NXP4330 )
@@ -261,7 +261,7 @@ static void nx_vr_power_down_all_nxp4330(void)
 		VR_PM_DBG("clear PMU int, addr(0x%x)\n", (int)mem_mapped);
 		iowrite32(1, ((u8*)mem_mapped));
 		iounmap(mem_mapped);
-	}	
+	}
 #endif
 #if 0
 	//clear NXP4330 interrupt controller
@@ -283,7 +283,7 @@ static void nx_vr_power_down_all_nxp4330(void)
 	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
 	if (NULL != mem_mapped)
 	{
-		unsigned int read_val = ioread32((u8*)mem_mapped);		
+		unsigned int read_val = ioread32((u8*)mem_mapped);
 		VR_DBG("setting ClockGen, set 0\n");
 		iowrite32(read_val & ~0x3, ((u8*)mem_mapped));
 	}
@@ -306,7 +306,7 @@ static void nx_vr_power_down_all_nxp4330(void)
 	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
 	if (NULL != mem_mapped)
 	{
-		unsigned int read_val = ioread32((u8*)mem_mapped);		
+		unsigned int read_val = ioread32((u8*)mem_mapped);
 		VR_DBG("setting PHY_BASEADDR_PMU_ISOLATE, set 0\n");
 		iowrite32(read_val & ~1, ((u8*)mem_mapped));
 	}
@@ -318,7 +318,7 @@ static void nx_vr_power_down_all_nxp4330(void)
 	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
 	if (NULL != mem_mapped)
 	{
-		unsigned int read_val = ioread32((u8*)mem_mapped);		
+		unsigned int read_val = ioread32((u8*)mem_mapped);
 		VR_DBG("setting PHY_BASEADDR_PMU_ISOLATE+4, set 1\n");
 		iowrite32(read_val | 1, ((u8*)mem_mapped));
 	}
@@ -332,13 +332,13 @@ static void nx_vr_power_down_all_nxp4330(void)
 	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
 	if (NULL != mem_mapped)
 	{
-		unsigned int read_val = ioread32((u8*)mem_mapped);		
+		unsigned int read_val = ioread32((u8*)mem_mapped);
 		VR_DBG("setting PHY_BASEADDR_PMU_ISOLATE+8, set 1\n");
 		iowrite32(read_val | 1, ((u8*)mem_mapped));
 	}
 	iounmap(mem_mapped);
 	mdelay(1);
-	
+
 	//wait ack
 	VR_DBG("read PHY_BASEADDR_PMU_ISOLATE + 0xC\n");
 	phys_addr_page = PHY_BASEADDR_PMU_ISOLATE + 0xC;
@@ -402,7 +402,7 @@ static void nx_vr_power_up_all_nxp4330(void)
 	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
 	if (NULL != mem_mapped)
 	{
-		unsigned int read_val = ioread32((u8*)mem_mapped);		
+		unsigned int read_val = ioread32((u8*)mem_mapped);
 		VR_DBG("setting PHY_BASEADDR_PMU_ISOLATE, set 1\n");
 		iowrite32(read_val | 1, ((u8*)mem_mapped));
 	}	
@@ -429,7 +429,7 @@ static void nx_vr_power_up_all_nxp4330(void)
 	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
 	if (NULL != mem_mapped)
 	{
-		unsigned int read_val = ioread32((u8*)mem_mapped);	
+		unsigned int read_val = ioread32((u8*)mem_mapped);
 		VR_DBG("setting ClockGen, set 1\n");
 		iowrite32(0x3 | read_val, ((u8*)mem_mapped));
 	}	
@@ -438,7 +438,7 @@ static void nx_vr_power_up_all_nxp4330(void)
 #if 1
 	phys_addr_page = PHY_BASEADDR_RESET + 8;
 	map_size	   = sizeof(u32);
-	mem_mapped = ioremap_nocache(phys_addr_page, map_size); 
+	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
 	if (NULL != mem_mapped)
 	{
 		unsigned int temp32 = ioread32(((u8*)mem_mapped));
@@ -454,7 +454,7 @@ static void nx_vr_power_up_all_nxp4330(void)
 	iounmap(mem_mapped);
 	mdelay(1);
 
-	//mask vr400 PMU interrupt 
+	//mask vr400 PMU interrupt
 	phys_addr_page = PHY_BASEADDR_VR_PMU + 0xC;
 	map_size	   = sizeof(u32);
 	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
@@ -504,7 +504,7 @@ static void nx_vr_power_up_all_nxp4330(void)
 		VR_PM_DBG("clear PMU int, addr(0x%x)\n", (int)mem_mapped);
 		iowrite32(1, ((u8*)mem_mapped));
 		iounmap(mem_mapped);
-	}	
+	}
 #endif
 #if 0
 	//clear NXP4330 interrupt controller
@@ -516,7 +516,7 @@ static void nx_vr_power_up_all_nxp4330(void)
 		VR_PM_DBG("clear INTCLEAR, addr(0x%x)\n", (int)mem_mapped);
 		iowrite32(0x100, ((u8*)mem_mapped));
 		iounmap(mem_mapped);
-	}	
+	}
 	VR_PM_DBG("============================\n", (int)mem_mapped);
 #else
 #endif
@@ -531,11 +531,11 @@ static void nx_vr_power_up_all_nxp4330(void)
 		int i = 0;
 		for(i = 0 ; i < 12 ; i++)
 		{
-			unsigned int read_val = ioread32((u8*)mem_mapped + (i*4));	
-			VR_DBG("read reg addr(0x%x), data(0x%x)\n", (int)mem_mapped + (i*4), read_val);			
+			unsigned int read_val = ioread32((u8*)mem_mapped + (i*4));
+			VR_DBG("read reg addr(0x%x), data(0x%x)\n", (int)mem_mapped + (i*4), read_val);
 		}
 		iounmap(mem_mapped);
-	}	
+	}
 	phys_addr_page = 0xC0010D00;
 	map_size       = 0x10;
 	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
@@ -544,11 +544,11 @@ static void nx_vr_power_up_all_nxp4330(void)
 		int i = 0;
 		for(i = 0 ; i < 4 ; i++)
 		{
-			unsigned int read_val = ioread32((u8*)mem_mapped + (i*4));	
-			VR_DBG("read reg addr(0x%x), data(0x%x)\n", (int)mem_mapped + (i*4), read_val);			
+			unsigned int read_val = ioread32((u8*)mem_mapped + (i*4));
+			VR_DBG("read reg addr(0x%x), data(0x%x)\n", (int)mem_mapped + (i*4), read_val);
 		}
 		iounmap(mem_mapped);
-	}	
+	}
 	#endif
 }
 #endif
@@ -1180,7 +1180,7 @@ void vr_init_cpu_time_counters_on_all_cpus(int print_only)
 int vr_module_init(void)
 {
 	int err = 0;
-	
+
 	/* NEXELL_FEATURE_PORTING */
 	//added by nexell
 	nx_vr_power_up_first();	
@@ -1257,7 +1257,7 @@ void vr_module_exit(void)
 	vr_pmu_powerdown();
 	*/
 
-	//added by nexell 
+	//added by nexell
 	nx_vr_power_down_all();
 	VR_PRINT(("Vr device driver unloaded\n"));
 }
@@ -1345,7 +1345,7 @@ static int vr_driver_suspend_scheduler(struct device *dev)
 
 	vr_pm_os_suspend();
 	nx_vr_power_down_all();
-	
+
 	VR_PM_DBG("	VR POWERDown End\n");
 	VR_PM_DBG("-----------------------------------------------------\n");
 	return 0;
@@ -1360,18 +1360,24 @@ static int vr_driver_resume_scheduler(struct device *dev)
 	vr_pm_os_resume();
 
 	VR_PM_DBG("	VR POWERUp End\n");
-	VR_PM_DBG("-----------------------------------------------------\n");	
+	VR_PM_DBG("-----------------------------------------------------\n");
 	return 0;
 }
 
 #ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_NEXELL_DFS_BCLK
+#include <mach/nxp-dfs-bclk.h>
+#endif
 static int vr_driver_runtime_suspend(struct device *dev)
 {
 	//VR_PM_DBG("-----------------------------------------------------\n");
 	//VR_PM_DBG("	VR POWERDown Start(CONFIG_PM_RUNTIME)\n");
 
 	vr_pm_runtime_suspend();
-	
+#ifdef CONFIG_NEXELL_DFS_BCLK
+    bclk_put(BCLK_USER_OGL);
+#endif
+
 	//VR_PM_DBG("	VR POWERDown End(CONFIG_PM_RUNTIME)\n");
 	//VR_PM_DBG("-----------------------------------------------------\n");
 	return 0;
@@ -1382,8 +1388,11 @@ static int vr_driver_runtime_resume(struct device *dev)
 	//VR_PM_DBG("-----------------------------------------------------\n");
 	//VR_PM_DBG("	VR POWERUp Start(CONFIG_PM_RUNTIME)\n");
 
+#ifdef CONFIG_NEXELL_DFS_BCLK
+    bclk_get(BCLK_USER_OGL);
+#endif
 	vr_pm_runtime_resume();
-	
+
 	//VR_PM_DBG("	VR POWERUp End(CONFIG_PM_RUNTIME)\n");
 	//VR_PM_DBG("-----------------------------------------------------\n");
 	return 0;
@@ -1402,10 +1411,12 @@ static int vr_open(struct inode *inode, struct file *filp)
 	_vr_osk_errcode_t err;
 
 	/* input validation */
+#if 0
 	if (vr_miscdevice.minor != iminor(inode)) {
 		VR_PRINT_ERROR(("vr_open() Minor does not match\n"));
 		return -ENODEV;
 	}
+#endif
 
 	/* allocated struct to track this session */
 	err = _vr_ukk_open((void **)&session_data);
@@ -1425,10 +1436,13 @@ static int vr_release(struct inode *inode, struct file *filp)
 	_vr_osk_errcode_t err;
 
 	/* input validation */
+    // psw0523 fix
+#if 0
 	if (vr_miscdevice.minor != iminor(inode)) {
 		VR_PRINT_ERROR(("vr_release() Minor does not match\n"));
 		return -ENODEV;
 	}
+#endif
 
 	err = _vr_ukk_close((void **)&filp->private_data);
 	if (_VR_OSK_ERR_OK != err) return map_errcode(err);

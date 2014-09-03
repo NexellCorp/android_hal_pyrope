@@ -4,7 +4,8 @@
 
 #define HWC_PROPERTY_SCENARIO_KEY      "hwc.scenario"
 #define HWC_PROPERTY_RESOLUTION_KEY    "hwc.resolution"
-#define HWC_PROPERTY_SCALE_KEY         "hwc.key"
+#define HWC_PROPERTY_SCALE_KEY         "hwc.scale"
+#define HWC_PROPERTY_SCREEN_DOWNSIZING "hwc.screendownsizing"
 
 using namespace android;
 
@@ -31,5 +32,7 @@ int main(int argc, char *argv[])
     hwcService->hwcResolutionChanged(val);
     get_hwc_property(HWC_PROPERTY_SCALE_KEY, &val, (const char *)"3");
     hwcService->hwcRescScaleFactorChanged(val);
+    get_hwc_property(HWC_PROPERTY_SCREEN_DOWNSIZING, &val, (const char *)"0");
+    hwcService->hwcScreenDownSizingChanged(val);
     return 0;
 }

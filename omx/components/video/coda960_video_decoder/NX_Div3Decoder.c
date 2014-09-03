@@ -5,7 +5,7 @@
 #include <system/graphics.h>
 
 #include "NX_OMXVideoDecoder.h"
-#include "DecodeFrame.h"
+#include "NX_DecoderUtil.h"
 
 
 static int MakeDiv3DecodeSpecificInfo( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_U8 *pIn, OMX_S32 inSize, OMX_U8 *pOut )
@@ -54,6 +54,7 @@ int NX_DecodeDiv3Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, 
 	OMX_BYTE inData;
 	NX_VID_DEC_IN decIn;
 	NX_VID_DEC_OUT decOut;
+	int ret = 0;
 
 	UNUSED_PARAM(pOutQueue);
 
@@ -70,9 +71,9 @@ int NX_DecodeDiv3Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, 
 
 	inData = pInBuf->pBuffer;
 	inSize = pInBuf->nFilledLen;
-
 	pDecComp->inFrameCount++;
-	TRACE("pInBuf->nFlags = 0x%08x\n", (int)pInBuf->nFlags );
+
+	TRACE("pInBuf->nFlags = 0x%08x, size = %ld\n", (int)pInBuf->nFlags, pInBuf->nFilledLen );
 
 	if( pInBuf->nFlags & OMX_BUFFERFLAG_EOS )
 	{
@@ -88,14 +89,14 @@ int NX_DecodeDiv3Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, 
 	}
 
 	//	Push Input Time Stamp
-	PushVideoTimeStamp(pDecComp, pInBuf->nTimeStamp, pInBuf->nFlags );
+	if( !(pInBuf->nFlags & OMX_BUFFERFLAG_CODECCONFIG) )
+		PushVideoTimeStamp(pDecComp, pInBuf->nTimeStamp, pInBuf->nFlags );
 
 
 	//	Step 2. Find First Key Frame & Do Initialize VPU
 	if( OMX_FALSE == pDecComp->bInitialized )
 	{
 		OMX_S32 size;
-		NX_VID_RET ret;
 		size = MakeDiv3DecodeSpecificInfo( pDecComp, pDecComp->pExtraData, pDecComp->nExtraDataSize, pDecComp->tmpInputBuffer );
 		size += MakeDiv3Stream( inData, inSize, pDecComp->tmpInputBuffer + size );
 		//	Initialize VPU
@@ -103,14 +104,18 @@ int NX_DecodeDiv3Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, 
 		if( 0 != ret )
 		{
 			ErrMsg("VPU initialized Failed!!!!\n");
+			goto Exit;
 		}
+
 		pDecComp->bNeedKey = OMX_FALSE;
 		pDecComp->bInitialized = OMX_TRUE;
-		decIn.strmBuf = pDecComp->tmpInputBuffer;
-		decIn.strmSize = 0;
-		decIn.timeStamp = pInBuf->nTimeStamp;
-		decIn.eos = 0;
-		NX_VidDecDecodeFrame( pDecComp->hVpuCodec, &decIn, &decOut );
+
+		//decIn.strmBuf = pDecComp->tmpInputBuffer;
+		//decIn.strmSize = 0;
+		//decIn.timeStamp = pInBuf->nTimeStamp;
+		//decIn.eos = 0;
+		//ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, &decIn, &decOut );
+		decOut.outImgIdx = -1;
 	}
 	else
 	{
@@ -119,70 +124,20 @@ int NX_DecodeDiv3Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, 
 		decIn.strmSize = inSize;
 		decIn.timeStamp = pInBuf->nTimeStamp;
 		decIn.eos = 0;
-		NX_VidDecDecodeFrame( pDecComp->hVpuCodec, &decIn, &decOut );
+		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, &decIn, &decOut );
 	}
+	TRACE("decOut : readPos = %d, writePos = %d\n", decOut.strmReadPos, decOut.strmWritePos );
 
-	if( decOut.outImgIdx >= 0 && ( decOut.outImgIdx < NX_OMX_MAX_BUF ) )
+	if( ret==0 && decOut.outImgIdx >= 0 && ( decOut.outImgIdx < NX_OMX_MAX_BUF ) )
 	{
 		if( OMX_TRUE == pDecComp->bEnableThumbNailMode )
 		{
 			//	Thumbnail Mode
-			OMX_U8 *outData;
-			OMX_U8 *srcY, *srcU, *srcV;
-			OMX_S32 strideY, strideU, strideV, width, height;
+			NX_VID_MEMORY_INFO *pImg = &decOut.outImg;
 			NX_PopQueue( pOutQueue, (void**)&pOutBuf );
-			outData = pOutBuf->pBuffer;
+			CopySurfaceToBufferYV12( (OMX_U8*)pImg->luVirAddr, (OMX_U8*)pImg->cbVirAddr, (OMX_U8*)pImg->crVirAddr,
+				pOutBuf->pBuffer, pImg->luStride, pImg->cbStride, pDecComp->width, pDecComp->height );
 
-			srcY = (OMX_U8*)decOut.outImg.luVirAddr;
-			srcU = (OMX_U8*)decOut.outImg.cbVirAddr;
-			srcV = (OMX_U8*)decOut.outImg.crVirAddr;
-			strideY = decOut.outImg.luStride;
-			strideU = decOut.outImg.cbStride;
-			strideV = decOut.outImg.crStride;
-			width = pDecComp->width;
-			height = pDecComp->height;
-
-			if( width == strideY )
-			{
-				memcpy( outData, srcY, width*height );
-				outData += width*height;
-
-			}
-			else
-			{
-				OMX_S32 h;
-				for( h=0 ; h<height ; h++ )
-				{
-					memcpy( outData, srcY, width );
-					srcY += strideY;
-					outData += width;
-				}
-			}
-			width /= 2;
-			height /= 2;
-
-			if( width == strideU )
-			{
-				memcpy( outData, srcU, width*height );
-				outData += width*height;
-				memcpy( outData, srcV, width*height );
-			}
-			else
-			{
-				OMX_S32 h;
-				for( h=0 ; h<height ; h++ )
-				{
-					memcpy( outData, srcU, width );
-					srcY += strideY;
-					outData += width;
-				}
-				for( h=0 ; h<height ; h++ )
-				{
-					memcpy( outData, srcV, width );
-					srcY += strideY;
-					outData += width;
-				}
-			}
 			NX_VidDecClrDspFlag( pDecComp->hVpuCodec, NULL, decOut.outImgIdx );
 			pOutBuf->nFilledLen = pDecComp->width * pDecComp->height * 3 / 2;
 			if( 0 != PopVideoTimeStamp(pDecComp, &pOutBuf->nTimeStamp, &pOutBuf->nFlags )  )
@@ -196,6 +151,12 @@ int NX_DecodeDiv3Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, 
 		}
 		else
 		{
+			if( pDecComp->isOutIdr == OMX_FALSE && decOut.picType != PIC_TYPE_I )
+			{
+				NX_VidDecClrDspFlag( pDecComp->hVpuCodec, NULL, decOut.outImgIdx );
+				goto Exit;
+			}
+			pDecComp->isOutIdr = OMX_TRUE;
 			//	Native Window Buffer Mode
 			//	Get Output Buffer Pointer From Output Buffer Pool
 			pOutBuf = pDecComp->pOutputBuffers[decOut.outImgIdx];
@@ -215,8 +176,8 @@ int NX_DecodeDiv3Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, 
 				pOutBuf->nTimeStamp = pInBuf->nTimeStamp;
 				pOutBuf->nFlags     = pInBuf->nFlags;
 			}
-			pDecComp->outFrameCount++;
 			TRACE("nTimeStamp = %lld\n", pOutBuf->nTimeStamp/1000);
+			pDecComp->outFrameCount++;
 			pDecComp->pCallbacks->FillBufferDone(pDecComp->hComp, pDecComp->hComp->pApplicationPrivate, pOutBuf);
 		}
 	}

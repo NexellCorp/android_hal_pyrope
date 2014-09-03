@@ -20,8 +20,8 @@ enum {
     COLORFX_MAX
 };
 
-#define MIN_EXPOSURE     0
-#define MAX_EXPOSURE     6
+#define MIN_EXPOSURE     -3
+#define MAX_EXPOSURE     3
 
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
 
@@ -85,8 +85,7 @@ static const uint8_t AvailableSceneModesSP2518[] = {
 };
 
 static const uint32_t ExposureCompensationRangeSP2518[] = {
-    // MIN_EXPOSURE, MAX_EXPOSURE
-    -3, 3
+     MIN_EXPOSURE, MAX_EXPOSURE
 };
 
 static const uint8_t AvailableAntibandingModesSP2518[] = {
@@ -253,7 +252,7 @@ void SP2518::setExposure(int32_t exposure)
 
     if (exposure != Exposure) {
         Exposure = exposure;
-        v4l2_set_ctrl(V4l2ID, V4L2_CID_BRIGHTNESS, exposure);
+        v4l2_set_ctrl(V4l2ID, V4L2_CID_BRIGHTNESS, exposure + 3);
     }
 }
 

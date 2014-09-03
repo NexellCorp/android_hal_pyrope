@@ -17,7 +17,8 @@ LOCAL_SRC_FILES := \
 	SP0A19.cpp \
 	SP2518.cpp \
 	GC2035.cpp\
-	GC0308.cpp
+	GC0308.cpp \
+	HM2057.cpp	
 
 LOCAL_SHARED_LIBRARIES := liblog libv4l2-nexell
 LOCAL_MODULE := libcamerasensor
