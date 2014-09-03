@@ -63,6 +63,12 @@ ifeq ($(KDIR),)
 $(error No KDIR found for platform $(TARGET_PLATFORM))
 endif
 
+ifeq ($(VR_NXP4330),1)
+export EXTRA_DEFINES += -DVR_NXP4330
+endif
+ifeq ($(VR_NXP5430),1)
+export EXTRA_DEFINES += -DVR_NXP5430
+endif
 
 ifeq ($(USING_UMP),1)
 export CONFIG_VR400_UMP=y
