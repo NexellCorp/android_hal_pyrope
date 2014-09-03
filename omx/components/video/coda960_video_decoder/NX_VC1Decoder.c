@@ -12,7 +12,7 @@ static int MakeVC1DecodeSpecificInfo( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp )
 	OMX_U8 *pbHeader = pDecComp->codecSpecificData;
 	OMX_U8 *pbMetaData = pDecComp->pExtraData;
 	OMX_S32 nMetaData = pDecComp->nExtraDataSize;
-	if( pDecComp->codecType.wmvType.eFormat == OMX_VIDEO_WMVFormat8 || pDecComp->codecType.wmvType.eFormat == OMX_VIDEO_WMVFormat9 )
+	if( pDecComp->codecType.wmvType.eFormat == OMX_VIDEO_WMVFormat8 || pDecComp->codecType.wmvType.eFormat == OMX_VIDEO_WMVFormat9 || pDecComp->bXMSWMVType )
 	{
 		DbgMsg("MakeVC1DecodeSpecificInfo() WMV Mode.(%ldx%ld)\n", pDecComp->width, pDecComp->height);
         PUT_LE32(pbHeader, ((0xC5 << 24)|0));
@@ -48,12 +48,12 @@ static int MakeVC1DecodeSpecificInfo( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp )
 	return pDecComp->codecSpecificDataSize;
 }
 
-static int MakeVC1PacketData( OMX_S32 format, OMX_U8 *pIn, OMX_S32 inSize, OMX_U8 *pOut, OMX_S32 key, OMX_S32 time )
+static int MakeVC1PacketData( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_S32 format, OMX_U8 *pIn, OMX_S32 inSize, OMX_U8 *pOut, OMX_S32 key, OMX_S32 time )
 {
 	OMX_S32 size=0;
 	OMX_U8 *p = pIn;
 	UNUSED_PARAM(time);
-	if( format == OMX_VIDEO_WMVFormat8 || format == OMX_VIDEO_WMVFormat9 )
+	if( format == OMX_VIDEO_WMVFormat8 || format == OMX_VIDEO_WMVFormat9 || pDecComp->bXMSWMVType )
 	{
 		PUT_LE32( pOut, (inSize | ((key)?0x80000000:0)) );
 		size += 4;
@@ -169,7 +169,7 @@ int NX_DecodeVC1Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 		pDecComp->codecSpecificData = malloc(pDecComp->nExtraDataSize + 128);
 		size = MakeVC1DecodeSpecificInfo( pDecComp );
 		memcpy( pDecComp->tmpInputBuffer, pDecComp->codecSpecificData, size );
-		size += MakeVC1PacketData( pDecComp->codecType.wmvType.eFormat, inData, inSize, pDecComp->tmpInputBuffer+size, key, (int)(pInBuf->nTimeStamp/1000ll) );
+		size += MakeVC1PacketData( pDecComp, pDecComp->codecType.wmvType.eFormat, inData, inSize, pDecComp->tmpInputBuffer+size, key, (int)(pInBuf->nTimeStamp/1000ll) );
 
 		//	Initialize VPU
 		{
@@ -198,7 +198,7 @@ int NX_DecodeVC1Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 	}
 	else
 	{
-		rcSize = MakeVC1PacketData( pDecComp->codecType.wmvType.eFormat, inData, inSize, pDecComp->tmpInputBuffer, key, (int)(pInBuf->nTimeStamp/1000ll) );
+		rcSize = MakeVC1PacketData( pDecComp, pDecComp->codecType.wmvType.eFormat, inData, inSize, pDecComp->tmpInputBuffer, key, (int)(pInBuf->nTimeStamp/1000ll) );
 		decIn.strmBuf = pDecComp->tmpInputBuffer;
 		decIn.strmSize = rcSize;
 		decIn.timeStamp = pInBuf->nTimeStamp;

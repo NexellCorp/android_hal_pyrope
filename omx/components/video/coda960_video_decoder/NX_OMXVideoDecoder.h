@@ -185,6 +185,9 @@ struct tNX_VIDDEC_VIDEO_COMP_TYPE{
 	NX_VID_MEMORY_INFO			vidFrameBuf[MAX_DEC_FRAME_BUFFERS];	//	Video Buffer Info
 	NX_VID_MEMORY_HANDLE		hVidFrameBuf[MAX_DEC_FRAME_BUFFERS];
 
+	//	x-ms-wmv
+	OMX_BOOL					bXMSWMVType;
+
 	//	for Debugging
 	OMX_S32						inFrameCount;
 	OMX_S32						outFrameCount;

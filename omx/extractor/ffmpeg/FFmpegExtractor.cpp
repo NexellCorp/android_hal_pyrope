@@ -1920,9 +1920,13 @@ bool SniffFFMPEG( const sp<DataSource> &source, String8 *mimeType, float *confid
 	if (container == NULL)
 		return false;
 
+	if( !strcmp( container, MEDIA_MIMETYPE_CONTAINER_MOV ) )
+		*confidence = 0.39f;
+	else
+	*confidence = 0.88f;  // Slightly larger than other extractor's confidence
+
 	ALOGV("found container: %s", container);
 
-	*confidence = 0.88f;  // Slightly larger than other extractor's confidence
 	mimeType->setTo(container);
 
 	/* use MPEG4Extractor(not extended extractor) for HTTP source only */

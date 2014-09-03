@@ -391,7 +391,7 @@ static OMX_ERRORTYPE NX_FFAudDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTY
 				pDecComp->compRole = strdup((OMX_STRING)pInRole->cRole);
 				pDecComp->inCodingType = OMX_AUDIO_CodingRA;
 			}
-			else if( !strcmp( (OMX_STRING)pInRole->cRole, "audio_decoder.wma" ) )
+			else if( !strcmp( (OMX_STRING)pInRole->cRole, "audio_decoder.wma" ) || !strcmp((OMX_STRING)pInRole->cRole, "audio_decoder.x-ms-wma") )
 			{
 				//	Wma audio
 				if( pDecComp->compRole )

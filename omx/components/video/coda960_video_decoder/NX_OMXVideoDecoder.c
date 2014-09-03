@@ -181,6 +181,9 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent)
 	pDecComp->outBufferAllocSize = 0;
 	pDecComp->numOutBuffers = 0;
 
+	//	for WMV new MX Player
+	pDecComp->bXMSWMVType = OMX_FALSE;
+
 	//	Debugging Tool
 	pDecComp->inFrameCount = 0;
 	pDecComp->outFrameCount = 0;
@@ -470,6 +473,15 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 				pDecComp->videoCodecId = NX_H263_DEC;
 			}
 			else if ( !strcmp( (OMX_STRING)pInRole->cRole, "video_decoder.x-ms-wmv") )
+			{
+				//	Set Input Format
+				pDecComp->inputFormat.eCompressionFormat = OMX_VIDEO_CodingWMV;
+				pDecComp->inputFormat.eColorFormat = OMX_COLOR_FormatUnused;
+				pDecComp->inputFormat.nPortIndex= 0;
+				pDecComp->videoCodecId = NX_VC1_DEC;
+				pDecComp->bXMSWMVType = OMX_TRUE;
+			}
+			else if ( !strcmp( (OMX_STRING)pInRole->cRole, "video_decoder.wvc1") || !strcmp( (OMX_STRING)pInRole->cRole, "video_decoder.vc1") )
 			{
 				//	Set Input Format
 				pDecComp->inputFormat.eCompressionFormat = OMX_VIDEO_CodingWMV;
