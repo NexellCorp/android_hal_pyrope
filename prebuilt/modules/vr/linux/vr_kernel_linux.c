@@ -879,6 +879,132 @@ static void nx_vr_power_down_all_nxp5430(void)
 	iounmap(mem_mapped);
 }
 
+static void nx_vr_power_up_first_nxp5430(void)
+{
+	u32 phys_addr_page, map_size;
+	void *mem_mapped;
+
+	//ready
+	phys_addr_page = PHY_BASEADDR_POWER_GATE;
+	map_size	   = sizeof(u32);
+	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
+	if (NULL != mem_mapped)
+	{
+		VR_DBG("setting PHY_BASEADDR_POWER_GATE, set 1\n");
+		iowrite32(0x1, ((u8*)mem_mapped));
+	}
+	iounmap(mem_mapped);
+
+	//pre charge up
+	phys_addr_page = PHY_BASEADDR_PMU_ISOLATE + 4;
+	map_size	   = sizeof(u32);
+	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
+	if (NULL != mem_mapped)
+	{
+		unsigned int read_val = ioread32((u8*)mem_mapped);
+		VR_DBG("setting PHY_BASEADDR_PMU_ISOLATE+4, set 0\n");
+		iowrite32(read_val & ~0x1, ((u8*)mem_mapped));
+	}
+	iounmap(mem_mapped);
+
+	//power up
+	phys_addr_page = PHY_BASEADDR_PMU_ISOLATE + 8;
+	map_size	   = sizeof(u32);
+	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
+	if (NULL != mem_mapped)
+	{
+		unsigned int read_val = ioread32((u8*)mem_mapped);
+		VR_DBG("setting PHY_BASEADDR_PMU_ISOLATE+8, set 0\n");
+		iowrite32(read_val & ~0x1, ((u8*)mem_mapped));
+	}
+	iounmap(mem_mapped);
+	mdelay(1);
+
+	//disable ISolate
+	phys_addr_page = PHY_BASEADDR_PMU_ISOLATE;
+	map_size	   = sizeof(u32);
+	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
+	if (NULL != mem_mapped)
+	{
+		unsigned int read_val = ioread32((u8*)mem_mapped);		
+		VR_DBG("setting PHY_BASEADDR_PMU_ISOLATE, set 1\n");
+		iowrite32(read_val | 1, ((u8*)mem_mapped));
+	}	
+	iounmap(mem_mapped);
+	mdelay(1);
+
+	//wait ack
+	VR_DBG("read PHY_BASEADDR_PMU_ISOLATE + 0xC\n");
+	phys_addr_page = PHY_BASEADDR_PMU_ISOLATE + 0xC;
+	map_size	   = sizeof(u32);
+	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
+	do{
+		unsigned int powerUpAck = ioread32((u8*)mem_mapped);
+		VR_DBG("Wait Power UP Ack(powerUpAck=0x%08x)\n", powerUpAck);
+		if( !(powerUpAck & 0x1) )
+			break;
+		VR_DBG("Wait Power UP Ack(powerUpAck=0x%08x)\n", powerUpAck);
+	}while(1);
+
+	//clk enable
+	phys_addr_page = PHY_BASEADDR_CLOCK_GATE;
+	map_size	   = sizeof(u32);
+	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
+	if (NULL != mem_mapped)
+	{
+		unsigned int read_val = ioread32((u8*)mem_mapped);	
+		VR_DBG("setting ClockGen, set 1\n");
+		iowrite32(0x3 | read_val, ((u8*)mem_mapped));
+	}	
+	iounmap(mem_mapped);
+
+
+	phys_addr_page = PHY_BASEADDR_RESET + 8;
+	map_size	   = sizeof(u32);
+	mem_mapped = ioremap_nocache(phys_addr_page, map_size); 
+	if (NULL != mem_mapped)
+	{
+		unsigned int temp32 = ioread32(((u8*)mem_mapped));
+		unsigned int bit_mask = 1<<1; //65th
+		VR_DBG("setting Reset VR addr(0x%x)\n", (int)mem_mapped);
+
+		//reset enter
+		nx_vr_power_down_enter_reset_nxp5430();
+		temp32 &= ~bit_mask;
+		iowrite32(temp32, ((u8*)mem_mapped));
+
+		//reset leave
+		nx_vr_power_up_leave_reset_nxp5430();
+		temp32 |= bit_mask;
+		iowrite32(temp32, ((u8*)mem_mapped));
+	}
+	iounmap(mem_mapped);
+	mdelay(1);
+
+	//mask vr400 PMU interrupt 
+	phys_addr_page = PHY_BASEADDR_VR_PMU + 0xC;
+	map_size	   = sizeof(u32);
+	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
+	if (NULL != mem_mapped)
+	{
+		VR_PM_DBG("mask PMU INT, addr(0x%x)\n", (int)mem_mapped);
+		iowrite32(0x0, ((u8*)mem_mapped));
+	}	
+	iounmap(mem_mapped);
+
+	//power up vr400
+	phys_addr_page = PHY_BASEADDR_VR_PMU;
+	map_size	   = sizeof(u32);
+	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
+	if (NULL != mem_mapped)
+	{
+		VR_DBG("setting PHY_BASEADDR_VR_PMU addr(0x%x)\n", (int)mem_mapped);
+		iowrite32(0x3F/*GP, L2C, PP0, PP1, PP2, PP3*/, ((u8*)mem_mapped));
+	}
+	iounmap(mem_mapped);
+}
+
+
 static void nx_vr_power_up_all_nxp5430(void)
 {
 	u32 phys_addr_page, map_size;
@@ -969,8 +1095,6 @@ static void nx_vr_power_up_all_nxp5430(void)
 		unsigned int bit_mask = 1<<1; //65th
 		VR_DBG("setting Reset VR addr(0x%x)\n", (int)mem_mapped);
 
-		//temp32 &= ~bit_mask;
-		//iowrite32(temp32, ((u8*)mem_mapped));
 		temp32 |= bit_mask;
 		iowrite32(temp32, ((u8*)mem_mapped));
 	}
@@ -995,7 +1119,7 @@ static void nx_vr_power_up_all_nxp5430(void)
 	if (NULL != mem_mapped)
 	{
 		VR_DBG("setting PHY_BASEADDR_VR_PMU addr(0x%x)\n", (int)mem_mapped);
-		iowrite32(0xF/*GP, L2C, PP0, PP1*/, ((u8*)mem_mapped));
+		iowrite32(0x3F/*GP, L2C, PP0, PP1, PP2, PP3*/, ((u8*)mem_mapped));
 	}
 	iounmap(mem_mapped);
 }
@@ -1019,28 +1143,7 @@ static void nx_vr_power_up_first(void)
 #if defined( VR_NXP4330 )
 	nx_vr_power_up_all_nxp4330();
 #elif defined(VR_NXP5430)
-	{	
-		u32 phys_addr_page, map_size;
-		void *mem_mapped;
-
-		nx_vr_power_down_enter_reset_nxp5430();
-
-		phys_addr_page = PHY_BASEADDR_RESET + 8;
-		map_size	   = sizeof(u32);
-		mem_mapped = ioremap_nocache(phys_addr_page, map_size); 
-		if (NULL != mem_mapped)
-		{
-			unsigned int temp32 = ioread32(((u8*)mem_mapped));
-			unsigned int bit_mask = 1<<1; //65th
-			VR_DBG("setting Reset VR addr(0x%x)\n", (int)mem_mapped);
-
-			temp32 &= ~bit_mask;
-			iowrite32(temp32, ((u8*)mem_mapped));
-		}
-		iounmap(mem_mapped);
-		mdelay(1);
-	}
-	nx_vr_power_up_all_nxp5430();
+	nx_vr_power_up_first_nxp5430();
 #else
 	printk("=============================================================\n");
 	printk("ERROR!!! select platform type at build.sh(NXP4330 or NXP5430)\n");
