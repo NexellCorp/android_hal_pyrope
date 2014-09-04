@@ -464,7 +464,8 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 				pDecComp->inputFormat.nPortIndex= 0;
 				pDecComp->videoCodecId = NX_MP2_DEC;
 			}
-			else if ( !strcmp( (OMX_STRING)pInRole->cRole, "video_decoder.h263") )
+			else if ( (!strcmp( (OMX_STRING)pInRole->cRole, "video_decoder.h263") )  ||
+					  (!strcmp( (OMX_STRING)pInRole->cRole, "video_decoder.3gpp")) )
 			{
 				//	Set Input Format
 				pDecComp->inputFormat.eCompressionFormat = OMX_VIDEO_CodingH263;
@@ -606,6 +607,10 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 				return OMX_ErrorPortsNotCompatible;
 			}
 			memcpy( &pDecComp->codecType.wmvType, pWmvParam, sizeof(OMX_VIDEO_PARAM_WMVTYPE));
+			if( (0 == pWmvParam->eFormat) && (pDecComp->bXMSWMVType == OMX_TRUE)  )
+			{
+				pDecComp->bXMSWMVType = OMX_FALSE;
+			}
 			break;
 		}
 
