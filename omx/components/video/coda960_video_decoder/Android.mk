@@ -8,7 +8,7 @@ LOCAL_PRELINK_MODULE := false
 
 NX_HW_TOP := $(TOP)/hardware/nexell/pyrope/
 NX_HW_INCLUDE := $(NX_HW_TOP)/include
-NX_LINUX_INCLUDE := $(TOP)/linux/pyrope/library/include
+NX_LINUX_INCLUDE := $(TOP)/linux/nxp5430/library/include
 
 OMX_TOP := $(TOP)/hardware/nexell/pyrope/omx
 

@@ -6,7 +6,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)
 LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH) \
 	$(LOCAL_PATH)/../include \
-	$(TOP)/linux/pyrope/library/include
+	$(TOP)/linux/nxp5430/library/include
 
 LOCAL_SRC_FILES := NXJpegHWEnc.cpp
 

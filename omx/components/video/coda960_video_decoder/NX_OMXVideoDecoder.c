@@ -1716,7 +1716,8 @@ int openVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 		(char)((pDecComp->codecTag>>8)&0xFF),
 		(char)((pDecComp->codecTag>>16)&0xFF),
 		(char)((pDecComp->codecTag>>24)&0xFF) );
-	pDecComp->hVpuCodec = NX_VidDecOpen( pDecComp->videoCodecId, mp4Class, 0 );
+    int32_t instance;
+	pDecComp->hVpuCodec = NX_VidDecOpen( pDecComp->videoCodecId, mp4Class, 0, &instance );
 
 	if( NULL == pDecComp->hVpuCodec ){
 		ErrMsg("%s(%d) NX_VidDecOpen() failed.(CodecID=%ld)\n", __FILE__, __LINE__, pDecComp->videoCodecId);
@@ -1828,8 +1829,8 @@ int InitializeCodaVpu(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, unsigned char *buf, i
 			seqIn.pMemHandle = &pDecComp->hVidFrameBuf[0];
 		}
 		ret = NX_VidDecInit( pDecComp->hVpuCodec, &seqIn, &seqOut );
-		pDecComp->minRequiredFrameBuffer = seqOut.nimBuffers;
-		pDecComp->outBufferable = seqOut.numBuffers - seqOut.nimBuffers;
+		pDecComp->minRequiredFrameBuffer = seqOut.numBuffers;
+		pDecComp->outBufferable = seqOut.numBuffers - seqOut.minBuffers;
 		DbgMsg("[%ld] <<<<<<<<<< InitializeCodaVpu(Min=%ld, %dx%d) >>>>>>>>>>\n",
 			pDecComp->instanceId, pDecComp->minRequiredFrameBuffer, seqOut.width, seqOut.height );
 	}
@@ -1907,7 +1908,7 @@ int processEOS(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 {
 	OMX_BUFFERHEADERTYPE *pOutBuf = NULL;
 	OMX_S32 i;
-	NX_VID_RET ret;
+	VID_ERROR_E ret;
 	NX_VID_DEC_IN decIn;
 	NX_VID_DEC_OUT decOut;
 

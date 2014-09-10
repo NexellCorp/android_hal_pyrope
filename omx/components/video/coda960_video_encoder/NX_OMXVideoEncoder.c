@@ -1245,7 +1245,8 @@ static OMX_S32 EncoderOpen(NX_VIDENC_COMP_TYPE *pEncComp)
 	TRACE( "  encBitRate     = %d\n", pEncComp->encBitRate     );
 	TRACE( "==============================================\n" );
 
-	pEncComp->hVpuCodec = NX_VidEncOpen( NX_AVC_ENC );
+    int32_t instance;
+	pEncComp->hVpuCodec = NX_VidEncOpen( NX_AVC_ENC, &instance );
 	if( NULL == pEncComp->hVpuCodec  )
 	{
 		ErrMsg("NX_VidEncOpen() failed\n");
@@ -1397,8 +1398,8 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 			inputMem.luPhyAddr = pEncComp->hCSCMem->luPhyAddr;
 			inputMem.cbPhyAddr = pEncComp->hCSCMem->cbPhyAddr;
 			inputMem.crPhyAddr = pEncComp->hCSCMem->crPhyAddr;
-			inputMem.luStride  = 
-			inputMem.cbStride  = 
+			inputMem.luStride  =
+			inputMem.cbStride  =
 			inputMem.crStride  = hPrivate->width;
 		}
 		munmap( inData, hPrivate->size );
@@ -1424,7 +1425,7 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 			close( ion_fd );
 			return ret;
 		}
-		
+
 		int vStride = ALIGN(hPrivate->height, 16);
 		inputMem.memoryMap = 0;		//	Linear
 		inputMem.fourCC    = FOURCC_MVS0;
@@ -1489,7 +1490,7 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 
 	pOutBuf->nFlags = OMX_BUFFERFLAG_ENDOFFRAME;
 
-	if( encOut.isKey )
+	if( !encOut.frameType )
 		pOutBuf->nFlags |= OMX_BUFFERFLAG_SYNCFRAME;
 
 	memcpy(pOutBuf->pBuffer, encOut.outBuf, encOut.bufSize);
