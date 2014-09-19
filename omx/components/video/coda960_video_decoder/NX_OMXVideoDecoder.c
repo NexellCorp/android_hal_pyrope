@@ -665,6 +665,12 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 				{
 					pDecComp->pOutputPort->stdPortDef.nBufferSize = VID_OUTPORT_MIN_BUF_SIZE;
 				}
+
+				if( (((pDecComp->width+15)>>4) * ((pDecComp->height+15)>>4) ) > ((1920>>4)*(1088>>4)) )
+				{
+					DbgMsg("Cannot Support Video Resolution : Max(1920x1080), Input(%dx%d)\n", pDecComp->width, pDecComp->height);
+					return OMX_ErrorUnsupportedSetting;
+				}
 			}
 			break;
 		}
