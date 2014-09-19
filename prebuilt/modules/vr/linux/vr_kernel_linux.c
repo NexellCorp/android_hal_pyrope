@@ -651,11 +651,13 @@ static void nx_vr_power_down_enter_reset_nxp5430(void)
 	phys_addr_page = 0xc001120c;
 	map_size       = sizeof(u32);
 	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
+	//printk("LPI ACTIVE HIGH waitting start...\n");
 	do{
 		read32 = ioread32((u8*)mem_mapped);
 		if( (read32>>12) & 0x01 )
 			break;
 	}while(1);	
+	//printk("LPI ACTIVE HIGH waitting done\n");	
 	iounmap(mem_mapped);
 
 	//==========================
@@ -675,11 +677,13 @@ static void nx_vr_power_down_enter_reset_nxp5430(void)
 	phys_addr_page = 0xc001120c;
 	map_size       = sizeof(u32);
 	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
+	//printk("LPI ACK LOW waitting start...\n");
 	do{
 		read32 = ioread32((u8*)mem_mapped);
 		if( !((read32>>13) & 0x01) )
 			break;
 	}while(1);	
+	//printk("LPI ACK LOW waitting done\n");	
 	iounmap(mem_mapped);
 	
 	//=========================
@@ -690,11 +694,13 @@ static void nx_vr_power_down_enter_reset_nxp5430(void)
 	phys_addr_page = 0xc001120c;
 	map_size       = sizeof(u32);
 	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
+	//printk("LPI ACTIVE HIGH waitting start...\n");
 	do{
 		read32 = ioread32((u8*)mem_mapped);
 		if( (read32>>20) & 0x01 )
 			break;
 	}while(1);	
+	//printk("LPI ACTIVE HIGH waitting done\n");
 	iounmap(mem_mapped);
 	
 	//==========================
@@ -714,11 +720,13 @@ static void nx_vr_power_down_enter_reset_nxp5430(void)
 	phys_addr_page = 0xc001120c;
 	map_size       = sizeof(u32);
 	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
+	//printk("LPI ACTIVE LOW waitting start...\n");
 	do{
 		read32 = ioread32((u8*)mem_mapped);
 		if( !((read32>>21) & 0x01) )
 			break;
 	}while(1);	
+	//printk("LPI ACTIVE LOW waitting done\n");
 	iounmap(mem_mapped);
 }
 
@@ -745,12 +753,14 @@ static void nx_vr_power_up_leave_reset_nxp5430(void)
 	//==========================
 	phys_addr_page = 0xc001120c;
 	map_size       = sizeof(u32);
-	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
+	mem_mapped = ioremap_nocache(phys_addr_page, map_size);	
+	//printk("LPI ACK HIGH waitting start...\n");
 	do{
 		read32 = ioread32((u8*)mem_mapped);
 		if( (read32>>13) & 0x01 )
 			break;
 	}while(1);	
+	//printk("LPI ACK HIGH waitting done\n");
 	iounmap(mem_mapped);
 	
 	//==========================
@@ -772,11 +782,13 @@ static void nx_vr_power_up_leave_reset_nxp5430(void)
 	phys_addr_page = 0xc001120c;
 	map_size       = sizeof(u32);
 	mem_mapped = ioremap_nocache(phys_addr_page, map_size);
+	//printk("LPI ACK ACK waitting start...\n");
 	do{
 		read32 = ioread32((u8*)mem_mapped);
 		if( (read32>>21) & 0x01 )
 			break;
 	}while(1);	
+	//printk("LPI ACK ACK waitting done\n");
 	iounmap(mem_mapped);
 	
 }
@@ -786,8 +798,8 @@ static void nx_vr_power_down_all_nxp5430(void)
 	u32 phys_addr_page, map_size;
 	void *mem_mapped;
 
+	//reset
 	nx_vr_power_down_enter_reset_nxp5430();
-
 	phys_addr_page = PHY_BASEADDR_RESET + 8;
 	map_size	   = sizeof(u32);
 	mem_mapped = ioremap_nocache(phys_addr_page, map_size); 
@@ -796,7 +808,6 @@ static void nx_vr_power_down_all_nxp5430(void)
 		unsigned int temp32 = ioread32(((u8*)mem_mapped));
 		unsigned int bit_mask = 1<<1; //65th
 		VR_DBG("setting Reset VR addr(0x%x)\n", (int)mem_mapped);
-
 		temp32 &= ~bit_mask;
 		iowrite32(temp32, ((u8*)mem_mapped));
 	}
@@ -813,7 +824,8 @@ static void nx_vr_power_down_all_nxp5430(void)
 		VR_DBG("setting ClockGen, set 0\n");
 		iowrite32(read_val & ~0x3, ((u8*)mem_mapped));
 	}
-	iounmap(mem_mapped);
+	iounmap(mem_mapped);	
+	mdelay(1);
 	
 	//ready
 	phys_addr_page = PHY_BASEADDR_POWER_GATE;
@@ -958,8 +970,7 @@ static void nx_vr_power_up_all_nxp5430(void)
 	}	
 	iounmap(mem_mapped);
 
-	nx_vr_power_up_leave_reset_nxp5430();
-
+	//reset
 	phys_addr_page = PHY_BASEADDR_RESET + 8;
 	map_size	   = sizeof(u32);
 	mem_mapped = ioremap_nocache(phys_addr_page, map_size); 
@@ -968,9 +979,9 @@ static void nx_vr_power_up_all_nxp5430(void)
 		unsigned int temp32 = ioread32(((u8*)mem_mapped));
 		unsigned int bit_mask = 1<<1; //65th
 		VR_DBG("setting Reset VR addr(0x%x)\n", (int)mem_mapped);
-
-		//temp32 &= ~bit_mask;
-		//iowrite32(temp32, ((u8*)mem_mapped));
+		
+		//reset leave
+		nx_vr_power_up_leave_reset_nxp5430();
 		temp32 |= bit_mask;
 		iowrite32(temp32, ((u8*)mem_mapped));
 	}
@@ -995,7 +1006,7 @@ static void nx_vr_power_up_all_nxp5430(void)
 	if (NULL != mem_mapped)
 	{
 		VR_DBG("setting PHY_BASEADDR_VR_PMU addr(0x%x)\n", (int)mem_mapped);
-		iowrite32(0xF/*GP, L2C, PP0, PP1*/, ((u8*)mem_mapped));
+		iowrite32(0x3F/*GP, L2C, PP0, PP1, PP2, PP3*/, ((u8*)mem_mapped));
 	}
 	iounmap(mem_mapped);
 }
@@ -1019,27 +1030,6 @@ static void nx_vr_power_up_first(void)
 #if defined( VR_NXP4330 )
 	nx_vr_power_up_all_nxp4330();
 #elif defined(VR_NXP5430)
-	{	
-		u32 phys_addr_page, map_size;
-		void *mem_mapped;
-
-		nx_vr_power_down_enter_reset_nxp5430();
-
-		phys_addr_page = PHY_BASEADDR_RESET + 8;
-		map_size	   = sizeof(u32);
-		mem_mapped = ioremap_nocache(phys_addr_page, map_size); 
-		if (NULL != mem_mapped)
-		{
-			unsigned int temp32 = ioread32(((u8*)mem_mapped));
-			unsigned int bit_mask = 1<<1; //65th
-			VR_DBG("setting Reset VR addr(0x%x)\n", (int)mem_mapped);
-
-			temp32 &= ~bit_mask;
-			iowrite32(temp32, ((u8*)mem_mapped));
-		}
-		iounmap(mem_mapped);
-		mdelay(1);
-	}
 	nx_vr_power_up_all_nxp5430();
 #else
 	printk("=============================================================\n");
@@ -1227,8 +1217,13 @@ int vr_module_init(void)
 	}
 #endif
 
-	VR_PRINT(("VR device driver loaded(ver1.2)\n"));
-
+	#if defined( VR_NXP4330 )
+	VR_PRINT(("VR device driver loaded(ver1.2) for NXP4330\n"));
+	#elif defined( VR_NXP5430 )
+	VR_PRINT(("VR device driver loaded(ver1.2) for NXP5430\n"));
+	#else
+	VR_PRINT(("unvalid VR device driver loaded. please check build.sh\n"));
+	#endif
 	return 0; /* Success */
 }
 
@@ -1711,3 +1706,4 @@ module_exit(vr_module_exit);
 MODULE_LICENSE(VR_KERNEL_LINUX_LICENSE);
 MODULE_AUTHOR("NEXELL Ltd.");
 MODULE_VERSION(SVN_REV_STRING);
+
