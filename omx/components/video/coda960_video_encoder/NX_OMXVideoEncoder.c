@@ -1245,7 +1245,7 @@ static OMX_S32 EncoderOpen(NX_VIDENC_COMP_TYPE *pEncComp)
 	TRACE( "  encBitRate     = %d\n", pEncComp->encBitRate     );
 	TRACE( "==============================================\n" );
 
-	pEncComp->hVpuCodec = NX_VidEncOpen( NX_AVC_ENC );
+	pEncComp->hVpuCodec = NX_VidEncOpen( NX_AVC_ENC, NULL );
 	if( NULL == pEncComp->hVpuCodec  )
 	{
 		ErrMsg("NX_VidEncOpen() failed\n");
@@ -1260,27 +1260,35 @@ static OMX_S32 EncoderOpen(NX_VIDENC_COMP_TYPE *pEncComp)
 		DbgMsg("Encoder Input Format NV12\n");
 		encInitParam.chromaInterleave = 1;
 	}
+
 	encInitParam.width   = pEncComp->encWidth;
 	encInitParam.height  = pEncComp->encHeight;
 	encInitParam.gopSize = pEncComp->encKeyInterval;
-	encInitParam.bitrate = pEncComp->encBitRate;
+	encInitParam.bitrate = ( pEncComp->encBitRate ) ? ( pEncComp->encBitRate ) : ( 10*1024*1024 );
 	encInitParam.fpsNum  = pEncComp->encFrameRate;
 	encInitParam.fpsDen  = 1;
 	encInitParam.numIntraRefreshMbs = pEncComp->encIntraRefreshMbs;
+	encInitParam.searchRange = 1;
+	encInitParam.rotAngle = 0;
+	encInitParam.mirDirection = 0;
+
 	//  Rate Control
-	encInitParam.enableRC = 1;      //  Enable Rate Control
-	encInitParam.enableSkip = 0;    //  Enable Skip
-	encInitParam.maxQScale = 51;    //  Max Qunatization Scale
-	encInitParam.userQScale = 23;   //  Default Encoder API ( enableRC == 0 )
+	encInitParam.enableRC = ( encInitParam.bitrate ) ? (1) : (0);      //  Enable Rate Control
+	encInitParam.RCAlgorithm = 1;
+	encInitParam.disableSkip = 0;    //  Enable Skip
+	encInitParam.maximumQp = 0;    //  Max Qunatization Scale
+	encInitParam.initialQp = ( encInitParam.bitrate ) ? (0) : (23);   //  Default Encoder API ( enableRC == 0 )
+	encInitParam.RCDelay = 0;
+	encInitParam.rcVbvSize = 0;
+	encInitParam.gammaFactor = 0;
 
-
-	if( 0 != NX_VidEncInit( pEncComp->hVpuCodec, &encInitParam ) )
+	if( VID_ERR_NONE != NX_VidEncInit( pEncComp->hVpuCodec, &encInitParam ) )
 	{
 		ErrMsg("NX_VidEncInit() failed\n");
 		return -1;
 	}
 
-	if( 0 != NX_VidEncGetSeqInfo( pEncComp->hVpuCodec, pEncComp->pSeqBuf, &pEncComp->seqBufSize ) )
+	if( VID_ERR_NONE != NX_VidEncGetSeqInfo( pEncComp->hVpuCodec, pEncComp->pSeqBuf, &pEncComp->seqBufSize ) )
 	{
 		ErrMsg("NX_VidEncGetSeqInfo() failed\n");
 		return -1;
@@ -1316,6 +1324,7 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 {
 	OMX_BUFFERHEADERTYPE* pInBuf = NULL, *pOutBuf = NULL;
 	struct private_handle_t const *hPrivate;
+	NX_VID_ENC_IN encIn;
 	NX_VID_ENC_OUT encOut;
 	NX_VID_MEMORY_INFO inputMem;
 	OMX_S32 *recodingBuffer;
@@ -1397,8 +1406,8 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 			inputMem.luPhyAddr = pEncComp->hCSCMem->luPhyAddr;
 			inputMem.cbPhyAddr = pEncComp->hCSCMem->cbPhyAddr;
 			inputMem.crPhyAddr = pEncComp->hCSCMem->crPhyAddr;
-			inputMem.luStride  = 
-			inputMem.cbStride  = 
+			inputMem.luStride  =
+			inputMem.cbStride  =
 			inputMem.crStride  = hPrivate->width;
 		}
 		munmap( inData, hPrivate->size );
@@ -1424,7 +1433,7 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 			close( ion_fd );
 			return ret;
 		}
-		
+
 		int vStride = ALIGN(hPrivate->height, 16);
 		inputMem.memoryMap = 0;		//	Linear
 		inputMem.fourCC    = FOURCC_MVS0;
@@ -1477,8 +1486,14 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 		pEncComp->pCallbacks->FillBufferDone( pEncComp->hComp, pEncComp->hComp->pApplicationPrivate, pDsi );
 	}
 
+	encIn.pImage = &inputMem;
+	encIn.timeStamp = -1;
+	encIn.forcedIFrame = 0;
+	encIn.forcedSkipFrame = 0;
+	encIn.quantParam = 0;
+
 	//	Encode Image
-	if( 0 != NX_VidEncEncodeFrame( pEncComp->hVpuCodec, &inputMem, &encOut ) )
+	if( VID_ERR_NONE != NX_VidEncEncodeFrame( pEncComp->hVpuCodec, &encIn, &encOut ) )
 	{
 		ErrMsg("NX_VidEncEncodeFrame() failed !!!\n");
 		return -1;
@@ -1489,7 +1504,7 @@ static OMX_S32 EncodeFrame(NX_VIDENC_COMP_TYPE *pEncComp, NX_QUEUE *pInQueue, NX
 
 	pOutBuf->nFlags = OMX_BUFFERFLAG_ENDOFFRAME;
 
-	if( encOut.isKey )
+	if( encOut.frameType )
 		pOutBuf->nFlags |= OMX_BUFFERFLAG_SYNCFRAME;
 
 	memcpy(pOutBuf->pBuffer, encOut.outBuf, encOut.bufSize);
