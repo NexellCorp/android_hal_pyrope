@@ -49,7 +49,7 @@ int NX_JpegHWEncoding(void *dstVirt, int dstSize,
     encInitParam.mirDirection = 0;
     encInitParam.jpgQuality = 100;
 
-    hEnc = NX_VidEncOpen(NX_JPEG_ENC);
+    hEnc = NX_VidEncOpen(NX_JPEG_ENC, NULL);
     if (NX_VidEncInit(hEnc, &encInitParam) != 0) {
         ALOGE("NX_VidEncInit failed!!!");
         return -EIO;
