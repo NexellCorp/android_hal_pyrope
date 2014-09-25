@@ -11,6 +11,8 @@ NX_HW_INCLUDE := $(NX_HW_TOP)/include
 NX_LINUX_INCLUDE := $(TOP)/linux/pyrope/library/include
 
 OMX_TOP := $(TOP)/hardware/nexell/pyrope/omx
+OMX_TOP := $(TOP)/hardware/nexell/pyrope/omx
+RATECONTROL_PATH := $(TOP)/linux/pyrope/library/lib/ratecontrol
 
 LOCAL_SRC_FILES:= \
 	NX_AVCDecoder.c \
@@ -44,6 +46,10 @@ LOCAL_SHARED_LIBRARIES := \
 	libnx_vpu \
 	libion \
 	libion-nexell
+
+LOCAL_LDFLAGS += \
+	-L$(RATECONTROL_PATH)	\
+	-lnxvidrc_android
 
 LOCAL_CFLAGS += $(NX_OMX_CFLAGS)
 LOCAL_CFLAGS += -DNX_DYNAMIC_COMPONENTS
