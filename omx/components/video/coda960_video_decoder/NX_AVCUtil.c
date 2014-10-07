@@ -43,7 +43,7 @@ const uint8_t ff_log2_tab[256] = {
     7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
     7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7
 };
-const uint8_t ff_ue_golomb_vlc_code[512]={ 
+const uint8_t ff_ue_golomb_vlc_code[512]={
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,
  7, 7, 7, 7, 8, 8, 8, 8, 9, 9, 9, 9,10,10,10,10,11,11,11,11,12,12,12,12,13,13,13,13,14,14,14,14,
  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
@@ -62,7 +62,7 @@ const uint8_t ff_ue_golomb_vlc_code[512]={
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
-const int8_t ff_se_golomb_vlc_code[512]={ 
+const int8_t ff_se_golomb_vlc_code[512]={
   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  8, -8,  9, -9, 10,-10, 11,-11, 12,-12, 13,-13, 14,-14, 15,-15,
   4,  4,  4,  4, -4, -4, -4, -4,  5,  5,  5,  5, -5, -5, -5, -5,  6,  6,  6,  6, -6, -6, -6, -6,  7,  7,  7,  7, -7, -7, -7, -7,
   2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2,
@@ -106,12 +106,12 @@ static uint8_t *decode_nal(int *nal_unit_type, uint8_t *src, int *dst_length, in
     if(i>=length-1){ //no escaped 0
         *dst_length= length;
         *consumed= length+1; //+1 for the header
-        return src; 
+        return src;
     }
 
     dst= rbsp_buffer;
     si=di=0;
-    while(si<length){ 
+    while(si<length){
         //remove escapes (very rare 1:2^22)
         if(si+2<length && src[si]==0 && src[si+1]==0 && src[si+2]<=3){
             if(src[si+2]==3){ //escape
@@ -224,7 +224,21 @@ static inline int decode_seq_parameter_set(SPS *sps,GetBitContext *gb)
 		{
 			for( i=0 ; i<8 ; i++ )
 			{
-				get_bits1(gb);	//	seq_scaling_list_present_flag[8]
+				if (get_bits1(gb))	//	seq_scaling_list_present_flag[8]
+				{
+					int32_t sizeOfScalingList = (i < 6) ? (16) : (64);
+					int32_t lastScale = 8;
+					int32_t nextScale = 8;
+					int32_t j;
+
+					for (j=0 ; j<sizeOfScalingList ; j++) {
+						if (nextScale != 0){
+							int32_t delta_scale = get_se_golomb(gb);
+							nextScale = ( lastScale + delta_scale + 256) % 256;
+						}
+						lastScale = (nextScale == 0) ? lastScale : nextScale;
+					}
+				}
 			}
 		}
 	}
@@ -285,7 +299,7 @@ static inline int decode_picture_parameter_set(H264Context *h){
     MpegEncContext * const s = &h->s;
     int pps_id= get_ue_golomb(&s->gb);
     PPS *pps= &h->pps_buffer[pps_id];
-    
+
     pps->sps_id= get_ue_golomb(&s->gb);
     pps->cabac= get_bits1(&s->gb);
     pps->pic_order_present= get_bits1(&s->gb);
@@ -312,7 +326,7 @@ static inline int decode_picture_parameter_set(H264Context *h){
         av_log(h->s.avctx, AV_LOG_ERROR, "reference overflow (pps)\n");
         return -1;
     }
-    
+
     pps->weighted_pred= get_bits1(&s->gb);
     pps->weighted_bipred_idc= get_bits(&s->gb, 2);
     pps->init_qp= get_se_golomb(&s->gb) + 26;
@@ -322,7 +336,7 @@ static inline int decode_picture_parameter_set(H264Context *h){
 
     pps->constrained_intra_pred= get_bits1(&s->gb);
     pps->redundant_pic_cnt_present = get_bits1(&s->gb);
-    
+
     return 0;
 }
 */
@@ -347,11 +361,11 @@ static int decode_nal_units(SPS *sps, uint8_t *buf, int buf_size)
         }
 
         if(buf_index+3 >= buf_size) break;
-        
+
         buf_index+=3;
-        
+
         ptr = decode_nal(&nal_unit_type, buf + buf_index, &dst_length, &consumed, buf_size - buf_index);
-        
+
         if(ptr[dst_length - 1] == 0) dst_length--;
         bit_length= 8*dst_length - decode_rbsp_trailing(ptr + dst_length - 1);
 
@@ -378,10 +392,10 @@ static int decode_nal_units(SPS *sps, uint8_t *buf, int buf_size)
 				init_get_bits(&gb, ptr, bit_length);
 				decode_picture_parameter_set(h);
 				break;
-        }        
+        }
 #endif
     }
-    
+
     return ret;
 }
 
