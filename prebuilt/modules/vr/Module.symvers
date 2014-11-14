@@ -1,0 +1,7 @@
+0x00000000	vr_perf_set_num_pp_cores	/home/swpark/ws/lollipop/hardware/nexell/pyrope/prebuilt/modules/vr/vr	EXPORT_SYMBOL
+0x00000000	vr_dev_resume	/home/swpark/ws/lollipop/hardware/nexell/pyrope/prebuilt/modules/vr/vr	EXPORT_SYMBOL
+0x00000000	vr_set_user_setting	/home/swpark/ws/lollipop/hardware/nexell/pyrope/prebuilt/modules/vr/vr	EXPORT_SYMBOL
+0x00000000	vr_get_user_setting	/home/swpark/ws/lollipop/hardware/nexell/pyrope/prebuilt/modules/vr/vr	EXPORT_SYMBOL
+0x00000000	vr_pmu_powerup	/home/swpark/ws/lollipop/hardware/nexell/pyrope/prebuilt/modules/vr/vr	EXPORT_SYMBOL
+0x00000000	vr_pmu_powerdown	/home/swpark/ws/lollipop/hardware/nexell/pyrope/prebuilt/modules/vr/vr	EXPORT_SYMBOL
+0x00000000	vr_dev_pause	/home/swpark/ws/lollipop/hardware/nexell/pyrope/prebuilt/modules/vr/vr	EXPORT_SYMBOL
