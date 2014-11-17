@@ -171,7 +171,6 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent)
 	pDecComp->curOutBuffers = 0;
 	pDecComp->minRequiredFrameBuffer = 1;
 
-
 	//	Set Video Output Port Information
 	pDecComp->outputFormat.eColorFormat = OMX_COLOR_FormatYUV420Planar;
 	pDecComp->bUseNativeBuffer = OMX_FALSE;
@@ -498,6 +497,14 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 				pDecComp->inputFormat.nPortIndex= 0;
 				pDecComp->videoCodecId = NX_RV_DEC;
 			}
+			else if ( !strcmp( (OMX_STRING)pInRole->cRole, "video_decoder.vp8") )
+			{
+				//	Set Input Format
+				pDecComp->inputFormat.eCompressionFormat = OMX_VIDEO_CodingVP8;
+				pDecComp->inputFormat.eColorFormat = OMX_COLOR_FormatUnused;
+				pDecComp->inputFormat.nPortIndex= 0;
+				pDecComp->videoCodecId = NX_VPX_VP8;
+			}
 			else
 			{
 				//	Error
@@ -664,6 +671,12 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 				else
 				{
 					pDecComp->pOutputPort->stdPortDef.nBufferSize = VID_OUTPORT_MIN_BUF_SIZE;
+				}
+
+				if( (((pDecComp->width+15)>>4) * ((pDecComp->height+15)>>4) ) > ((1920>>4)*(1088>>4)) )
+				{
+					DbgMsg("Cannot Support Video Resolution : Max(1920x1080), Input(%dx%d)\n", pDecComp->width, pDecComp->height);
+					return OMX_ErrorUnsupportedSetting;
 				}
 			}
 			break;
@@ -1699,12 +1712,14 @@ int openVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 		case NX_DIV3_DEC:
 			pDecComp->DecodeFrame = NX_DecodeDiv3Frame;
 			break;
-
 		case NX_VC1_DEC:
 			pDecComp->DecodeFrame = NX_DecodeVC1Frame;
 			break;
 		case NX_RV_DEC:
 			pDecComp->DecodeFrame = NX_DecodeRVFrame;
+			break;
+		case NX_VPX_VP8:
+			pDecComp->DecodeFrame = NX_DecodeVP8Frame;
 			break;
 		default:
 			pDecComp->DecodeFrame = NULL;

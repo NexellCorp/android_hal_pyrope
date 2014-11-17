@@ -11,6 +11,7 @@ NX_HW_INCLUDE := $(NX_HW_TOP)/include
 NX_LINUX_INCLUDE := $(TOP)/linux/nxp5430/library/include
 
 OMX_TOP := $(TOP)/hardware/nexell/pyrope/omx
+RATECONTROL_PATH := $(TOP)/linux/nxp5430/library/lib/ratecontrol
 
 LOCAL_SRC_FILES:= \
 	NX_AVCDecoder.c \
@@ -19,6 +20,7 @@ LOCAL_SRC_FILES:= \
 	NX_Div3Decoder.c \
 	NX_RVDecoder.c \
 	NX_VC1Decoder.c \
+	NX_VP8Decoder.c \
 	NX_DecoderUtil.c \
 	NX_AVCUtil.c \
 	NX_OMXVideoDecoder.c
@@ -44,6 +46,10 @@ LOCAL_SHARED_LIBRARIES := \
 	libnx_vpu \
 	libion \
 	libion-nexell
+
+LOCAL_LDFLAGS += \
+        -L$(RATECONTROL_PATH)   \
+        -lnxvidrc_android
 
 LOCAL_CFLAGS += $(NX_OMX_CFLAGS)
 LOCAL_CFLAGS += -DNX_DYNAMIC_COMPONENTS
