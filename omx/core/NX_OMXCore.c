@@ -70,7 +70,7 @@ static OMX_ERRORTYPE RegisterAllComponents()
 #ifdef USE_AUDIO_COMPONENT
 	//NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mpeg",NULL);
 	//NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mp1",NULL);
-	//NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mp2",NULL);
+	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mp2",NULL);
 	//NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mp3",NULL);
 	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.ac3",NULL);
 	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.ra",NULL);

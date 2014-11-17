@@ -369,6 +369,13 @@ static OMX_ERRORTYPE NX_FFAudDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTY
 				pDecComp->compRole = strdup((OMX_STRING)pInRole->cRole);
 				pDecComp->inCodingType = OMX_AUDIO_CodingDTS;
 			}
+			else if( !strcmp( (OMX_STRING)pInRole->cRole, "audio_decoder.mp2" ) )
+			{
+				if( pDecComp->compRole )
+					free(pDecComp->compRole);
+				pDecComp->compRole = strdup((OMX_STRING)pInRole->cRole);
+				pDecComp->inCodingType = OMX_AUDIO_CodingMP3;
+			}
 			else if( !strcmp( (OMX_STRING)pInRole->cRole, "audio_decoder.mpeg" ) || !strcmp( (OMX_STRING)pInRole->cRole, "audio_decoder.mp3" ) )
 			{
 				if( pDecComp->compRole )

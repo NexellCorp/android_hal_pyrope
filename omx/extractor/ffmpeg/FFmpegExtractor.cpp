@@ -1738,26 +1738,22 @@ const char *LegacySniffFFMPEG(const char * uri)
 typedef struct {
 	const char *format;
 	const char *container;
+	const float confidence;
 } formatmap;
 
 static formatmap FILE_FORMATS[] = {
-	{"asf",					MEDIA_MIMETYPE_CONTAINER_ASF		},
-	{"wmv",					MEDIA_MIMETYPE_CONTAINER_WMV		},
-	{"rm",					MEDIA_MIMETYPE_CONTAINER_RM			},
-	{"flv",					MEDIA_MIMETYPE_CONTAINER_FLV		},
-	{"matroska",			MEDIA_MIMETYPE_CONTAINER_MATROSKA	},
-	{"avi",					MEDIA_MIMETYPE_CONTAINER_AVI		},
-	{"mpeg",				MEDIA_MIMETYPE_CONTAINER_MPEG2PS	},
-	{"mpegts",				MEDIA_MIMETYPE_CONTAINER_MPEG2TS	},
-	{"mov",					MEDIA_MIMETYPE_CONTAINER_MOV		},
-	/*
-	{"ape",					MEDIA_MIMETYPE_CONTAINER_APE	},
-	{"dts",					MEDIA_MIMETYPE_CONTAINER_DTS	},
-	{"flac",				MEDIA_MIMETYPE_CONTAINER_FLAC	},
-	*/
+	{"asf",					MEDIA_MIMETYPE_CONTAINER_ASF		, 0.88f	},
+	{"wmv",					MEDIA_MIMETYPE_CONTAINER_WMV		, 0.88f	},
+	{"rm",					MEDIA_MIMETYPE_CONTAINER_RM			, 0.88f	},
+	{"flv",					MEDIA_MIMETYPE_CONTAINER_FLV		, 0.88f	},
+	{"matroska",			MEDIA_MIMETYPE_CONTAINER_MATROSKA	, 0.59f	},
+	{"avi",					MEDIA_MIMETYPE_CONTAINER_AVI		, 0.88f	},
+	{"mpegts",				MEDIA_MIMETYPE_CONTAINER_MPEG2TS	, 0.09f	},
+	{"mpeg",				MEDIA_MIMETYPE_CONTAINER_MPEG2PS	, 0.24f	},
+	{"mov",					MEDIA_MIMETYPE_CONTAINER_MOV		, 0.88f	},
 };
 
-const char *BetterSniffFFMPEG(const char * uri)
+const char *BetterSniffFFMPEG(const char * uri, bool &isMp3Audio, bool dumpInfo)
 {
 	size_t i;
 	int err;
@@ -1782,9 +1778,18 @@ const char *BetterSniffFFMPEG(const char * uri)
 		goto ErrorExit;
 	}
 
-	av_dump_format(ic, 0, uri, 0);
+	if( dumpInfo )
+		av_dump_format(ic, 0, uri, 0);
 
-	ALOGI("FFmpegExtrator, uri: %s, format_name: %s, format_long_name: %s", uri, ic->iformat->name, ic->iformat->long_name);
+	for( i=0 ; i < ic->nb_streams ;  i++ )
+	{
+		if( ic->streams[i]->codec->codec_id == AV_CODEC_ID_MP3 )
+		{
+			isMp3Audio= true;
+		}
+	}
+
+	ALOGI("FFmpegExtrator::BetterSniffFFMPEG uri: %s, format_name: %s, format_long_name: %s", uri, ic->iformat->name, ic->iformat->long_name);
 #if 0
 	ALOGI("list the format suppoted by ffmpeg: ");
 	ALOGI("========================================");
@@ -1807,7 +1812,7 @@ ErrorExit:
 	return container;
 }
 
-const char *Better2SniffFFMPEG(const sp<DataSource> &source)
+const char *Better2SniffFFMPEG(const sp<DataSource> &source, bool &isMp3Audio, bool dumpInfo)
 {
 	size_t i;
 	int err;
@@ -1815,6 +1820,7 @@ const char *Better2SniffFFMPEG(const sp<DataSource> &source)
 	char url[128] = {0};
 	const char *container = NULL;
 	AVFormatContext *ic = NULL;
+	isMp3Audio= false;
 
 	status_t status = initFFmpeg();
 	if (status != OK) {
@@ -1839,10 +1845,19 @@ const char *Better2SniffFFMPEG(const sp<DataSource> &source)
 		goto ErrorExit;
 	}
 
+	if( dumpInfo )
+		av_dump_format(ic, 0, url, 0);
 
-	av_dump_format(ic, 0, url, 0);
+	ALOGI("FFmpegExtrator::Better2SniffFFMPEG url: %s, format_name: %s, format_long_name: %s", url, ic->iformat->name, ic->iformat->long_name);
 
-	ALOGI("FFmpegExtrator, url: %s, format_name: %s, format_long_name: %s", url, ic->iformat->name, ic->iformat->long_name);
+	for( i=0 ; i < ic->nb_streams ;  i++ )
+	{
+		if( ic->streams[i]->codec->codec_id == AV_CODEC_ID_MP3 )
+		{
+			isMp3Audio= true;
+		}
+	}
+
 #if 0
 	ALOGI("list the format suppoted by ffmpeg: ");
 	ALOGI("========================================");
@@ -1873,7 +1888,7 @@ bool SniffFFMPEG( const sp<DataSource> &source, String8 *mimeType, float *confid
 	ALOGV("SniffFFMPEG");
 	const char *uri = NULL;
 	const char *container = NULL;
-
+	bool isMp3Audio = false;
 	uri = source->getUri();
 
 	if (!uri)
@@ -1886,31 +1901,19 @@ bool SniffFFMPEG( const sp<DataSource> &source, String8 *mimeType, float *confid
 		return false;
 	}
 
-	container = Better2SniffFFMPEG(source);
+	container = Better2SniffFFMPEG(source, isMp3Audio, false);
 	if (!container)
 	{
-#if 1
 		ALOGW("sniff through Better2SniffFFMPEG failed, try BetterSniffFFMPEG");
-		container = BetterSniffFFMPEG(uri);
+		container = BetterSniffFFMPEG(uri, isMp3Audio, false);
 		if (!container)
 		{
-#if 0
-			ALOGW("sniff through BetterSniffFFMPEG failed, try LegacySniffFFMPEG");
-			//only check the file extension
-			container = LegacySniffFFMPEG(uri);
-			if (!container)
-				ALOGW("sniff through LegacySniffFFMPEG failed");
-#else
 			ALOGW("sniff through BetterSniffFFMPEG failed!");
-#endif
 		}
 		else
 		{
 			ALOGI("sniff through Better1SniffFFMPEG success");
 		}
-#else
-		ALOGW("sniff through Better2SniffFFMPEG failed!!");
-#endif
 	}
 	else
 	{
@@ -1920,10 +1923,16 @@ bool SniffFFMPEG( const sp<DataSource> &source, String8 *mimeType, float *confid
 	if (container == NULL)
 		return false;
 
-	if( !strcmp( container, MEDIA_MIMETYPE_CONTAINER_MOV ) )
+	if( !strcmp( container, MEDIA_MIMETYPE_CONTAINER_MOV ) && !isMp3Audio )
 		*confidence = 0.39f;
+	else if( !strcmp( container, MEDIA_MIMETYPE_CONTAINER_MPEG2TS ) )
+		*confidence = 0.09f;
+	else if( !strcmp( container, MEDIA_MIMETYPE_CONTAINER_MATROSKA ) )
+		*confidence = 0.59f;
+	else if( !strcmp( container, MEDIA_MIMETYPE_CONTAINER_MPEG2PS ) )
+		*confidence = 0.24f;
 	else
-	*confidence = 0.88f;  // Slightly larger than other extractor's confidence
+		*confidence = 0.88f;  // Slightly larger than other extractor's confidence
 
 	ALOGV("found container: %s", container);
 
@@ -1932,7 +1941,7 @@ bool SniffFFMPEG( const sp<DataSource> &source, String8 *mimeType, float *confid
 	/* use MPEG4Extractor(not extended extractor) for HTTP source only */
 	if (!strcasecmp(container, MEDIA_MIMETYPE_CONTAINER_MPEG4) && (source->flags() & DataSource::kIsCachingDataSource))
 	{
-			return true;
+		return true;
 	}
 
 	*meta = new AMessage;

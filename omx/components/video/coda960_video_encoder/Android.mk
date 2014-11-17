@@ -13,6 +13,8 @@ NX_LINUX_INCLUDE := $(TOP)/linux/nxp5430/library/include
 
 RATECONTROL_PATH := $(TOP)/linux/nxp5430/library/lib/ratecontrol
 
+RATECONTROL_PATH  := $(TOP)/linux/pyrope/library/lib/ratecontrol
+
 LOCAL_SRC_FILES:= \
 	NX_OMXVideoEncoder.c
 
@@ -42,8 +44,13 @@ LOCAL_SHARED_LIBRARIES := \
 	libnxutil
 
 LOCAL_LDFLAGS += \
+<<<<<<< HEAD
         -L$(RATECONTROL_PATH)   \
         -lnxvidrc_android
+=======
+	-L$(RATECONTROL_PATH)	\
+	-lnxvidrc_android
+>>>>>>> d6ff9d08f3c58c3acd6fbc2e1c729d6df53f0047
 
 LOCAL_CFLAGS += $(NX_OMX_CFLAGS)
 LOCAL_CFLAGS += -DNX_DYNAMIC_COMPONENTS

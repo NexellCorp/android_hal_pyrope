@@ -1257,7 +1257,11 @@ static OMX_S32 EncoderOpen(NX_VIDENC_COMP_TYPE *pEncComp)
 	TRACE( "  encBitRate     = %d\n", pEncComp->encBitRate     );
 	TRACE( "==============================================\n" );
 
+<<<<<<< HEAD
 	pEncComp->hVpuCodec = NX_VidEncOpen( pEncComp->vpuCodecId, NULL );
+=======
+	pEncComp->hVpuCodec = NX_VidEncOpen( NX_AVC_ENC, NULL );
+>>>>>>> d6ff9d08f3c58c3acd6fbc2e1c729d6df53f0047
 	if( NULL == pEncComp->hVpuCodec  )
 	{
 		ErrMsg("NX_VidEncOpen() failed\n");
