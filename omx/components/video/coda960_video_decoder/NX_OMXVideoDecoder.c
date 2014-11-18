@@ -503,7 +503,7 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 				pDecComp->inputFormat.eCompressionFormat = OMX_VIDEO_CodingVP8;
 				pDecComp->inputFormat.eColorFormat = OMX_COLOR_FormatUnused;
 				pDecComp->inputFormat.nPortIndex= 0;
-				pDecComp->videoCodecId = NX_VPX_VP8;
+				pDecComp->videoCodecId = NX_VP8_DEC;
 			}
 			else
 			{
@@ -1718,7 +1718,7 @@ int openVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 		case NX_RV_DEC:
 			pDecComp->DecodeFrame = NX_DecodeRVFrame;
 			break;
-		case NX_VPX_VP8:
+		case NX_VP8_DEC:
 			pDecComp->DecodeFrame = NX_DecodeVP8Frame;
 			break;
 		default:
