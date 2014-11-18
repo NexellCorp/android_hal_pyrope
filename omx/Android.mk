@@ -8,7 +8,7 @@ NX_OMX_CFLAGS := -Wall -fpic -pipe -O2
 
 NX_HW_TOP := $(TOP)/hardware/nexell/pyrope/
 NX_HW_INCLUDE := $(NX_HW_TOP)/include
-NX_LINUX_INCLUDE := $(TOP)/linux/nxp5430/library/include
+NX_LINUX_INCLUDE := $(TOP)/linux/pyrope/library/include
 
 NX_OMX_TOP := $(NX_HW_TOP)/omx
 NX_OMX_COMM := $(NX_OMX_TOP)/common
