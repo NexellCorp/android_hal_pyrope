@@ -51,7 +51,7 @@ LOCAL_C_INCLUDES += \
 	frameworks/native/include \
 	system/core/include \
 	hardware/libhardware/include \
-	linux/nxp5430/library/src/libcec \
+	linux/pyrope/library/src/libcec \
 	$(LOCAL_PATH)/include \
 	$(LOCAL_PATH)/../include
 

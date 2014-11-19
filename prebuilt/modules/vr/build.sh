@@ -13,8 +13,8 @@ CROSS_COMPILE=arm-eabi-
 USING_UMP=0
 USING_PROFILING=0
 VR_SHARED_INTERRUPTS=1
-VR_NXP4330=0
-VR_NXP5430=1
+VR_NXP4330=1
+VR_NXP5430=0
 
 #===================================
 # mali device driver build
