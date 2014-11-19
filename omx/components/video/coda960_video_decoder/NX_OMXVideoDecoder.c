@@ -171,7 +171,6 @@ OMX_ERRORTYPE NX_VideoDecoder_ComponentInit (OMX_HANDLETYPE hComponent)
 	pDecComp->curOutBuffers = 0;
 	pDecComp->minRequiredFrameBuffer = 1;
 
-
 	//	Set Video Output Port Information
 	pDecComp->outputFormat.eColorFormat = OMX_COLOR_FormatYUV420Planar;
 	pDecComp->bUseNativeBuffer = OMX_FALSE;
@@ -498,6 +497,14 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 				pDecComp->inputFormat.nPortIndex= 0;
 				pDecComp->videoCodecId = NX_RV_DEC;
 			}
+			else if ( !strcmp( (OMX_STRING)pInRole->cRole, "video_decoder.vp8") )
+			{
+				//	Set Input Format
+				pDecComp->inputFormat.eCompressionFormat = OMX_VIDEO_CodingVP8;
+				pDecComp->inputFormat.eColorFormat = OMX_COLOR_FormatUnused;
+				pDecComp->inputFormat.nPortIndex= 0;
+				pDecComp->videoCodecId = NX_VP8_DEC;
+			}
 			else
 			{
 				//	Error
@@ -664,6 +671,12 @@ static OMX_ERRORTYPE NX_VidDec_SetParameter (OMX_HANDLETYPE hComp, OMX_INDEXTYPE
 				else
 				{
 					pDecComp->pOutputPort->stdPortDef.nBufferSize = VID_OUTPORT_MIN_BUF_SIZE;
+				}
+
+				if( (((pDecComp->width+15)>>4) * ((pDecComp->height+15)>>4) ) > ((1920>>4)*(1088>>4)) )
+				{
+					DbgMsg("Cannot Support Video Resolution : Max(1920x1080), Input(%dx%d)\n", pDecComp->width, pDecComp->height);
+					return OMX_ErrorUnsupportedSetting;
 				}
 			}
 			break;
@@ -1699,12 +1712,14 @@ int openVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 		case NX_DIV3_DEC:
 			pDecComp->DecodeFrame = NX_DecodeDiv3Frame;
 			break;
-
 		case NX_VC1_DEC:
 			pDecComp->DecodeFrame = NX_DecodeVC1Frame;
 			break;
 		case NX_RV_DEC:
 			pDecComp->DecodeFrame = NX_DecodeRVFrame;
+			break;
+		case NX_VP8_DEC:
+			pDecComp->DecodeFrame = NX_DecodeVP8Frame;
 			break;
 		default:
 			pDecComp->DecodeFrame = NULL;
@@ -1716,7 +1731,7 @@ int openVideoCodec(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 		(char)((pDecComp->codecTag>>8)&0xFF),
 		(char)((pDecComp->codecTag>>16)&0xFF),
 		(char)((pDecComp->codecTag>>24)&0xFF) );
-	pDecComp->hVpuCodec = NX_VidDecOpen( pDecComp->videoCodecId, mp4Class, 0 );
+	pDecComp->hVpuCodec = NX_VidDecOpen( pDecComp->videoCodecId, mp4Class, 0, NULL );
 
 	if( NULL == pDecComp->hVpuCodec ){
 		ErrMsg("%s(%d) NX_VidDecOpen() failed.(CodecID=%ld)\n", __FILE__, __LINE__, pDecComp->videoCodecId);
@@ -1776,6 +1791,8 @@ int InitializeCodaVpu(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, unsigned char *buf, i
 		seqIn.height  = pDecComp->height;
 		seqIn.seqInfo = buf;
 		seqIn.seqSize = size;
+		seqIn.addNumBuffers = 4;
+		seqIn.enablePostFilter = 0;
 
 		if( pDecComp->bUseNativeBuffer == OMX_TRUE )
 		{
@@ -1828,8 +1845,8 @@ int InitializeCodaVpu(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, unsigned char *buf, i
 			seqIn.pMemHandle = &pDecComp->hVidFrameBuf[0];
 		}
 		ret = NX_VidDecInit( pDecComp->hVpuCodec, &seqIn, &seqOut );
-		pDecComp->minRequiredFrameBuffer = seqOut.nimBuffers;
-		pDecComp->outBufferable = seqOut.numBuffers - seqOut.nimBuffers;
+		pDecComp->minRequiredFrameBuffer = seqOut.minBuffers;
+		pDecComp->outBufferable = seqOut.numBuffers - seqOut.minBuffers;
 		DbgMsg("[%ld] <<<<<<<<<< InitializeCodaVpu(Min=%ld, %dx%d) >>>>>>>>>>\n",
 			pDecComp->instanceId, pDecComp->minRequiredFrameBuffer, seqOut.width, seqOut.height );
 	}
@@ -1907,7 +1924,7 @@ int processEOS(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 {
 	OMX_BUFFERHEADERTYPE *pOutBuf = NULL;
 	OMX_S32 i;
-	NX_VID_RET ret;
+	VID_ERROR_E ret;
 	NX_VID_DEC_IN decIn;
 	NX_VID_DEC_OUT decOut;
 
@@ -1918,7 +1935,7 @@ int processEOS(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp)
 		decIn.timeStamp = 0;
 		decIn.eos = 1;
 		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, &decIn, &decOut );
-		if( ret==0 && decOut.outImgIdx >= 0 && ( decOut.outImgIdx < NX_OMX_MAX_BUF ) )
+		if( ret==VID_ERR_NONE && decOut.outImgIdx >= 0 && ( decOut.outImgIdx < NX_OMX_MAX_BUF ) )
 		{
       		pOutBuf = pDecComp->pOutputBuffers[decOut.outImgIdx];
 

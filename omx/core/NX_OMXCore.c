@@ -64,13 +64,13 @@ static OMX_ERRORTYPE RegisterAllComponents()
 
 #else
 
-//	
+//
 static OMX_ERRORTYPE RegisterAllComponents()
 {
 #ifdef USE_AUDIO_COMPONENT
 	//NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mpeg",NULL);
 	//NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mp1",NULL);
-	//NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mp2",NULL);
+	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mp2",NULL);
 	//NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.mp3",NULL);
 	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.ac3",NULL);
 	NX_OMXRegisterComponent("OMX.NX.AUDIO_DECODER.FFMPEG",	"audio_decoder.ra",NULL);
@@ -91,6 +91,8 @@ static OMX_ERRORTYPE RegisterAllComponents()
 	NX_OMXRegisterComponent("OMX.NX.VIDEO_DECODER",			"video_decoder.x-pn-realvideo",NULL);
 
 	NX_OMXRegisterComponent("OMX.NX.VIDEO_ENCODER",			"video_encoder.avc",NULL);			// modified by kshblue(14.07.04)
+	NX_OMXRegisterComponent("OMX.NX.VIDEO_ENCODER",			"video_encoder.mpeg4",NULL);		// modified by kshblue(14.11.05)
+	NX_OMXRegisterComponent("OMX.NX.VIDEO_ENCODER",			"video_encoder.h263",NULL);
 	return OMX_ErrorNone;
 }
 #endif
@@ -203,7 +205,7 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY NX_OMX_Deinit(void)
 
 
 //
-//	TODO : NX_OMX_ComponentNameEnum 을 Registerd 된 정보를 사용할 것인지 아니면 
+//	TODO : NX_OMX_ComponentNameEnum 을 Registerd 된 정보를 사용할 것인지 아니면
 //		   실질적으로 존재하는 정보를 사용할것인지 판단을 하여 수정하여야 함.
 //
 OMX_API OMX_ERRORTYPE OMX_APIENTRY NX_OMX_ComponentNameEnum(
@@ -217,7 +219,7 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY NX_OMX_ComponentNameEnum(
 		return OMX_ErrorNoMore;
 	}
 	pthread_mutex_lock( &gstOMXCoreMutex );
- 
+
 	if( nNameLength-1 < strlen(gstOMXComponentList[nIndex].strName) ){
 		err = OMX_ErrorInvalidComponentName;
 	}else{
@@ -239,7 +241,7 @@ static void ConverteRoleName( OMX_STRING str )
 }
 
 OMX_API OMX_ERRORTYPE OMX_APIENTRY NX_OMX_GetHandle(
-	OMX_OUT OMX_HANDLETYPE* pHandle, 
+	OMX_OUT OMX_HANDLETYPE* pHandle,
 	OMX_IN  OMX_STRING cComponentName,
 	OMX_IN  OMX_PTR pAppData,
 	OMX_IN  OMX_CALLBACKTYPE* pCallBacks)
@@ -272,7 +274,7 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY NX_OMX_GetHandle(
 	//	Dynamic Component Loader
 	//	The CompoentInit is not NULL in static loader.
 	if( NULL == pCompInfo->ComponentInit ){
-		//	
+		//
 		static const char prefix[] = "libNX_OMX_";
 		static const char postfix[] = ".so";
 		static char soname[1024] , role[64];
@@ -382,7 +384,7 @@ OMX_API OMX_ERRORTYPE   NX_OMX_GetContentPipe(
 	return OMX_ErrorNotImplemented;
 }
 
-OMX_API OMX_ERRORTYPE NX_OMX_GetComponentsOfRole ( 
+OMX_API OMX_ERRORTYPE NX_OMX_GetComponentsOfRole (
 	OMX_IN      OMX_STRING role,
 	OMX_INOUT   OMX_U32 *pNumComps,
 	OMX_INOUT   OMX_U8  **compNames)
@@ -406,8 +408,8 @@ OMX_API OMX_ERRORTYPE NX_OMX_GetComponentsOfRole (
 	return eError;
 }
 
-OMX_API OMX_ERRORTYPE NX_OMX_GetRolesOfComponent ( 
-	OMX_IN      OMX_STRING compName, 
+OMX_API OMX_ERRORTYPE NX_OMX_GetRolesOfComponent (
+	OMX_IN      OMX_STRING compName,
 	OMX_INOUT   OMX_U32 *pNumRoles,
 	OMX_OUT     OMX_U8 **roles)
 {

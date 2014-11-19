@@ -34,12 +34,12 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_LDFLAGS += \
 	-L$(FFMPEG_PATH)/libs	\
-	-lavutil-1.2 			\
-	-lavcodec-1.2   		\
-	-lavformat-1.2			\
-	-lavdevice-1.2			\
-	-lavfilter-1.2			\
-	-lswresample-1.2
+	-lavutil-2.1.4 			\
+	-lavcodec-2.1.4  		\
+	-lavformat-2.1.4		\
+	-lavdevice-2.1.4		\
+	-lavfilter-2.1.4		\
+	-lswresample-2.1.4
 
 LOCAL_CFLAGS := $(NX_OMX_CFLAGS)
 

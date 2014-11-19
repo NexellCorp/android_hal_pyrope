@@ -24,6 +24,7 @@ int NX_JpegHWEncoding(void *dstVirt, int dstSize,
     NX_VID_MEMORY_INFO memInfo;
     NX_VID_ENC_INIT_PARAM encInitParam;
     int ret = 0;
+    int32_t instanceIdx;
 
     unsigned char *dst = (unsigned char *)dstVirt;
     unsigned char *jpegHeader = (unsigned char *)dst;
@@ -49,7 +50,7 @@ int NX_JpegHWEncoding(void *dstVirt, int dstSize,
     encInitParam.mirDirection = 0;
     encInitParam.jpgQuality = 100;
 
-    hEnc = NX_VidEncOpen(NX_JPEG_ENC);
+    hEnc = NX_VidEncOpen(NX_JPEG_ENC, &instanceIdx);
     if (NX_VidEncInit(hEnc, &encInitParam) != 0) {
         ALOGE("NX_VidEncInit failed!!!");
         return -EIO;

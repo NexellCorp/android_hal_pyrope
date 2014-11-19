@@ -34,7 +34,7 @@ static int MakeVC1DecodeSpecificInfo( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp )
         retSize += 4; // STRUCT_B_FRIST (LEVEL:3|CBR:1:RESERVE:4:HRD_BUFFER|24)
         PUT_LE32(pbHeader, 0);
         retSize += 4; // hrd_rate
-		PUT_LE32(pbHeader, 0);            
+		PUT_LE32(pbHeader, 0);
         retSize += 4; // frameRate
 		pDecComp->codecSpecificDataSize = retSize;
 	}
@@ -76,8 +76,93 @@ static int MakeVC1PacketData( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_S32 forma
 		}
 		else
 		{
-			memcpy(pOut, pIn, inSize);
-			size = inSize; // no extra header size, there is start code in input stream.
+			if ( p[3] != 0x0F )
+			{
+				memcpy(pOut, pIn, inSize);
+				size = inSize; // no extra header size, there is start code in input stream.
+			}
+			else
+			{
+				int32_t i = 0, iReInitFlg = 0;
+				OMX_U8  *pCfg = pDecComp->codecSpecificData;
+
+				for (i=0 ; i<pDecComp->codecSpecificDataSize ; i++)
+				{
+					if ( *p++ != *pCfg++ )	break;
+				}
+
+				if ( i < pDecComp->codecSpecificDataSize )
+				{
+					int32_t iRead1, iRead2;
+					pCfg = pDecComp->codecSpecificData;
+					p = pIn;
+
+					// Sequence Layer
+					if ( (pCfg[0] & 0xC6) != (p[0] & 0xC6) )		// Profile & ColorDiff_Fmt Check
+						iReInitFlg = 1;
+					else if( (pCfg[1] & 1) != (p[1] & 1) )			// PostProcFlg Check
+						iReInitFlg = 1;
+					else if( (pCfg[2] != p[2]) || (pCfg[3] != p[3]) || (pCfg[4] != p[4]) )		// Max_Codec_Size Check
+						iReInitFlg = 1;
+					else if ( (pCfg[5] & 0xF4) != (p[5] & 0xF4) )		// PullDown, Interlace, TFCNTRFlg, FINTERPFlg, PSF
+						iReInitFlg = 1;
+					else
+					{
+						int32_t iEntryFlg = 0;
+						uint32_t uPreFourByte = (uint32_t)-1;
+
+						// Search Entry Layer
+						do
+						{
+							if ( (pCfg >= pDecComp->codecSpecificData + pDecComp->codecSpecificDataSize) || (uPreFourByte == 0x0000010D) )	break;
+							if ( uPreFourByte == 0x0000010E )
+							{
+								iEntryFlg = 1;
+								break;
+							}
+							uPreFourByte = (uPreFourByte << 8) + (*pCfg++);
+						} while(1);
+
+						uPreFourByte = (uint32_t)-1;
+						do
+						{
+							if ( (p >= pIn + inSize) || (uPreFourByte == 0x0000010D) )
+							{
+								iEntryFlg = 0;
+								break;
+							}
+							if ( uPreFourByte == 0x0000010E )
+							{
+								if ( iEntryFlg == 0 )
+								{
+									iReInitFlg = 1;
+								}
+								break;
+							}
+							uPreFourByte = (uPreFourByte << 8) + (*p++);
+						} while(1);
+
+						if ( (iEntryFlg == 1) && (iReInitFlg == 0) )
+						{
+							if ( (pCfg[0] & 0x3F) != (p[0] & 0x3F) )
+								iReInitFlg = 1;
+							else if ( (pCfg[1] & 0xF8) != (p[1] & 0xF8) )
+								iReInitFlg = 1;
+						}
+					}
+				}
+
+				if ( iReInitFlg == 0 )
+				{
+					size = inSize - pDecComp->codecSpecificDataSize;
+					memcpy(pOut, pIn + pDecComp->codecSpecificDataSize, size);
+				}
+				else
+				{
+					TRACE("Sequence header is Changed. And VC1 shall be reinitialized!!! \n");
+					return -1;
+				}
+			}
 		}
 	}
 	return size;
@@ -153,7 +238,6 @@ int NX_DecodeVC1Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 					buf[16],buf[17],buf[18],buf[19],buf[20],buf[21],buf[22],buf[23] );
 			}
 
-
 			goto Exit;
 		}
 	}
@@ -199,15 +283,21 @@ int NX_DecodeVC1Frame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 	else
 	{
 		rcSize = MakeVC1PacketData( pDecComp, pDecComp->codecType.wmvType.eFormat, inData, inSize, pDecComp->tmpInputBuffer, key, (int)(pInBuf->nTimeStamp/1000ll) );
+		if ( rcSize < 0 )
+		{
+			ErrMsg("VPU shall be Re-initialized!!!!\n");
+			goto Exit;
+		}
 		decIn.strmBuf = pDecComp->tmpInputBuffer;
 		decIn.strmSize = rcSize;
 		decIn.timeStamp = pInBuf->nTimeStamp;
 		decIn.eos = 0;
 		ret = NX_VidDecDecodeFrame( pDecComp->hVpuCodec, &decIn, &decOut );
 	}
-	TRACE("decOut : readPos = %d, writePos = %d\n", decOut.strmReadPos, decOut.strmWritePos );
+	TRACE("[DecOut]Disp Idx = %d, Dec Idx = %d, ReadPos = %d, WritePos = %d, PIC_Type = %d, Time Stamp = %ld, Reliable = %d \n",
+		decOut.outImgIdx, decOut.outDecIdx, decOut.strmReadPos, decOut.strmWritePos, decOut.picType, decOut.timeStamp, decOut.outFrmReliable_0_100 );
 
-	if( ret==0 && decOut.outImgIdx >= 0 && ( decOut.outImgIdx < NX_OMX_MAX_BUF ) )
+	if( ret==VID_ERR_NONE && decOut.outImgIdx >= 0 && ( decOut.outImgIdx < NX_OMX_MAX_BUF ) )
 	{
 		if( OMX_TRUE == pDecComp->bEnableThumbNailMode )
 		{
