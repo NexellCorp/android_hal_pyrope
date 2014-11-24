@@ -267,24 +267,28 @@ static void *hwc_vsync_thread(void *data)
     }
 
     struct pollfd fds[2];
+    int num_fds = 0;
     fds[0].fd = me->mVsyncMonFd;
     fds[0].events = POLLPRI;
-    fds[1].fd = uevent_get_fd();
-    fds[1].events = POLLIN;
+    num_fds++;
+    if (me->mHDMIMode == HDMI_MODE_SECONDARY) {
+        fds[1].fd = uevent_get_fd();
+        fds[1].events = POLLIN;
+        num_fds++;
+    }
 
     while(true) {
-        err = poll(fds, 2, -1);
+        err = poll(fds, num_fds, -1);
 
         if (err > 0) {
             if (fds[0].revents & POLLPRI) {
                 me->handleVsyncEvent();
-            } else if (fds[1].revents & POLLIN) {
-                if (me->mHDMIMode == HDMI_MODE_SECONDARY) {
-                    int len = uevent_next_event(uevent_desc, sizeof(uevent_desc) - 2);
-                    bool hdmi = !strcmp(uevent_desc, "change@/devices/virtual/switch/hdmi");
-                    if (hdmi)
-                        me->handleHDMIEvent(uevent_desc, len);
-                }
+            } else if ((me->mHDMIMode == HDMI_MODE_SECONDARY) &&
+                       (fds[1].revents & POLLIN)) {
+                int len = uevent_next_event(uevent_desc, sizeof(uevent_desc) - 2);
+                bool hdmi = !strcmp(uevent_desc, "change@/devices/virtual/switch/hdmi");
+                if (hdmi)
+                    me->handleHDMIEvent(uevent_desc, len);
             }
         } else if (err == -1) {
             if (errno == EINTR) break;
