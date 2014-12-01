@@ -193,7 +193,6 @@ typedef struct PPS{
     int redundant_pic_cnt_present; ///< redundant_pic_cnt_present_flag
 } PPS;
 
-
 static inline int decode_seq_parameter_set(SPS *sps,GetBitContext *gb)
 {
 	int i;
@@ -412,7 +411,8 @@ int avc_get_video_size(unsigned char *buf, int buf_size, int *width, int *height
 	if ( decode_nal_units(&sps, buf, buf_size) )
 	{
 		*width      = sps.mb_width * 16;
-		*height     = sps.mb_height * 16;
+		*height     = ( 2 - sps.frame_mbs_only_flag ) * sps.mb_height * 16;
+
 		if( sps.crop )
 		{
 			unsigned int cropUnitX, cropUnitY;
@@ -426,9 +426,11 @@ int avc_get_video_size(unsigned char *buf, int buf_size, int *width, int *height
 				cropUnitX = subWidthC;
 				cropUnitY = subHeightC * (2 - sps.frame_mbs_only_flag);
 			}
+
 			*width  -= (sps.crop_left + sps.crop_right) * cropUnitX;
 			*height -= (sps.crop_top + sps.crop_bottom) * cropUnitY;
 		}
+
 		return 1;
 	}
 	return 0;

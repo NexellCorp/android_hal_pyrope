@@ -14,50 +14,66 @@ int avc_get_video_size(unsigned char *buf, int buf_size, int *width, int *height
 
 static int AVCCheckPortReconfiguration( NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, OMX_BYTE inBuf, OMX_S32 inSize )
 {
-	int w,h;	//	width, height, left, top, right, bottom
-
-	if( ( inSize>4 && inBuf[0]==0 && inBuf[1]==0 && inBuf[2]==0 && inBuf[3]==1 && ((inBuf[4]&0x0F)==0x07) ) ||
-		( inSize>4 && inBuf[0]==0 && inBuf[1]==0 && inBuf[2]==1 && ((inBuf[3]&0x0F)==0x07) ) )
+	if ( (inBuf != NULL) && (inSize > 0) )
 	{
-		if( avc_get_video_size( inBuf, inSize, &w, &h ) )
+		int32_t w,h;	//	width, height, left, top, right, bottom
+		OMX_BYTE pbyStrm = inBuf;
+		uint32_t uPreFourByte = (uint32_t)-1;
+
+		do
 		{
-			if( pDecComp->width != w || pDecComp->height != h )
+			if ( pbyStrm >= (inBuf + inSize) )		break;
+			uPreFourByte = (uPreFourByte << 8) + *pbyStrm++;
+
+			if ( uPreFourByte == 0x00000001 || uPreFourByte<<8 == 0x00000100 )
 			{
-				DbgMsg("New Video Resolution = %ld x %ld --> %d x %d\n",
-						pDecComp->width, pDecComp->height, w, h);
-
-				//	Change Port Format & Resolution Information
-				pDecComp->pOutputPort->stdPortDef.format.video.nFrameWidth  = pDecComp->width  = w;
-				pDecComp->pOutputPort->stdPortDef.format.video.nFrameHeight = pDecComp->height = h;
-
-				//	Native Mode
-				if( pDecComp->bUseNativeBuffer )
+				// SPS start code
+				if ( (pbyStrm[0] & 0x1F) == 7 )
 				{
-					pDecComp->pOutputPort->stdPortDef.nBufferSize = 4096;
-				}
-				else
-				{
-					pDecComp->pOutputPort->stdPortDef.nBufferSize = ((((w+15)>>4)<<4) * (((h+15)>>4)<<4))*3/2;
-				}
+					pbyStrm = ( uPreFourByte == 0x00000001 ) ? ( pbyStrm - 4 ) : ( pbyStrm - 3 );
+					if( avc_get_video_size( pbyStrm, inSize - (pbyStrm - inBuf), &w, &h ) )
+					{
+						if( pDecComp->width != w || pDecComp->height != h )
+						{
+							DbgMsg("New Video Resolution = %ld x %ld --> %d x %d\n", pDecComp->width, pDecComp->height, w, h);
 
-				//	Need Port Reconfiguration
-				SendEvent( pDecComp, OMX_EventPortSettingsChanged, OMX_DirOutput, 0, NULL );
-				if( OMX_TRUE == pDecComp->bInitialized )
-				{
-					pDecComp->bInitialized = OMX_FALSE;
-					InitVideoTimeStamp(pDecComp);
-					closeVideoCodec(pDecComp);
-					openVideoCodec(pDecComp);
+							//	Change Port Format & Resolution Information
+							pDecComp->pOutputPort->stdPortDef.format.video.nFrameWidth  = pDecComp->width  = w;
+							pDecComp->pOutputPort->stdPortDef.format.video.nFrameHeight = pDecComp->height = h;
+
+							//	Native Mode
+							if( pDecComp->bUseNativeBuffer )
+							{
+								pDecComp->pOutputPort->stdPortDef.nBufferSize = 4096;
+							}
+							else
+							{
+								pDecComp->pOutputPort->stdPortDef.nBufferSize = ((((w+15)>>4)<<4) * (((h+15)>>4)<<4))*3/2;
+							}
+
+							//	Need Port Reconfiguration
+							SendEvent( pDecComp, OMX_EventPortSettingsChanged, OMX_DirOutput, 0, NULL );
+							if( OMX_TRUE == pDecComp->bInitialized )
+							{
+								pDecComp->bInitialized = OMX_FALSE;
+								InitVideoTimeStamp(pDecComp);
+								closeVideoCodec(pDecComp);
+								openVideoCodec(pDecComp);
+							}
+							pDecComp->pOutputPort->stdPortDef.bEnabled = OMX_FALSE;
+						}
+						else
+						{
+							DbgMsg("Video Resolution = %ld x %ld --> %d x %d\n", pDecComp->width, pDecComp->height, w, h);
+						}
+						return 1;
+					}
+					break;
 				}
-				pDecComp->pOutputPort->stdPortDef.bEnabled = OMX_FALSE;
 			}
-			else
-			{
-				DbgMsg("Video Resolution = %ld x %ld --> %d x %d\n", pDecComp->width, pDecComp->height, w, h);
-			}
-			return 1;
-		}
+		} while(1);
 	}
+
 	return 0;
 }
 
@@ -237,7 +253,6 @@ int NX_DecodeAvcFrame(NX_VIDDEC_VIDEO_COMP_TYPE *pDecComp, NX_QUEUE *pInQueue, N
 	TRACE("decOut : readPos = %d, writePos = %d\n", decOut.strmReadPos, decOut.strmWritePos );
 	TRACE("Output Buffer : ColorFormat(0x%08x), NatvieBuffer(%d), Thumbnail(%d), MetaDataInBuffer(%d)\n",
 			pDecComp->outputFormat.eColorFormat, pDecComp->bUseNativeBuffer, pDecComp->bEnableThumbNailMode, pDecComp->bMetaDataInBuffers );
-
 
 	if( ret==VID_ERR_NONE && decOut.outImgIdx >= 0 && ( decOut.outImgIdx < NX_OMX_MAX_BUF ) )
 	{
