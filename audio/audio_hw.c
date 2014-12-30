@@ -188,6 +188,8 @@ struct stream_in {
 	struct snd_card_dev *card;
 };
 
+static int stream_in_refcount = 0; //  add refcount for CTS testRecordingAudioInRawFormats
+
 static struct pcm_config *pcm_config_in = NULL;
 #define	get_in_pcm_config_gptr(c)		(c = (struct pcm_config *)pcm_config_in)
 #define	set_in_pcm_config_gptr(c)		(pcm_config_in = (struct pcm_config *)c)
@@ -1684,6 +1686,8 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     struct stream_in *in;
     int ret;
 
+	stream_in_refcount++;
+
     *stream_in = NULL;
 
 	DLOGI("*** %s (devices=0x%x, request rate=%d, channel_mask=0x%x) ***\n",
@@ -1794,21 +1798,26 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
 
 	DLOGI("%s\n", __FUNCTION__);
 
-    in_standby(&stream->common);
+	if (stream_in_refcount == 1) {
+		in_standby(&stream->common);
 
-    if (in->resampler) {
-        release_resampler(in->resampler);
-        in->resampler = NULL;
+		if (in->resampler) {
+		    release_resampler(in->resampler);
+		    in->resampler = NULL;
+		}
+
+		if (in->buffer) {
+			free(in->buffer);
+			in->buffer = NULL;
+		}
+
+		free(stream);
+
+		set_in_pcm_config_gptr(NULL);
 	}
 
-    if (in->buffer) {
-    	free(in->buffer);
-    	in->buffer = NULL;
-	}
+	stream_in_refcount--;
 
-    free(stream);
-
-	set_in_pcm_config_gptr(NULL);
     return;
 }
 
