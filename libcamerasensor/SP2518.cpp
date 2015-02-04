@@ -3,12 +3,12 @@
 #include "SP2518.h"
 
 enum {
-    WB_INCANDESCENT = 0,
+	WB_AUTO = 0,
+    WB_INCANDESCENT,
     WB_FLUORESCENT,
     WB_DAYLIGHT,
     WB_CLOUDY,
     WB_TUNGSTEN,
-    WB_AUTO,
     WB_MAX
 };
 
@@ -211,21 +211,24 @@ void SP2518::setAntibandingMode(uint8_t antibandingMode)
 
 void SP2518::setAwbMode(uint8_t awbMode)
 {
+	  
     if (awbMode != AwbMode) {
         uint32_t val = 0;
-
+	 
+	AwbMode = awbMode;
         switch (awbMode) {
-        case ANDROID_CONTROL_AWB_MODE_OFF:
-            v4l2_set_ctrl(V4l2ID, V4L2_CID_AUTO_WHITE_BALANCE, 0);
-            return;
-        case ANDROID_CONTROL_AWB_MODE_AUTO:
-            v4l2_set_ctrl(V4l2ID, V4L2_CID_AUTO_WHITE_BALANCE, 1);
-            return;
+       // case ANDROID_CONTROL_AWB_MODE_OFF:
+          //  v4l2_set_ctrl(V4l2ID, V4L2_CID_AUTO_WHITE_BALANCE, 0);
+          //  return;
+        case 1:
+           // v4l2_set_ctrl(V4l2ID, V4L2_CID_AUTO_WHITE_BALANCE, 1);
+	    val =WB_AUTO;
+            break;
         case ANDROID_CONTROL_AWB_MODE_DAYLIGHT:
             val = WB_DAYLIGHT;
             break;
         case ANDROID_CONTROL_AWB_MODE_CLOUDY_DAYLIGHT:
-            val = WB_DAYLIGHT;
+            val = WB_CLOUDY;
             break;
         case ANDROID_CONTROL_AWB_MODE_FLUORESCENT:
             val = WB_FLUORESCENT;
@@ -234,17 +237,19 @@ void SP2518::setAwbMode(uint8_t awbMode)
             val = WB_INCANDESCENT;
             break;
         default:
-            //ALOGE("%s: unsupported awb mode 0x%x", __func__, awbMode);
+            ALOGE("%s: unsupported awb mode 0x%x", __func__, awbMode);
             return;
         }
-        AwbMode = awbMode;
-
+        
+	ALOGE("%s: awb mode 0x%x  val 0x%x", __func__, awbMode,val);
         v4l2_set_ctrl(V4l2ID, V4L2_CID_WHITE_BALANCE_TEMPERATURE, val);
     }
 }
 
 void SP2518::setExposure(int32_t exposure)
 {
+	ALOGE("%s: brightness val 0x%x", __func__,exposure);
+
     if (exposure < MIN_EXPOSURE || exposure > MAX_EXPOSURE) {
         ALOGE("%s: invalid exposure %d", __func__, exposure);
         return;
